@@ -175,8 +175,7 @@ def test():
         print('Epoch #{} (TEST): loss={}\tacc={} ({}/{})'.format(epoch, test_loss, test_acc, correct, total))
 
 
-if __name__ == 'main':
-
+if __name__ == "__main__":
     if args.resume:
         # Load checkpoint.
         print('==> Resuming from checkpoint..')
