@@ -2,48 +2,57 @@
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
 
-import torchvision
-import torchvision.transforms as transforms
+import numpy as np
 
 import os
 import argparse
+from tqdm import tqdm
 
 from active_learning_project.models import *
-from active_learning_project.utils import progress_bar
-
+from active_learning_project.datasets.train_val_test_data_loaders import get_train_valid_loader, get_test_loader
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--checkpoint_dir', default='./checkpoint', type=str, help='checkpoint dir')
+parser.add_argument('--epochs', default='200', type=int, help='number of epochs')
+parser.add_argument('--wd', default=0.0005, type=float, help='weight decay')
+parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
+parser.add_argument('--cooldown', default=2, type=int, help='LR cooldown')
+
+parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
+parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
+
 args = parser.parse_args()
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 DATA_ROOT = '/data/dataset/cifar10'
+CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
+rand_gen = np.random.RandomState(12345)
 
 # Data
 print('==> Preparing data..')
-transform_train = transforms.Compose([
-    transforms.RandomCrop(32, padding=4),
-    transforms.RandomHorizontalFlip(),
-    transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-])
+trainloader, valloader = get_train_valid_loader(
+    data_dir=DATA_ROOT,
+    batch_size=128,
+    augment=True,
+    rand_gen=rand_gen,
+    valid_size=0.1,
+    num_workers=1,
+    pin_memory=device=='cuda'
+)
+testloader = get_test_loader(
+    data_dir=DATA_ROOT,
+    batch_size=100,
+    shuffle=False,
+    num_workers=1,
+    pin_memory=device=='cuda'
+)
 
-transform_test = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-])
 
-trainset = torchvision.datasets.CIFAR10(root=DATA_ROOT, train=True, download=True, transform=transform_train)
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=2)
-
-testset = torchvision.datasets.CIFAR10(root=DATA_ROOT, train=False, download=True, transform=transform_test)
-testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)
-
-classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+classes = trainloader.dataset.classes
 
 # Model
 print('==> Building model..')
@@ -69,17 +78,25 @@ if device == 'cuda':
 if args.resume:
     # Load checkpoint.
     print('==> Resuming from checkpoint..')
-    assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
-    checkpoint = torch.load('./checkpoint/ckpt.pth')
+    assert os.path.isdir(args.checkpoint_dir), 'Error: no checkpoint directory found!'
+    checkpoint = torch.load(CHECKPOINT_PATH)
     net.load_state_dict(checkpoint['net'])
     best_acc = checkpoint['acc']
     start_epoch = checkpoint['epoch']
 
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
+optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.wd)
+lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+    optimizer,
+    factor=args.factor,
+    patience=3,
+    verbose=True,
+    cooldown=2
+)
 
 # Training
-def train(epoch):
+best_acc = 0.0
+for epoch in tqdm(range(args.epochs)):
     print('\nEpoch: %d' % epoch)
     net.train()
     train_loss = 0
@@ -97,32 +114,12 @@ def train(epoch):
         _, predicted = outputs.max(1)
         total += targets.size(0)
         correct += predicted.eq(targets).sum().item()
+        acc = (100.0 * correct) / total
 
-        progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
-            % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
+    lr_scheduler.step(metrics=acc, epoch=epoch)
+    loss_mean = train_loss/(batch_idx + 1)
+    print('Epoch: {}: loss={}\taccuracy={} ({}/{})'.format(epoch, loss_mean, acc, correct, total))
 
-def test(epoch):
-    global best_acc
-    net.eval()
-    test_loss = 0
-    correct = 0
-    total = 0
-    with torch.no_grad():
-        for batch_idx, (inputs, targets) in enumerate(testloader):
-            inputs, targets = inputs.to(device), targets.to(device)
-            outputs = net(inputs)
-            loss = criterion(outputs, targets)
-
-            test_loss += loss.item()
-            _, predicted = outputs.max(1)
-            total += targets.size(0)
-            correct += predicted.eq(targets).sum().item()
-
-            progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
-                % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
-
-    # Save checkpoint.
-    acc = 100.*correct/total
     if acc > best_acc:
         print('Saving..')
         state = {
@@ -130,12 +127,45 @@ def test(epoch):
             'acc': acc,
             'epoch': epoch,
         }
-        if not os.path.isdir('checkpoint'):
-            os.mkdir('checkpoint')
-        torch.save(state, './checkpoint/ckpt.pth')
+        os.makedirs(args.checkpoint_dir, exist_ok=True)
+        torch.save(state, CHECKPOINT_PATH)
         best_acc = acc
 
 
-for epoch in range(start_epoch, start_epoch+200):
-    train(epoch)
-    test(epoch)
+# def test(epoch):
+#     global best_acc
+#     net.eval()
+#     test_loss = 0
+#     correct = 0
+#     total = 0
+#     with torch.no_grad():
+#         for batch_idx, (inputs, targets) in enumerate(testloader):
+#             inputs, targets = inputs.to(device), targets.to(device)
+#             outputs = net(inputs)
+#             loss = criterion(outputs, targets)
+#
+#             test_loss += loss.item()
+#             _, predicted = outputs.max(1)
+#             total += targets.size(0)
+#             correct += predicted.eq(targets).sum().item()
+#
+#             # progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
+#             #     % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
+#
+#     # Save checkpoint.
+#     acc = 100.*correct/total
+#     if acc > best_acc:
+#         print('Saving..')
+#         state = {
+#             'net': net.state_dict(),
+#             'acc': acc,
+#             'epoch': epoch,
+#         }
+#         if not os.path.isdir('checkpoint'):
+#             os.mkdir('checkpoint')
+#         torch.save(state, './checkpoint/ckpt.pth')
+#         best_acc = acc
+
+# for epoch in range(start_epoch, start_epoch+200):
+#     train(epoch)
+#     test(epoch)
