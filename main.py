@@ -26,10 +26,10 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 args = parser.parse_args()
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-best_acc = 0  # best test accuracy
-start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 DATA_ROOT = '/data/dataset/cifar10'
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
+ACTIVE_IND_DIR  = os.path.join(args.checkpoint_dir, 'active_indices')
+
 rand_gen = np.random.RandomState(12345)
 
 # Data
@@ -50,7 +50,6 @@ testloader = get_test_loader(
     num_workers=1,
     pin_memory=device=='cuda'
 )
-
 
 classes = trainloader.dataset.classes
 
@@ -75,15 +74,6 @@ if device == 'cuda':
     net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
 
-if args.resume:
-    # Load checkpoint.
-    print('==> Resuming from checkpoint..')
-    assert os.path.isdir(args.checkpoint_dir), 'Error: no checkpoint directory found!'
-    checkpoint = torch.load(CHECKPOINT_PATH)
-    net.load_state_dict(checkpoint['net'])
-    best_acc = checkpoint['acc']
-    start_epoch = checkpoint['epoch']
-
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.wd)
 lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
@@ -95,9 +85,11 @@ lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
     cooldown=2
 )
 
-# Training
-best_acc = 0.0
-for epoch in tqdm(range(args.epochs)):
+def train():
+    """Train and validate"""
+    # Training
+    global best_acc
+    global global_state
     print('\nEpoch: %d' % epoch)
     net.train()
     train_loss = 0
@@ -116,57 +108,102 @@ for epoch in tqdm(range(args.epochs)):
         total += targets.size(0)
         correct += predicted.eq(targets).sum().item()
 
-    acc = (100.0 * correct) / total
-    lr_scheduler.step(metrics=acc, epoch=epoch)
-    loss_mean = train_loss/(batch_idx + 1)
+    train_loss = train_loss/(batch_idx + 1)
+    train_acc = (100.0 * correct) / total
+    print('Epoch {} (TRAIN): loss={}\tacc={} ({}/{})'.format(epoch, train_loss, train_acc, correct, total))
 
-    if acc > best_acc:
-        print('Saving..')
+    # validation
+    net.eval()
+    val_loss = 0
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for batch_idx, (inputs, targets) in enumerate(valloader):
+            inputs, targets = inputs.to(device), targets.to(device)
+            outputs = net(inputs)
+            loss = criterion(outputs, targets)
+
+            val_loss += loss.item()
+            _, predicted = outputs.max(1)
+            total += targets.size(0)
+            correct += predicted.eq(targets).sum().item()
+
+    val_loss = val_loss/(batch_idx + 1)
+    val_acc = (100.0 * correct) / total
+    print('Epoch {} (VAL): loss={}\tacc={} ({}/{})\tbest_acc={}'.format(epoch, val_loss, val_acc, correct, total, best_acc))
+
+    if val_acc > best_acc:
+        print('Found new best model. Saving...')
         state = {
             'net': net.state_dict(),
-            'acc': acc,
+            'train_acc': train_acc,
+            'val_acc': val_acc,
             'epoch': epoch,
         }
-        os.makedirs(args.checkpoint_dir, exist_ok=True)
+        global_state.update(state)
         torch.save(state, CHECKPOINT_PATH)
-        best_acc = acc
+        best_acc = val_acc
 
-    print('Epoch: {}: loss={}\tacc={} ({}/{})\tbest_acc={}'.format(epoch, loss_mean, acc, correct, total, best_acc))
+    # updating learning rate if we see no improvement
+    lr_scheduler.step(metrics=val_acc, epoch=epoch)
 
-# def test(epoch):
-#     global best_acc
-#     net.eval()
-#     test_loss = 0
-#     correct = 0
-#     total = 0
-#     with torch.no_grad():
-#         for batch_idx, (inputs, targets) in enumerate(testloader):
-#             inputs, targets = inputs.to(device), targets.to(device)
-#             outputs = net(inputs)
-#             loss = criterion(outputs, targets)
-#
-#             test_loss += loss.item()
-#             _, predicted = outputs.max(1)
-#             total += targets.size(0)
-#             correct += predicted.eq(targets).sum().item()
-#
-#             # progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
-#             #     % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
-#
-#     # Save checkpoint.
-#     acc = 100.*correct/total
-#     if acc > best_acc:
-#         print('Saving..')
-#         state = {
-#             'net': net.state_dict(),
-#             'acc': acc,
-#             'epoch': epoch,
-#         }
-#         if not os.path.isdir('checkpoint'):
-#             os.mkdir('checkpoint')
-#         torch.save(state, './checkpoint/ckpt.pth')
-#         best_acc = acc
+def test():
+    global global_state
+    with torch.no_grad():
+        # test
+        net.eval()
+        test_loss = 0
+        correct = 0
+        total = 0
+        for batch_idx, (inputs, targets) in enumerate(testloader):
+            inputs, targets = inputs.to(device), targets.to(device)
+            outputs = net(inputs)
+            loss = criterion(outputs, targets)
 
-# for epoch in range(start_epoch, start_epoch+200):
-#     train(epoch)
-#     test(epoch)
+            test_loss += loss.item()
+            _, predicted = outputs.max(1)
+            total += targets.size(0)
+            correct += predicted.eq(targets).sum().item()
+
+        test_loss = test_loss / (batch_idx + 1)
+        test_acc = (100.0 * correct) / total
+        state = {
+            'test_acc': test_acc,
+        }
+        global_state.update(state)
+        torch.save(global_state, CHECKPOINT_PATH)
+
+        print('Epoch {} (TEST): loss={}\tacc={} ({}/{})'.format(epoch, test_loss, test_acc, correct, total))
+
+
+if __name__ == 'main':
+
+    if args.resume:
+        # Load checkpoint.
+        print('==> Resuming from checkpoint..')
+        assert os.path.isfile(CHECKPOINT_PATH), 'Error: no checkpoint file found!'
+        checkpoint = torch.load(CHECKPOINT_PATH)
+        net.load_state_dict(checkpoint['net'])
+        best_acc = checkpoint['val_acc']
+        start_epoch = checkpoint['epoch']
+        global_state = checkpoint
+    else:
+        # no old knowledge
+        best_acc = 0.0
+        start_epoch = 0
+        global_state = {}
+
+    os.makedirs(ACTIVE_IND_DIR, exist_ok=True)  # checkpoint file found, or starting new training folder
+
+    test()  # pretest the random model without training
+    for epoch in tqdm(range(start_epoch, start_epoch + args.epochs)):
+        # saving indices of train and val sets
+        train_inds_np = np.asarray(trainloader.sampler.indices)
+        tval_inds_np  = np.asarray(valloader.sampler.indices)
+        np.save(os.path.join(ACTIVE_IND_DIR, 'train_inds_epoch_{}'.format(epoch)))
+        np.save(os.path.join(ACTIVE_IND_DIR, 'val_inds_epoch_{}'.format(epoch)))
+        train()
+        if epoch % 10 == 0:
+            test()
+    test()  # post test the final model without training
+
