@@ -90,7 +90,6 @@ def train():
     # Training
     global best_acc
     global global_state
-    print('\nEpoch: %d' % epoch)
     net.train()
     train_loss = 0
     correct = 0
@@ -110,7 +109,7 @@ def train():
 
     train_loss = train_loss/(batch_idx + 1)
     train_acc = (100.0 * correct) / total
-    print('Epoch {} (TRAIN): loss={}\tacc={} ({}/{})'.format(epoch, train_loss, train_acc, correct, total))
+    print('Epoch #{} (TRAIN): loss={}\tacc={} ({}/{})'.format(epoch, train_loss, train_acc, correct, total))
 
     # validation
     net.eval()
@@ -130,7 +129,7 @@ def train():
 
     val_loss = val_loss/(batch_idx + 1)
     val_acc = (100.0 * correct) / total
-    print('Epoch {} (VAL): loss={}\tacc={} ({}/{})\tbest_acc={}'.format(epoch, val_loss, val_acc, correct, total, best_acc))
+    print('Epoch #{} (VAL): loss={}\tacc={} ({}/{})\tbest_acc={}'.format(epoch, val_loss, val_acc, correct, total, best_acc))
 
     if val_acc > best_acc:
         print('Found new best model. Saving...')
@@ -173,7 +172,7 @@ def test():
         global_state.update(state)
         torch.save(global_state, CHECKPOINT_PATH)
 
-        print('Epoch {} (TEST): loss={}\tacc={} ({}/{})'.format(epoch, test_loss, test_acc, correct, total))
+        print('Epoch #{} (TEST): loss={}\tacc={} ({}/{})'.format(epoch, test_loss, test_acc, correct, total))
 
 
 if __name__ == 'main':
@@ -195,8 +194,12 @@ if __name__ == 'main':
 
     os.makedirs(ACTIVE_IND_DIR, exist_ok=True)  # checkpoint file found, or starting new training folder
 
+    print('start testing the model for the first time...')
+    epoch = start_epoch
     test()  # pretest the random model without training
-    for epoch in tqdm(range(start_epoch, start_epoch + args.epochs)):
+
+    print('start training from epoch #{} for {} epochs'.format(start_epoch + 1, args.epochs))
+    for epoch in tqdm(range(start_epoch+1, start_epoch + args.epochs)):
         # saving indices of train and val sets
         train_inds_np = np.asarray(trainloader.sampler.indices)
         tval_inds_np  = np.asarray(valloader.sampler.indices)
