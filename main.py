@@ -114,11 +114,10 @@ for epoch in tqdm(range(args.epochs)):
         _, predicted = outputs.max(1)
         total += targets.size(0)
         correct += predicted.eq(targets).sum().item()
-        acc = (100.0 * correct) / total
 
+    acc = (100.0 * correct) / total
     lr_scheduler.step(metrics=acc, epoch=epoch)
     loss_mean = train_loss/(batch_idx + 1)
-    print('Epoch: {}: loss={}\taccuracy={} ({}/{})'.format(epoch, loss_mean, acc, correct, total))
 
     if acc > best_acc:
         print('Saving..')
@@ -131,6 +130,7 @@ for epoch in tqdm(range(args.epochs)):
         torch.save(state, CHECKPOINT_PATH)
         best_acc = acc
 
+    print('Epoch: {}: loss={}\tacc={} ({}/{})\tbest_acc={}'.format(epoch, loss_mean, acc, correct, total, best_acc))
 
 # def test(epoch):
 #     global best_acc
