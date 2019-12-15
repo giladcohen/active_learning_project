@@ -200,10 +200,8 @@ if __name__ == "__main__":
     print('start training from epoch #{} for {} epochs'.format(start_epoch + 1, args.epochs))
     for epoch in tqdm(range(start_epoch+1, start_epoch + args.epochs)):
         # saving indices of train and val sets
-        train_inds_np = np.asarray(trainloader.sampler.indices)
-        tval_inds_np  = np.asarray(valloader.sampler.indices)
-        np.save(os.path.join(ACTIVE_IND_DIR, 'train_inds_epoch_{}'.format(epoch)))
-        np.save(os.path.join(ACTIVE_IND_DIR, 'val_inds_epoch_{}'.format(epoch)))
+        np.save(os.path.join(ACTIVE_IND_DIR, 'train_inds_epoch_{}'.format(epoch)), trainloader.sampler.indices)
+        np.save(os.path.join(ACTIVE_IND_DIR, 'val_inds_epoch_{}'.format(epoch)), valloader.sampler.indices)
         train()
         if epoch % 10 == 0:
             test()
