@@ -138,7 +138,7 @@ def train():
         if global_step % 100 == 0:  # once ever 100 train iterations
             train_writer.add_scalar('loss', train_loss/(batch_idx + 1), global_step)
             train_writer.add_scalar('acc', (100.0 * correct)/total, global_step)
-            train_writer.add_scalar('learning_rate', optimizer.param_groups['lr'])
+            train_writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'])
 
         global_step += 1
 
