@@ -23,7 +23,7 @@ parser.add_argument('--epochs', default='200', type=int, help='number of epochs'
 parser.add_argument('--wd', default=0.00039, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
 parser.add_argument('--patience', default=2, type=int, help='LR schedule patience')
-parser.add_argument('--cooldown', default=1, type=int, help='LR cooldown')
+parser.add_argument('--cooldown', default=0, type=int, help='LR cooldown')
 parser.add_argument('--selection_method', default='random', type=str, help='Active learning index selection method')
 
 
