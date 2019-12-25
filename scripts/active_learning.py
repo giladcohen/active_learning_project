@@ -36,7 +36,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 DATA_ROOT = '/data/dataset/cifar10'
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 ACTIVE_IND_DIR  = os.path.join(args.checkpoint_dir, 'active_indices')
-SELECTION_EPOCHS = [100, 100, 100, 100]
+SELECTION_EPOCHS = [150, 300, 450, 600]
 SELECTION_SIZE = 1000
 
 rand_gen = np.random.RandomState(12345)
@@ -135,7 +135,7 @@ def train():
         total += targets.size(0)
         correct += predicted.eq(targets).sum().item()
 
-        if global_step % 100 == 0:  # once ever 100 train iterations
+        if global_step % 10 == 0:  # once ever 100 train iterations
             train_writer.add_scalar('loss', train_loss/(batch_idx + 1), global_step)
             train_writer.add_scalar('acc', (100.0 * correct)/total, global_step)
             train_writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], global_step)
