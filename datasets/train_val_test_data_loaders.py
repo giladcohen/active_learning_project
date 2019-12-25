@@ -11,6 +11,7 @@ from torchvision import datasets
 from torchvision import transforms
 from torch.utils.data.sampler import SubsetRandomSampler
 from sklearn.model_selection import train_test_split
+from torch.utils.data.dataset import Subset
 
 
 def get_train_valid_loader(data_dir,
@@ -104,6 +105,45 @@ def get_train_valid_loader(data_dir,
 
     return (train_loader, valid_loader)
 
+def get_loader_with_specific_inds(data_dir,
+                                  batch_size,
+                                  is_training,
+                                  indices,
+                                  num_workers=4,
+                                  pin_memory=False):
+    """
+    Same like get_train_valid_loader but with exact indices for training and validation
+    """
+    normalize = transforms.Normalize(
+        mean=[0.4914, 0.4822, 0.4465],
+        std=[0.2023, 0.1994, 0.2010],
+    )
+
+    # define transforms
+    if is_training:
+        transform = transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize,
+        ])
+    else:
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            normalize,
+        ])
+
+    # load the dataset
+    dataset = datasets.CIFAR10(
+        root=data_dir, train=True,
+        download=True, transform=transform,
+    )
+    subset = Subset(dataset, indices)
+    loader = torch.utils.data.DataLoader(
+        subset, batch_size=batch_size, shuffle=is_training,
+        num_workers=num_workers, pin_memory=pin_memory,
+    )
+    return loader
 
 def get_test_loader(data_dir,
                     batch_size,

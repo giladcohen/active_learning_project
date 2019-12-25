@@ -1,4 +1,5 @@
 '''Train CIFAR10 with PyTorch.'''
+import torch
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
 
@@ -18,6 +19,7 @@ parser.add_argument('--checkpoint_dir', default='./checkpoint', type=str, help='
 parser.add_argument('--epochs', default='200', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.0005, type=float, help='weight decay')
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
+parser.add_argument('--patience', default=2, type=int, help='LR schedule patience')
 parser.add_argument('--cooldown', default=2, type=int, help='LR cooldown')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -80,9 +82,9 @@ lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
     optimizer,
     mode='max',
     factor=args.factor,
-    patience=3,
+    patience=args.patience,
     verbose=True,
-    cooldown=2
+    cooldown=args.cooldown
 )
 
 def train():
