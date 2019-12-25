@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--checkpoint_dir', default='./checkpoint', type=str, help='checkpoint dir')
-parser.add_argument('--epochs', default='200', type=int, help='number of epochs')
+parser.add_argument('--epochs', default='400', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.00039, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
 parser.add_argument('--patience', default=2, type=int, help='LR schedule patience')
@@ -36,7 +36,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 DATA_ROOT = '/data/dataset/cifar10'
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 ACTIVE_IND_DIR  = os.path.join(args.checkpoint_dir, 'active_indices')
-SELECTION_EPOCHS = [40, 80, 120, 160]
+SELECTION_EPOCHS = [100, 100, 100, 100]
 SELECTION_SIZE = 1000
 
 rand_gen = np.random.RandomState(12345)
@@ -138,7 +138,7 @@ def train():
         if global_step % 100 == 0:  # once ever 100 train iterations
             train_writer.add_scalar('loss', train_loss/(batch_idx + 1), global_step)
             train_writer.add_scalar('acc', (100.0 * correct)/total, global_step)
-            train_writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'])
+            train_writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], global_state)
 
         global_step += 1
 
@@ -170,8 +170,8 @@ def train():
     val_loss = val_loss/(batch_idx + 1)
     val_acc = (100.0 * correct) / total
 
-    test_writer.add_scalar('loss', val_loss, global_step)
-    test_writer.add_scalar('acc', val_acc, global_step)
+    val_writer.add_scalar('loss', val_loss, global_step)
+    val_writer.add_scalar('acc', val_acc, global_step)
     # update global_state
     global_state['val_acc'] = val_acc
 
