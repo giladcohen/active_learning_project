@@ -82,6 +82,8 @@ select = SelectionMethodFactory().config(args.selection_method)
 def reset_optim():
     global optimizer
     global lr_scheduler
+    global best_acc
+    best_acc = 0.0
     optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.wd)
     lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
