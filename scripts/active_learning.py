@@ -19,11 +19,11 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--checkpoint_dir', default='./checkpoint', type=str, help='checkpoint dir')
-parser.add_argument('--epochs', default='400', type=int, help='number of epochs')
+parser.add_argument('--epochs', default='1500', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.00039, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
 parser.add_argument('--patience', default=2, type=int, help='LR schedule patience')
-parser.add_argument('--cooldown', default=0, type=int, help='LR cooldown')
+parser.add_argument('--cooldown', default=1, type=int, help='LR cooldown')
 parser.add_argument('--selection_method', default='random', type=str, help='Active learning index selection method')
 
 
@@ -36,7 +36,8 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 DATA_ROOT = '/data/dataset/cifar10'
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 ACTIVE_IND_DIR  = os.path.join(args.checkpoint_dir, 'active_indices')
-SELECTION_EPOCHS = [150, 300, 450, 600]
+BEST_CHECKPOINTS_DIR = os.path.join(args.checkpoint_dir, 'best_checkpoints')
+SELECTION_EPOCHS = [300, 600, 900, 1200]
 SELECTION_SIZE = 1000
 
 rand_gen = np.random.RandomState(12345)
@@ -90,6 +91,12 @@ def reset_optim():
         verbose=True,
         cooldown=args.cooldown
     )
+
+def reset_net():
+    global net
+    checkpoint_file = os.path.join(BEST_CHECKPOINTS_DIR, 'best_net_epoch_{}'.format(epoch))
+    torch.save(global_state['best_net'], checkpoint_file)
+    net.load_state_dict(global_state['best_net'])
 
 def update_trainval_loaders(train_inds: list, val_inds: list):
     trainloader = get_loader_with_specific_inds(
@@ -179,6 +186,7 @@ def train():
         print('Found new best model. Saving...')
         best_acc = val_acc
         global_state['best_acc'] = val_acc
+        global_state['best_net'] = net.state_dict()
 
     print('Epoch #{} (VAL): loss={}\tacc={} ({}/{})\tbest_acc={}'.format(epoch + 1, val_loss, val_acc, correct, total, best_acc))
     torch.save(global_state, CHECKPOINT_PATH)
@@ -282,9 +290,10 @@ if __name__ == "__main__":
             unlabeled_inds = [ind for ind in range(dataset_size) if ind not in (train_inds + val_inds)]
             save_current_inds(unlabeled_inds, train_inds, val_inds)
 
-            # initializing train and val loaders + optmizer
+            # initializing train and val loaders + optmizer + checkpoint (to best checkpoint)
             trainloader, valloader = update_trainval_loaders(train_inds, val_inds)
             reset_optim()
+            reset_net()
 
         train()
 
