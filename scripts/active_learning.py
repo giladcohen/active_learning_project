@@ -267,7 +267,9 @@ if __name__ == "__main__":
 
         global_state = {}
 
-    os.makedirs(ACTIVE_IND_DIR, exist_ok=True)  # checkpoint file found, or starting new training folder
+    os.makedirs(ACTIVE_IND_DIR, exist_ok=True)
+    os.makedirs(BEST_CHECKPOINTS_DIR, exist_ok=True)
+
     print('start testing the model from epoch #{}...'.format(epoch + 1))
     if global_step == 0:
         print('initializing {} new random indices'.format(SELECTION_SIZE))
