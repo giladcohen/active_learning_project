@@ -39,6 +39,15 @@ def update_inds(train_inds: list, val_inds: list, new_inds: list, val_perc=5.0) 
     train_inds.sort()
     val_inds.sort()
 
+def uncertainty_score(y_pred_dnn):
+    """
+    Calculates the uncertainty score for y_pred_dnn
+    :param y_pred_dnn: np.float32 array of the DNN probability
+    :return: uncertainty score for every vector
+    """
+    return 1.0 - y_pred_dnn.max(axis=1)
+
+
 def select_random(net: nn.Module, data_loader: data.DataLoader, selection_size: int, inds_dict: dict):
     unlabeled_inds = inds_dict['unlabeled_inds']
     selected_inds = rand_gen.choice(np.asarray(unlabeled_inds), selection_size, replace=False)
@@ -47,11 +56,15 @@ def select_random(net: nn.Module, data_loader: data.DataLoader, selection_size: 
     return selected_inds
 
 def select_confidence(net: nn.Module, data_loader: data.DataLoader, selection_size: int, inds_dict: dict):
-    (logits, ) = pytorch_evaluate(net, data_loader, fetch_keys=['logits'])
-    confidences = nn.Softmax(logits)
-    print('cool')
-    return selected_inds
-
+    (logits, ) = pytorch_evaluate(net, data_loader, fetch_keys=['logits'], to_numpy=False)
+    pred_probs = nn.Softmax(logits)
+    pred_probs = pred_probs[inds_dict['unlabeled_inds']]
+    uncertainties = uncertainty_score(pred_probs)
+    best_indices_relative = uncertainties.argsort()[-selection_size:]
+    best_indices = np.take(inds_dict['unlabeled_inds'], best_indices_relative)
+    best_indices.tolist()
+    best_indices.sort()
+    return best_indices
 
 class SelectionMethodFactory(object):
 
