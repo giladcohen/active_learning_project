@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.utils.data as data
 from active_learning_project.utils import pytorch_evaluate
 import time
+import torch.nn.functional as F
 
 rand_gen = np.random.RandomState(int(time.time()))
 DATA_ROOT = '/data/dataset/cifar10'
@@ -57,7 +58,7 @@ def select_random(net: nn.Module, data_loader: data.DataLoader, selection_size: 
 
 def select_confidence(net: nn.Module, data_loader: data.DataLoader, selection_size: int, inds_dict: dict):
     (logits, ) = pytorch_evaluate(net, data_loader, fetch_keys=['logits'], to_tensor=True)
-    pred_probs = nn.Softmax(logits)
+    pred_probs = F.softmax(logits)
     pred_probs = pred_probs[inds_dict['unlabeled_inds']]
     uncertainties = uncertainty_score(pred_probs)
     best_indices_relative = uncertainties.argsort()[-selection_size:]

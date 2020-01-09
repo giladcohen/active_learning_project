@@ -143,7 +143,7 @@ def pytorch_evaluate(net: nn.Module, data_loader: data.DataLoader, fetch_keys: l
         inputs, targets = inputs.to(device), targets.to(device)
         outputs_dict = net(inputs)
         for key in fetch_keys:
-            fetches_dict[key].append(outputs_dict[key].data.cpu().numpy())
+            fetches_dict[key].append(outputs_dict[key].data.cpu().detach().numpy())
 
     # stack variables together
     for key in fetch_keys:
