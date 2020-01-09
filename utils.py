@@ -157,5 +157,15 @@ def pytorch_evaluate(net: nn.Module, data_loader: data.DataLoader, fetch_keys: l
 
     return tuple(fetches)
 
+def validate_new_inds(selected_inds: list, inds_dict: dict):
+    """Validate that selected_inds are not in the train/val_inds.
+       On the other hand, validate that selected_inds are all in the unlabeled_inds
+    """
+    new_set       = set(selected_inds)
+    train_set     = set(inds_dict['train_inds'])
+    val_set       = set(inds_dict['val_inds'])
+    unlabeled_set = set(inds_dict['unlabeled_inds'])
 
-
+    assert len(new_set.intersection(train_set)) > 0, 'Some selected samples are only in the train set'
+    assert len(new_set.intersection(val_set)) > 0, 'Some selected samples are only in the val set'
+    assert new_set.issubset(unlabeled_set), 'All new selected indices must be in unlabeled_inds'

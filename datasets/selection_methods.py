@@ -4,7 +4,7 @@ from torchvision import datasets
 from torch.utils.data.dataset import Subset
 import torch.nn as nn
 import torch.utils.data as data
-from active_learning_project.utils import pytorch_evaluate
+from active_learning_project.utils import pytorch_evaluate, validate_new_inds
 import time
 import torch.nn.functional as F
 
@@ -50,10 +50,10 @@ def uncertainty_score(y_pred_dnn):
     return 1.0 - y_pred_dnn.max(axis=1)
 
 def select_random(net: nn.Module, data_loader: data.DataLoader, selection_size: int, inds_dict: dict):
-    unlabeled_inds = inds_dict['unlabeled_inds']
-    selected_inds = rand_gen.choice(np.asarray(unlabeled_inds), selection_size, replace=False)
+    selected_inds = rand_gen.choice(np.asarray(inds_dict['unlabeled_inds']), selection_size, replace=False)
     selected_inds.sort()
     selected_inds = selected_inds.tolist()
+    validate_new_inds(selected_inds, inds_dict)
     return selected_inds
 
 def select_confidence(net: nn.Module, data_loader: data.DataLoader, selection_size: int, inds_dict: dict):
@@ -61,11 +61,12 @@ def select_confidence(net: nn.Module, data_loader: data.DataLoader, selection_si
     pred_probs = F.softmax(logits).cpu().detach().numpy()
     pred_probs = pred_probs[inds_dict['unlabeled_inds']]
     uncertainties = uncertainty_score(pred_probs)
-    best_indices_relative = uncertainties.argsort()[-selection_size:]
-    best_indices = np.take(inds_dict['unlabeled_inds'], best_indices_relative)
-    best_indices = best_indices.tolist()
-    best_indices.sort()
-    return best_indices
+    selected_inds_relative = uncertainties.argsort()[-selection_size:]
+    selected_inds = np.take(inds_dict['unlabeled_inds'], selected_inds_relative)
+    selected_inds = selected_inds.tolist()
+    selected_inds.sort()
+    validate_new_inds(selected_inds, inds_dict)
+    return selected_inds
 
 class SelectionMethodFactory(object):
 
