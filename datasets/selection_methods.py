@@ -63,7 +63,7 @@ def select_confidence(net: nn.Module, data_loader: data.DataLoader, selection_si
     uncertainties = uncertainty_score(pred_probs)
     best_indices_relative = uncertainties.argsort()[-selection_size:]
     best_indices = np.take(inds_dict['unlabeled_inds'], best_indices_relative)
-    best_indices.tolist()
+    best_indices = best_indices.tolist()
     best_indices.sort()
     return best_indices
 
