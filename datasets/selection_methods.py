@@ -48,7 +48,6 @@ def uncertainty_score(y_pred_dnn):
     """
     return 1.0 - y_pred_dnn.max(axis=1)
 
-
 def select_random(net: nn.Module, data_loader: data.DataLoader, selection_size: int, inds_dict: dict):
     unlabeled_inds = inds_dict['unlabeled_inds']
     selected_inds = rand_gen.choice(np.asarray(unlabeled_inds), selection_size, replace=False)
@@ -57,7 +56,7 @@ def select_random(net: nn.Module, data_loader: data.DataLoader, selection_size: 
     return selected_inds
 
 def select_confidence(net: nn.Module, data_loader: data.DataLoader, selection_size: int, inds_dict: dict):
-    (logits, ) = pytorch_evaluate(net, data_loader, fetch_keys=['logits'], to_numpy=False)
+    (logits, ) = pytorch_evaluate(net, data_loader, fetch_keys=['logits'], to_tensor=True)
     pred_probs = nn.Softmax(logits)
     pred_probs = pred_probs[inds_dict['unlabeled_inds']]
     uncertainties = uncertainty_score(pred_probs)

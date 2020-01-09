@@ -126,7 +126,7 @@ def format_time(seconds):
         f = '0ms'
     return f
 
-def pytorch_evaluate(net: nn.Module, data_loader: data.DataLoader, fetch_keys: list, to_numpy: bool=True) -> tuple:
+def pytorch_evaluate(net: nn.Module, data_loader: data.DataLoader, fetch_keys: list, to_tensor: bool=False) -> tuple:
     # Fetching inference outputs as numpy arrays
     batch_size = data_loader.batch_size
     num_samples = len(data_loader.dataset)
@@ -143,14 +143,14 @@ def pytorch_evaluate(net: nn.Module, data_loader: data.DataLoader, fetch_keys: l
         inputs, targets = inputs.to(device), targets.to(device)
         outputs_dict = net(inputs)
         for key in fetch_keys:
-            output = outputs_dict[key]
-            if to_numpy:
-                output = output.data.cpu().numpy()
-            fetches_dict[key].append(output)
+            fetches_dict[key].append(outputs_dict[key].data.cpu().numpy())
 
     # stack variables together
     for key in fetch_keys:
-        fetches.append(np.vstack(fetches_dict[key]))
+        fetch = np.vstack(fetches_dict[key])
+        if to_tensor:
+            fetch = torch.as_tensor(fetch, device=torch.device(device))
+        fetches.append(fetch)
 
     assert batch_idx + 1 == batch_count
     assert fetches[0].shape[0] == num_samples

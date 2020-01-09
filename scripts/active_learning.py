@@ -37,7 +37,7 @@ DATA_ROOT = '/data/dataset/cifar10'
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 ACTIVE_IND_DIR  = os.path.join(args.checkpoint_dir, 'active_indices')
 BEST_CHECKPOINTS_DIR = os.path.join(args.checkpoint_dir, 'best_checkpoints')
-SELECTION_EPOCHS = [300, 600, 900, 1200]
+SELECTION_EPOCHS = [1,3,6,9]
 SELECTION_SIZE = 1000
 
 rand_gen = np.random.RandomState(int(time.time()))
@@ -296,7 +296,7 @@ if __name__ == "__main__":
         if epoch in SELECTION_EPOCHS:
             print('Reached epoch #{}. Selecting {} new indices using {} method'.format(epoch + 1, SELECTION_SIZE, args.selection_method))
             inds_dict = get_inds_dict()
-            new_inds = select(net, all_data_loader.dataset, SELECTION_SIZE, inds_dict)  # dataset w/o augmentations
+            new_inds = select(net, all_data_loader, SELECTION_SIZE, inds_dict)  # dataset w/o augmentations
             update_inds(train_inds, val_inds, new_inds)
             unlabeled_inds = [ind for ind in range(dataset_size) if ind not in (train_inds + val_inds)]
             save_current_inds(unlabeled_inds, train_inds, val_inds)
