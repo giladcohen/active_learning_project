@@ -5,8 +5,9 @@ from torch.utils.data.dataset import Subset
 import torch.nn as nn
 import torch.utils.data as data
 from active_learning_project.utils import pytorch_evaluate
+import time
 
-rand_gen = np.random.RandomState(12345)
+rand_gen = np.random.RandomState(int(time.time()))
 DATA_ROOT = '/data/dataset/cifar10'
 
 def init_select(selection_size: int, dataset_size: int) -> list:

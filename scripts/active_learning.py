@@ -9,6 +9,7 @@ import numpy as np
 import os
 import argparse
 from tqdm import tqdm
+import time
 
 from active_learning_project.models import *
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_loader_with_specific_inds, get_all_data_loader
@@ -39,7 +40,7 @@ BEST_CHECKPOINTS_DIR = os.path.join(args.checkpoint_dir, 'best_checkpoints')
 SELECTION_EPOCHS = [300, 600, 900, 1200]
 SELECTION_SIZE = 1000
 
-rand_gen = np.random.RandomState(12345)
+rand_gen = np.random.RandomState(int(time.time()))
 train_writer = SummaryWriter(os.path.join(args.checkpoint_dir, 'train'))
 val_writer   = SummaryWriter(os.path.join(args.checkpoint_dir, 'val'))
 test_writer  = SummaryWriter(os.path.join(args.checkpoint_dir, 'test'))
