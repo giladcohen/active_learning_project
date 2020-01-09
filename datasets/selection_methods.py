@@ -4,6 +4,7 @@ from torchvision import datasets
 from torch.utils.data.dataset import Subset
 import torch.nn as nn
 import torch.utils.data as data
+from active_learning_project.utils import pytorch_evaluate
 
 rand_gen = np.random.RandomState(12345)
 DATA_ROOT = '/data/dataset/cifar10'
@@ -38,15 +39,25 @@ def update_inds(train_inds: list, val_inds: list, new_inds: list, val_perc=5.0) 
     train_inds.sort()
     val_inds.sort()
 
-def select_random(net: nn.Module, dataset: data.Dataset, selection_size: int, unlabeled_inds: list):
+def select_random(net: nn.Module, data_loader: data.DataLoader, selection_size: int, inds_dict: dict):
+    unlabeled_inds = inds_dict['unlabeled_inds']
     selected_inds = rand_gen.choice(np.asarray(unlabeled_inds), selection_size, replace=False)
     selected_inds.sort()
     selected_inds = selected_inds.tolist()
     return selected_inds
+
+def select_confidence(net: nn.Module, data_loader: data.DataLoader, selection_size: int, inds_dict: dict):
+    (logits, ) = pytorch_evaluate(net, data_loader, fetch_keys=['logits'])
+    confidences = nn.Softmax(logits)
+    print('cool')
+    return selected_inds
+
 
 class SelectionMethodFactory(object):
 
     def config(self, name):
         if name == 'random':
             return select_random
+        elif name == 'confidence':
+            return select_confidence
         raise AssertionError('not selection method named {}'.format(name))

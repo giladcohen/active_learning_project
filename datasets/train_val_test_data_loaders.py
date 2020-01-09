@@ -145,9 +145,38 @@ def get_loader_with_specific_inds(data_dir,
     )
     return loader
 
+def get_all_data_loader(data_dir,
+                   batch_size,
+                   num_workers=4,
+                   pin_memory=False):
+    """
+    Same like get_train_valid_loader but with exact indices for training and validation
+    """
+    normalize = transforms.Normalize(
+        mean=[0.4914, 0.4822, 0.4465],
+        std=[0.2023, 0.1994, 0.2010],
+    )
+
+    # define transforms
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        normalize,
+    ])
+
+    # load the dataset
+    dataset = datasets.CIFAR10(
+        root=data_dir, train=True,
+        download=True, transform=transform,
+    )
+    loader = torch.utils.data.DataLoader(
+        dataset, batch_size=batch_size, shuffle=False,
+        num_workers=num_workers, pin_memory=pin_memory,
+    )
+    return loader
+
+
 def get_test_loader(data_dir,
                     batch_size,
-                    shuffle=True,
                     num_workers=4,
                     pin_memory=False):
     """
@@ -158,7 +187,6 @@ def get_test_loader(data_dir,
     ------
     - data_dir: path directory to the dataset.
     - batch_size: how many samples per batch to load.
-    - shuffle: whether to shuffle the dataset after every epoch.
     - num_workers: number of subprocesses to use when loading the dataset.
     - pin_memory: whether to copy tensors into CUDA pinned memory. Set it to
       True if using GPU.
@@ -183,7 +211,7 @@ def get_test_loader(data_dir,
     )
 
     data_loader = torch.utils.data.DataLoader(
-        dataset, batch_size=batch_size, shuffle=shuffle,
+        dataset, batch_size=batch_size, shuffle=False,
         num_workers=num_workers, pin_memory=pin_memory,
     )
 

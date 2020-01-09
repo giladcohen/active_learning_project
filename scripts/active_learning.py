@@ -11,9 +11,9 @@ import argparse
 from tqdm import tqdm
 
 from active_learning_project.models import *
-from active_learning_project.datasets.train_val_test_data_loaders import \
-    get_train_valid_loader, get_test_loader, get_loader_with_specific_inds
+from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_loader_with_specific_inds, get_all_data_loader
 from active_learning_project.datasets.selection_methods import select_random, update_inds, SelectionMethodFactory
+from active_learning_project.utils import remove_substr_from_keys
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -25,7 +25,6 @@ parser.add_argument('--factor', default=0.9, type=float, help='LR schedule facto
 parser.add_argument('--patience', default=2, type=int, help='LR schedule patience')
 parser.add_argument('--cooldown', default=1, type=int, help='LR cooldown')
 parser.add_argument('--selection_method', default='random', type=str, help='Active learning index selection method')
-
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -47,33 +46,30 @@ test_writer  = SummaryWriter(os.path.join(args.checkpoint_dir, 'test'))
 
 # Data
 print('==> Preparing data..')
-trainloader, valloader = get_train_valid_loader(
+
+all_data_loader = get_all_data_loader(
     data_dir=DATA_ROOT,
     batch_size=100,
-    augment=True,
-    rand_gen=rand_gen,
-    valid_size=0.1,
-    num_workers=1,
-    pin_memory=device=='cuda'
-)
-testloader = get_test_loader(
-    data_dir=DATA_ROOT,
-    batch_size=100,
-    shuffle=False,
     num_workers=1,
     pin_memory=device=='cuda'
 )
 
-classes = trainloader.dataset.classes
-dataset_size = trainloader.dataset.data.shape[0]
-del trainloader, valloader
+testloader = get_test_loader(
+    data_dir=DATA_ROOT,
+    batch_size=100,
+    num_workers=1,
+    pin_memory=device=='cuda'
+)
+
+classes = all_data_loader.dataset.classes
+dataset_size = all_data_loader.dataset.data.shape[0]
 
 # Model
 print('==> Building model..')
 net = ResNet34()
 net = net.to(device)
 if device == 'cuda':
-    net = torch.nn.DataParallel(net)
+    # net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
 
 criterion = nn.CrossEntropyLoss()
@@ -134,7 +130,7 @@ def train():
     for batch_idx, (inputs, targets) in enumerate(trainloader):
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
-        outputs = net(inputs)
+        outputs = net(inputs)['logits']
         loss = criterion(outputs, targets)
         loss.backward()
         optimizer.step()
@@ -168,7 +164,7 @@ def train():
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(valloader):
             inputs, targets = inputs.to(device), targets.to(device)
-            outputs = net(inputs)
+            outputs = net(inputs)['logits']
             loss = criterion(outputs, targets)
 
             val_loss += loss.item()
@@ -208,7 +204,7 @@ def test():
         total = 0
         for batch_idx, (inputs, targets) in enumerate(testloader):
             inputs, targets = inputs.to(device), targets.to(device)
-            outputs = net(inputs)
+            outputs = net(inputs)['logits']
             loss = criterion(outputs, targets)
 
             test_loss += loss.item()
@@ -245,13 +241,17 @@ if __name__ == "__main__":
         # Load checkpoint.
         print('==> Resuming from checkpoint..')
         assert os.path.isfile(CHECKPOINT_PATH), 'Error: no checkpoint file found!'
-        checkpoint = torch.load(CHECKPOINT_PATH)
+        checkpoint = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
+
+        # check if trained for DataParallel:
+        if 'module' in list(checkpoint['net'].keys())[0]:
+            checkpoint['net'] = remove_substr_from_keys(checkpoint['net'], 'module.')
 
         net.load_state_dict(checkpoint['net'])
-        best_acc       = checkpoint['val_acc']
+        best_acc       = checkpoint['best_acc']
         epoch          = checkpoint['epoch']
         global_step    = checkpoint['global_step']
-        unlabeled_inds = checkpoint['unlabeled_indices']
+        unlabeled_inds = checkpoint['unlabeled_inds']
         train_inds     = checkpoint['train_inds']
         val_inds       = checkpoint['val_inds']
 
@@ -289,7 +289,7 @@ if __name__ == "__main__":
     for epoch in tqdm(range(epoch, epoch + args.epochs)):
         if epoch in SELECTION_EPOCHS:
             print('Reached epoch #{}. Selecting {} new indices using {} method'.format(epoch + 1, SELECTION_SIZE, args.selection_method))
-            new_inds = select(net, valloader.dataset.dataset, SELECTION_SIZE, unlabeled_inds)  # dataset w/o augmentations
+            new_inds = select(net, all_data_loader.dataset, SELECTION_SIZE, unlabeled_inds)  # dataset w/o augmentations
             update_inds(train_inds, val_inds, new_inds)
             unlabeled_inds = [ind for ind in range(dataset_size) if ind not in (train_inds + val_inds)]
             save_current_inds(unlabeled_inds, train_inds, val_inds)

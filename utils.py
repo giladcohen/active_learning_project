@@ -8,10 +8,11 @@ import sys
 import time
 import math
 import torch
+import numpy as np
 
 import torch.nn as nn
 import torch.nn.init as init
-
+import torch.utils.data as data
 
 def get_mean_and_std(dataset):
     '''Compute the mean and std value of dataset.'''
@@ -42,55 +43,56 @@ def init_params(net):
             if m.bias:
                 init.constant(m.bias, 0)
 
+def remove_substr_from_keys(d: dict, substr):
+    return {x.replace(substr, ''): v for x, v in d.items()}
 
-_, term_width = os.popen('stty size', 'r').read().split()
-term_width = int(term_width)
-
-TOTAL_BAR_LENGTH = 65.
-last_time = time.time()
-begin_time = last_time
-def progress_bar(current, total, msg=None):
-    global last_time, begin_time
-    if current == 0:
-        begin_time = time.time()  # Reset for new bar.
-
-    cur_len = int(TOTAL_BAR_LENGTH*current/total)
-    rest_len = int(TOTAL_BAR_LENGTH - cur_len) - 1
-
-    sys.stdout.write(' [')
-    for i in range(cur_len):
-        sys.stdout.write('=')
-    sys.stdout.write('>')
-    for i in range(rest_len):
-        sys.stdout.write('.')
-    sys.stdout.write(']')
-
-    cur_time = time.time()
-    step_time = cur_time - last_time
-    last_time = cur_time
-    tot_time = cur_time - begin_time
-
-    L = []
-    L.append('  Step: %s' % format_time(step_time))
-    L.append(' | Tot: %s' % format_time(tot_time))
-    if msg:
-        L.append(' | ' + msg)
-
-    msg = ''.join(L)
-    sys.stdout.write(msg)
-    for i in range(term_width-int(TOTAL_BAR_LENGTH)-len(msg)-3):
-        sys.stdout.write(' ')
-
-    # Go back to the center of the bar.
-    for i in range(term_width-int(TOTAL_BAR_LENGTH/2)+2):
-        sys.stdout.write('\b')
-    sys.stdout.write(' %d/%d ' % (current+1, total))
-
-    if current < total-1:
-        sys.stdout.write('\r')
-    else:
-        sys.stdout.write('\n')
-    sys.stdout.flush()
+# _, term_width = os.popen('stty size', 'r').read().split()
+# term_width = int(term_width)
+# TOTAL_BAR_LENGTH = 65.
+# last_time = time.time()
+# begin_time = last_time
+# def progress_bar(current, total, msg=None):
+#     global last_time, begin_time
+#     if current == 0:
+#         begin_time = time.time()  # Reset for new bar.
+#
+#     cur_len = int(TOTAL_BAR_LENGTH*current/total)
+#     rest_len = int(TOTAL_BAR_LENGTH - cur_len) - 1
+#
+#     sys.stdout.write(' [')
+#     for i in range(cur_len):
+#         sys.stdout.write('=')
+#     sys.stdout.write('>')
+#     for i in range(rest_len):
+#         sys.stdout.write('.')
+#     sys.stdout.write(']')
+#
+#     cur_time = time.time()
+#     step_time = cur_time - last_time
+#     last_time = cur_time
+#     tot_time = cur_time - begin_time
+#
+#     L = []
+#     L.append('  Step: %s' % format_time(step_time))
+#     L.append(' | Tot: %s' % format_time(tot_time))
+#     if msg:
+#         L.append(' | ' + msg)
+#
+#     msg = ''.join(L)
+#     sys.stdout.write(msg)
+#     for i in range(term_width-int(TOTAL_BAR_LENGTH)-len(msg)-3):
+#         sys.stdout.write(' ')
+#
+#     # Go back to the center of the bar.
+#     for i in range(term_width-int(TOTAL_BAR_LENGTH/2)+2):
+#         sys.stdout.write('\b')
+#     sys.stdout.write(' %d/%d ' % (current+1, total))
+#
+#     if current < total-1:
+#         sys.stdout.write('\r')
+#     else:
+#         sys.stdout.write('\n')
+#     sys.stdout.flush()
 
 def format_time(seconds):
     days = int(seconds / 3600/24)
@@ -123,3 +125,37 @@ def format_time(seconds):
     if f == '':
         f = '0ms'
     return f
+
+def pytorch_evaluate(net: nn.Module, data_loader: data.DataLoader, fetch_keys: list, to_numpy: bool=True) -> tuple:
+    # Fetching inference outputs as numpy arrays
+    batch_size = data_loader.batch_size
+    num_samples = len(data_loader.dataset)
+    batch_count = int(np.ceil(num_samples / batch_size))
+    fetches_dict = {}
+    fetches = []
+    for key in fetch_keys:
+        fetches_dict[key] = []
+
+    net.eval()
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+    for batch_idx, (inputs, targets) in enumerate(data_loader):
+        inputs, targets = inputs.to(device), targets.to(device)
+        outputs_dict = net(inputs)
+        for key in fetch_keys:
+            output = outputs_dict[key]
+            if to_numpy:
+                output = output.data.cpu().numpy()
+            fetches_dict[key].append(output)
+
+    # stack variables together
+    for key in fetch_keys:
+        fetches.append(np.vstack(fetches_dict[key]))
+
+    assert batch_idx + 1 == batch_count
+    assert fetches[0].shape[0] == num_samples
+
+    return tuple(fetches)
+
+
+
