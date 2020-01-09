@@ -37,7 +37,7 @@ DATA_ROOT = '/data/dataset/cifar10'
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 ACTIVE_IND_DIR  = os.path.join(args.checkpoint_dir, 'active_indices')
 BEST_CHECKPOINTS_DIR = os.path.join(args.checkpoint_dir, 'best_checkpoints')
-SELECTION_EPOCHS = [10,30,60,90]
+SELECTION_EPOCHS = [300, 600, 900, 1200]
 SELECTION_SIZE = 1000
 
 rand_gen = np.random.RandomState(int(time.time()))
