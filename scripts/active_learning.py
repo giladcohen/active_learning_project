@@ -236,6 +236,10 @@ def save_current_inds(unlabeled_inds, train_inds, val_inds):
     # updating state
     torch.save(global_state, CHECKPOINT_PATH)
 
+def get_inds_dict():
+    return {'train_inds': train_inds, 'val_inds': val_inds, 'unlabeled_inds': unlabeled_inds}
+
+
 if __name__ == "__main__":
     if args.resume:
         # Load checkpoint.
@@ -273,7 +277,8 @@ if __name__ == "__main__":
     print('start testing the model from epoch #{}...'.format(epoch + 1))
     if global_step == 0:
         print('initializing {} new random indices'.format(SELECTION_SIZE))
-        init_inds = select_random(None, None, SELECTION_SIZE, unlabeled_inds)
+        inds_dict = get_inds_dict()
+        init_inds = select_random(None, None, SELECTION_SIZE, inds_dict)
         update_inds(train_inds, val_inds, init_inds)
         unlabeled_inds = [ind for ind in range(dataset_size) if ind not in (train_inds + val_inds)]
         save_current_inds(unlabeled_inds, train_inds, val_inds)
@@ -289,7 +294,8 @@ if __name__ == "__main__":
     for epoch in tqdm(range(epoch, epoch + args.epochs)):
         if epoch in SELECTION_EPOCHS:
             print('Reached epoch #{}. Selecting {} new indices using {} method'.format(epoch + 1, SELECTION_SIZE, args.selection_method))
-            new_inds = select(net, all_data_loader.dataset, SELECTION_SIZE, unlabeled_inds)  # dataset w/o augmentations
+            inds_dict = get_inds_dict()
+            new_inds = select(net, all_data_loader.dataset, SELECTION_SIZE, inds_dict)  # dataset w/o augmentations
             update_inds(train_inds, val_inds, new_inds)
             unlabeled_inds = [ind for ind in range(dataset_size) if ind not in (train_inds + val_inds)]
             save_current_inds(unlabeled_inds, train_inds, val_inds)
