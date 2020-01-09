@@ -166,6 +166,6 @@ def validate_new_inds(selected_inds: list, inds_dict: dict):
     val_set       = set(inds_dict['val_inds'])
     unlabeled_set = set(inds_dict['unlabeled_inds'])
 
-    assert len(new_set.intersection(train_set)) > 0, 'Some selected samples are only in the train set'
-    assert len(new_set.intersection(val_set)) > 0, 'Some selected samples are only in the val set'
+    assert len(new_set.intersection(train_set)) == 0, 'Some selected samples are already in the train set'
+    assert len(new_set.intersection(val_set)) == 0, 'Some selected samples are already in the val set'
     assert new_set.issubset(unlabeled_set), 'All new selected indices must be in unlabeled_inds'
