@@ -183,13 +183,12 @@ def calculate_dist_mat(embeddings: np.ndarray, norm: int) -> np.ndarray:
     """Returning a distance matrix from embeddings vector"""
     kwargs = {'p': norm}
     condensed_dist = pdist(embeddings, metric='minkowski', **kwargs)
-    dist_map = squareform(condensed_dist)
-    return dist_map
+    dist_mat = squareform(condensed_dist)
+    return dist_mat
 
 def calculate_dist_mat_2(A: np.ndarray, B: np.array, norm: int) -> np.ndarray:
     """Returning a distance matrix from embeddings vector"""
     kwargs = {'p': norm}
-    condensed_dist = cdist(A, B, metric='minkowski', **kwargs)
-    dist_map = squareform(condensed_dist)
-    return dist_map
+    dist_mat = cdist(A, B, metric='minkowski', **kwargs)
+    return dist_mat
 

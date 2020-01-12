@@ -110,7 +110,7 @@ def select_farthest(net: nn.Module, data_loader: data.DataLoader, inds_dict: dic
 
         # update dist_mat
         # first, removing the row that correspond to the untaken index
-        dist_mat = dist_mat[untaken_inds]
+        dist_mat = np.delete(dist_mat, selected_ind_relative, 0)
         # next, we need to add the distance of all the (remaining) untaken inds to the newest selected_ind
         # to that end, just calculate the distance from all the untaken inds to the freshly new taken ind
         new_dists = calculate_dist_mat_2(embeddings[untaken_inds], embeddings[np.newaxis, selected_ind], norm)
