@@ -50,26 +50,26 @@ def uncertainty_score(y_pred_dnn):
     """
     return 1.0 - y_pred_dnn.max(axis=1)
 
-def select_random(net: nn.Module, data_loader: data.DataLoader, selection_size: int, inds_dict: dict):
-    selected_inds = rand_gen.choice(np.asarray(inds_dict['unlabeled_inds']), selection_size, replace=False)
+def select_random(net: nn.Module, data_loader: data.DataLoader, inds_dict: dict, cfg: dict=None):
+    selected_inds = rand_gen.choice(np.asarray(inds_dict['unlabeled_inds']), cfg['selection_size'], replace=False)
     selected_inds.sort()
     selected_inds = selected_inds.tolist()
     validate_new_inds(selected_inds, inds_dict)
     return selected_inds
 
-def select_confidence(net: nn.Module, data_loader: data.DataLoader, selection_size: int, inds_dict: dict):
+def select_confidence(net: nn.Module, data_loader: data.DataLoader, inds_dict: dict, cfg: dict=None):
     (logits, ) = pytorch_evaluate(net, data_loader, fetch_keys=['logits'], to_tensor=True)
     pred_probs = F.softmax(logits).cpu().detach().numpy()
     pred_probs = pred_probs[inds_dict['unlabeled_inds']]
     uncertainties = uncertainty_score(pred_probs)
-    selected_inds_relative = uncertainties.argsort()[-selection_size:]
+    selected_inds_relative = uncertainties.argsort()[-cfg['selection_size']:]
     selected_inds = np.take(inds_dict['unlabeled_inds'], selected_inds_relative)
     selected_inds = selected_inds.tolist()
     selected_inds.sort()
     validate_new_inds(selected_inds, inds_dict)
     return selected_inds
 
-def select_farthest(net: nn.Module, data_loader: data.DataLoader, selection_size: int, inds_dict: dict, cfg: dict):
+def select_farthest(net: nn.Module, data_loader: data.DataLoader, inds_dict: dict, cfg: dict=None):
     (embeddings, ) = pytorch_evaluate(net, data_loader, fetch_keys=['embeddings'], to_tensor=False)
     norm = convert_norm_str_to_p(cfg['distance_norm'])
 
@@ -94,7 +94,7 @@ def select_farthest(net: nn.Module, data_loader: data.DataLoader, selection_size
 
     selected_inds = []
     cnt_selected = 0
-    while cnt_selected < selection_size:
+    while cnt_selected < cfg['selection_size']:
         dist_mat_tmp = dist_mat[untaken_inds]
         dist_mat_tmp = dist_mat_tmp[:, taken_inds]
         min_dists = dist_mat_tmp.min(axis=1)
@@ -109,7 +109,7 @@ def select_farthest(net: nn.Module, data_loader: data.DataLoader, selection_size
 
         cnt_selected += 1
 
-    assert len(selected_inds) == selection_size
+    assert len(selected_inds) == cfg['selection_size']
     selected_inds.sort()
     validate_new_inds(selected_inds, inds_dict)
     return selected_inds

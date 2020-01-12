@@ -78,13 +78,16 @@ if device == 'cuda':
 criterion = nn.CrossEntropyLoss()
 select = SelectionMethodFactory().config(args.selection_method)
 
-# constructing select_args (kwargs):
+# constructing select_args:
+selection_args = {
+    'selection_size': SELECTION_SIZE
+}
 if args.selection_method in ['farthest']:
     assert args.distance_norm in ['L1', 'L2', 'L_inf']
-    selection_args = {
+    selection_args.update({
         'distance_norm': args.distance_norm,
         'include_val_as_train': args.include_val_as_train
-    }
+    })
 
 def reset_optim():
     global optimizer
@@ -306,7 +309,7 @@ if __name__ == "__main__":
         if epoch in SELECTION_EPOCHS:
             print('Reached epoch #{}. Selecting {} new indices using {} method'.format(epoch + 1, SELECTION_SIZE, args.selection_method))
             inds_dict = get_inds_dict()
-            new_inds = select(net, all_data_loader, SELECTION_SIZE, inds_dict, **selection_args)  # dataset w/o augmentations
+            new_inds = select(net, all_data_loader, inds_dict, cfg=selection_args)  # dataset w/o augmentations
             update_inds(train_inds, val_inds, new_inds)
             unlabeled_inds = [ind for ind in range(dataset_size) if ind not in (train_inds + val_inds)]
             save_current_inds(unlabeled_inds, train_inds, val_inds)
