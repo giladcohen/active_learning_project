@@ -8,6 +8,7 @@ from active_learning_project.utils import pytorch_evaluate, validate_new_inds, c
 import time
 import torch.nn.functional as F
 from active_learning_project.utils import convert_norm_str_to_p
+from sklearn.neighbors import NearestNeighbors
 
 rand_gen = np.random.RandomState(int(time.time()))
 DATA_ROOT = '/data/dataset/cifar10'
@@ -73,19 +74,10 @@ def select_farthest(net: nn.Module, data_loader: data.DataLoader, inds_dict: dic
     (embeddings, ) = pytorch_evaluate(net, data_loader, fetch_keys=['embeddings'], to_tensor=False)
     norm = convert_norm_str_to_p(cfg['distance_norm'])
 
-    # knn = NearestNeighbors(
-    #     n_neighbors=taken_inds,
-    #     p=norm,
-    #     algorithm='brute',
-    #     n_jobs=20
-    # )
-    # # Selecting the new points
-    # print('Fitting kNN...')
-    # knn.fit(embeddings[taken_inds])
-    # dist_mat, _ = knn.kneighbors(embeddings[untaken_inds], return_distance=True)
-
-    print('Constructing the distsnce matrix...')
-    dist_mat = calculate_dist_map(embeddings, norm)
+    # print('Constructing the distsnce matrix...')
+    # dist_mat = calculate_dist_map(embeddings, norm)
+    # dist_mat_tmp = dist_mat[untaken_inds]
+    # dist_mat_tmp = dist_mat_tmp[:, taken_inds]
 
     taken_inds = inds_dict['train_inds']
     if cfg['include_val_as_train']:
@@ -95,8 +87,13 @@ def select_farthest(net: nn.Module, data_loader: data.DataLoader, inds_dict: dic
     selected_inds = []
     cnt_selected = 0
     while cnt_selected < cfg['selection_size']:
-        dist_mat_tmp = dist_mat[untaken_inds]
-        dist_mat_tmp = dist_mat_tmp[:, taken_inds]
+        knn = NearestNeighbors(
+            n_neighbors=len(taken_inds),
+            p=norm,
+            n_jobs=20
+        )
+        knn.fit(embeddings[taken_inds])
+        dist_mat_tmp, _ = knn.kneighbors(embeddings[untaken_inds], return_distance=True)
         min_dists = dist_mat_tmp.min(axis=1)
         selected_ind_relative = min_dists.argmax()
         selected_ind = np.take(untaken_inds, selected_ind_relative)
