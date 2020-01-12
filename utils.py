@@ -13,7 +13,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.init as init
 import torch.utils.data as data
-from scipy.spatial.distance import pdist, squareform
+from scipy.spatial.distance import pdist, cdist, squareform
 
 def get_mean_and_std(dataset):
     '''Compute the mean and std value of dataset.'''
@@ -179,9 +179,17 @@ def convert_norm_str_to_p(norm: str):
         p = np.inf
     return p
 
-def calculate_dist_map(embeddings: np.ndarray, norm: int) -> np.ndarray:
+def calculate_dist_mat(embeddings: np.ndarray, norm: int) -> np.ndarray:
     """Returning a distance matrix from embeddings vector"""
     kwargs = {'p': norm}
     condensed_dist = pdist(embeddings, metric='minkowski', **kwargs)
     dist_map = squareform(condensed_dist)
     return dist_map
+
+def calculate_dist_mat_2(A: np.ndarray, B: np.array, norm: int) -> np.ndarray:
+    """Returning a distance matrix from embeddings vector"""
+    kwargs = {'p': norm}
+    condensed_dist = cdist(A, B, metric='minkowski', **kwargs)
+    dist_map = squareform(condensed_dist)
+    return dist_map
+

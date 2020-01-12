@@ -4,11 +4,12 @@ from torchvision import datasets
 from torch.utils.data.dataset import Subset
 import torch.nn as nn
 import torch.utils.data as data
-from active_learning_project.utils import pytorch_evaluate, validate_new_inds, calculate_dist_map
+from active_learning_project.utils import pytorch_evaluate, validate_new_inds, calculate_dist_mat, calculate_dist_mat_2
 import time
 import torch.nn.functional as F
 from active_learning_project.utils import convert_norm_str_to_p
 from sklearn.neighbors import NearestNeighbors
+from tqdm import tqdm
 
 rand_gen = np.random.RandomState(int(time.time()))
 DATA_ROOT = '/data/dataset/cifar10'
@@ -84,17 +85,20 @@ def select_farthest(net: nn.Module, data_loader: data.DataLoader, inds_dict: dic
         taken_inds += inds_dict['val_inds']
     untaken_inds = inds_dict['unlabeled_inds'].copy()
 
+    # knn = NearestNeighbors(
+    #     n_neighbors=len(taken_inds),
+    #     p=norm,
+    #     algorithm='brute',
+    #     n_jobs=20
+    # )
+    # knn.fit(embeddings[taken_inds])
+    # dist_mat, _ = knn.kneighbors(embeddings[untaken_inds], return_distance=True)
+
+    dist_mat = calculate_dist_mat_2(embeddings[untaken_inds], embeddings[taken_inds], norm)
+
     selected_inds = []
-    cnt_selected = 0
-    while cnt_selected < cfg['selection_size']:
-        knn = NearestNeighbors(
-            n_neighbors=len(taken_inds),
-            p=norm,
-            n_jobs=20
-        )
-        knn.fit(embeddings[taken_inds])
-        dist_mat_tmp, _ = knn.kneighbors(embeddings[untaken_inds], return_distance=True)
-        min_dists = dist_mat_tmp.min(axis=1)
+    for i in tqdm(range(cfg['selection_size'])):
+        min_dists = dist_mat.min(axis=1)
         selected_ind_relative = min_dists.argmax()
         selected_ind = np.take(untaken_inds, selected_ind_relative)
 
@@ -104,7 +108,13 @@ def select_farthest(net: nn.Module, data_loader: data.DataLoader, inds_dict: dic
         taken_inds.append(selected_ind)
         untaken_inds.remove(selected_ind)
 
-        cnt_selected += 1
+        # update dist_mat
+        # first, removing the row that correspond to the untaken index
+        dist_mat = dist_mat[untaken_inds]
+        # next, we need to add the distance of all the (remaining) untaken inds to the newest selected_ind
+        # to that end, just calculate the distance from all the untaken inds to the freshly new taken ind
+        new_dists = calculate_dist_mat_2(embeddings[untaken_inds], embeddings[np.newaxis, selected_ind], norm)
+        dist_mat = np.hstack((dist_mat, new_dists))
 
     assert len(selected_inds) == cfg['selection_size']
     selected_inds.sort()
