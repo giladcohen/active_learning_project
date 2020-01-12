@@ -292,7 +292,7 @@ if __name__ == "__main__":
     if global_step == 0:
         print('initializing {} new random indices'.format(SELECTION_SIZE))
         inds_dict = get_inds_dict()
-        init_inds = select_random(None, None, SELECTION_SIZE, inds_dict)
+        init_inds = select_random(None, None, inds_dict, selection_args)
         update_inds(train_inds, val_inds, init_inds)
         unlabeled_inds = [ind for ind in range(dataset_size) if ind not in (train_inds + val_inds)]
         save_current_inds(unlabeled_inds, train_inds, val_inds)
