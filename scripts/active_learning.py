@@ -25,7 +25,9 @@ parser.add_argument('--wd', default=0.00039, type=float, help='weight decay')  #
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
 parser.add_argument('--patience', default=2, type=int, help='LR schedule patience')
 parser.add_argument('--cooldown', default=1, type=int, help='LR cooldown')
-parser.add_argument('--selection_method', default='random', type=str, help='Active learning index selection method')
+parser.add_argument('--selection_method', default='farthest', type=str, help='Active learning index selection method')
+parser.add_argument('--distance_norm', default='L2', type=str, help='Distance norm. Can be [L1/L2/L_inf]')
+parser.add_argument('--include_val_as_train', '-i', action='store_true', help='Treats validation as train for AL')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -37,7 +39,7 @@ DATA_ROOT = '/data/dataset/cifar10'
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 ACTIVE_IND_DIR  = os.path.join(args.checkpoint_dir, 'active_indices')
 BEST_CHECKPOINTS_DIR = os.path.join(args.checkpoint_dir, 'best_checkpoints')
-SELECTION_EPOCHS = [300, 600, 900, 1200]
+SELECTION_EPOCHS = [3, 6, 9, 12]
 SELECTION_SIZE = 1000
 
 rand_gen = np.random.RandomState(int(time.time()))
@@ -63,7 +65,7 @@ testloader = get_test_loader(
 )
 
 classes = all_data_loader.dataset.classes
-dataset_size = all_data_loader.dataset.data.shape[0]
+dataset_size = len(all_data_loader.dataset)
 
 # Model
 print('==> Building model..')
@@ -75,6 +77,14 @@ if device == 'cuda':
 
 criterion = nn.CrossEntropyLoss()
 select = SelectionMethodFactory().config(args.selection_method)
+
+# constructing select_args (kwargs):
+if args.selection_method in ['farthest']:
+    assert args.distance_norm in ['L1', 'L2', 'L_inf']
+    selection_args = {
+        'distance_norm': args.distance_norm,
+        'include_val_as_train': args.include_val_as_train
+    }
 
 def reset_optim():
     global optimizer
@@ -296,7 +306,7 @@ if __name__ == "__main__":
         if epoch in SELECTION_EPOCHS:
             print('Reached epoch #{}. Selecting {} new indices using {} method'.format(epoch + 1, SELECTION_SIZE, args.selection_method))
             inds_dict = get_inds_dict()
-            new_inds = select(net, all_data_loader, SELECTION_SIZE, inds_dict)  # dataset w/o augmentations
+            new_inds = select(net, all_data_loader, SELECTION_SIZE, inds_dict, **selection_args)  # dataset w/o augmentations
             update_inds(train_inds, val_inds, new_inds)
             unlabeled_inds = [ind for ind in range(dataset_size) if ind not in (train_inds + val_inds)]
             save_current_inds(unlabeled_inds, train_inds, val_inds)

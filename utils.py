@@ -13,6 +13,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.init as init
 import torch.utils.data as data
+from scipy.spatial.distance import pdist, squareform
 
 def get_mean_and_std(dataset):
     '''Compute the mean and std value of dataset.'''
@@ -169,3 +170,18 @@ def validate_new_inds(selected_inds: list, inds_dict: dict):
     assert len(new_set.intersection(train_set)) == 0, 'Some selected samples are already in the train set'
     assert len(new_set.intersection(val_set)) == 0, 'Some selected samples are already in the val set'
     assert new_set.issubset(unlabeled_set), 'All new selected indices must be in unlabeled_inds'
+
+def convert_norm_str_to_p(norm: str):
+    assert norm in ['L1', 'L2', 'L_inf']
+    if norm in ['L1', 'L2']:
+        p = int(norm[-1])
+    else:
+        p = np.inf
+    return p
+
+def calculate_dist_map(embeddings: np.ndarray, norm: int) -> np.ndarray:
+    """Returning a distance matrix from embeddings vector"""
+    kwargs = {'p': norm}
+    condensed_dist = pdist(embeddings, metric='minkowski', **kwargs)
+    dist_map = squareform(condensed_dist)
+    return dist_map

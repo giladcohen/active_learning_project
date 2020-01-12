@@ -4,9 +4,10 @@ from torchvision import datasets
 from torch.utils.data.dataset import Subset
 import torch.nn as nn
 import torch.utils.data as data
-from active_learning_project.utils import pytorch_evaluate, validate_new_inds
+from active_learning_project.utils import pytorch_evaluate, validate_new_inds, calculate_dist_map
 import time
 import torch.nn.functional as F
+from active_learning_project.utils import convert_norm_str_to_p
 
 rand_gen = np.random.RandomState(int(time.time()))
 DATA_ROOT = '/data/dataset/cifar10'
@@ -68,6 +69,51 @@ def select_confidence(net: nn.Module, data_loader: data.DataLoader, selection_si
     validate_new_inds(selected_inds, inds_dict)
     return selected_inds
 
+def select_farthest(net: nn.Module, data_loader: data.DataLoader, selection_size: int, inds_dict: dict, cfg: dict):
+    (embeddings, ) = pytorch_evaluate(net, data_loader, fetch_keys=['embeddings'], to_tensor=False)
+    norm = convert_norm_str_to_p(cfg['distance_norm'])
+
+    # knn = NearestNeighbors(
+    #     n_neighbors=taken_inds,
+    #     p=norm,
+    #     algorithm='brute',
+    #     n_jobs=20
+    # )
+    # # Selecting the new points
+    # print('Fitting kNN...')
+    # knn.fit(embeddings[taken_inds])
+    # dist_mat, _ = knn.kneighbors(embeddings[untaken_inds], return_distance=True)
+
+    print('Constructing the distsnce matrix...')
+    dist_mat = calculate_dist_map(embeddings, norm)
+
+    taken_inds = inds_dict['train_inds']
+    if cfg['include_val_as_train']:
+        taken_inds += inds_dict['val_inds']
+    untaken_inds = inds_dict['unlabeled_inds'].copy()
+
+    selected_inds = []
+    cnt_selected = 0
+    while cnt_selected < selection_size:
+        dist_mat_tmp = dist_mat[untaken_inds]
+        dist_mat_tmp = dist_mat_tmp[:, taken_inds]
+        min_dists = dist_mat_tmp.min(axis=1)
+        selected_ind_relative = min_dists.argmax()
+        selected_ind = np.take(untaken_inds, selected_ind_relative)
+
+        # update selected inds:
+        selected_inds.append(selected_ind)
+        assert selected_ind not in taken_inds
+        taken_inds.append(selected_ind)
+        untaken_inds.remove(selected_ind)
+
+        cnt_selected += 1
+
+    assert len(selected_inds) == selection_size
+    selected_inds.sort()
+    validate_new_inds(selected_inds, inds_dict)
+    return selected_inds
+
 class SelectionMethodFactory(object):
 
     def config(self, name):
@@ -75,4 +121,6 @@ class SelectionMethodFactory(object):
             return select_random
         elif name == 'confidence':
             return select_confidence
+        elif name == 'farthest':
+            return select_farthest
         raise AssertionError('not selection method named {}'.format(name))
