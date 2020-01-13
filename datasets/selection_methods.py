@@ -80,9 +80,9 @@ def select_farthest(net: nn.Module, data_loader: data.DataLoader, inds_dict: dic
     # dist_mat_tmp = dist_mat[untaken_inds]
     # dist_mat_tmp = dist_mat_tmp[:, taken_inds]
 
-    taken_inds = inds_dict['train_inds']
+    taken_inds = inds_dict['train_inds'].copy()
     if cfg['include_val_as_train']:
-        taken_inds += inds_dict['val_inds']
+        taken_inds += inds_dict['val_inds'].copy()
     untaken_inds = inds_dict['unlabeled_inds'].copy()
 
     # knn = NearestNeighbors(
@@ -100,7 +100,7 @@ def select_farthest(net: nn.Module, data_loader: data.DataLoader, inds_dict: dic
     for i in tqdm(range(cfg['selection_size'])):
         min_dists = dist_mat.min(axis=1)
         selected_ind_relative = min_dists.argmax()
-        selected_ind = np.take(untaken_inds, selected_ind_relative)
+        selected_ind = int(np.take(untaken_inds, selected_ind_relative))
 
         # update selected inds:
         selected_inds.append(selected_ind)
