@@ -5,7 +5,8 @@ import torch.optim as optim
 import torch.backends.cudnn as cudnn
 
 import numpy as np
-
+import sys
+import json
 import os
 import argparse
 from tqdm import tqdm
@@ -287,6 +288,10 @@ if __name__ == "__main__":
 
     os.makedirs(ACTIVE_IND_DIR, exist_ok=True)
     os.makedirs(BEST_CHECKPOINTS_DIR, exist_ok=True)
+
+    # dumping args to txt file
+    with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'w') as f:
+        json.dump(args.__dict__, f, indent=2)
 
     print('start testing the model from epoch #{}...'.format(epoch + 1))
     if global_step == 0:
