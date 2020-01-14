@@ -26,9 +26,10 @@ parser.add_argument('--wd', default=0.00039, type=float, help='weight decay')  #
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
 parser.add_argument('--patience', default=2, type=int, help='LR schedule patience')
 parser.add_argument('--cooldown', default=1, type=int, help='LR cooldown')
-parser.add_argument('--selection_method', default='farthest', type=str, help='Active learning index selection method')
+parser.add_argument('--selection_method', default='GMM', type=str, help='Active learning index selection method')
 parser.add_argument('--distance_norm', default='L2', type=str, help='Distance norm. Can be [L1/L2/L_inf]')
 parser.add_argument('--include_val_as_train', '-i', action='store_true', help='Treats validation as train for AL')
+parser.add_argument('--M', default=3, type=int, help='hyper-parameters for GMM-like selection')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -83,11 +84,15 @@ select = SelectionMethodFactory().config(args.selection_method)
 selection_args = {
     'selection_size': SELECTION_SIZE
 }
-if args.selection_method in ['farthest']:
+if args.selection_method in ['farthest', 'GMM']:
     assert args.distance_norm in ['L1', 'L2', 'L_inf']
     selection_args.update({
         'distance_norm': args.distance_norm,
         'include_val_as_train': args.include_val_as_train
+    })
+if args.selection_method in ['GMM']:
+    selection_args.update({
+        'M': args.M
     })
 
 def reset_optim():

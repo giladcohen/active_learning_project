@@ -10,6 +10,7 @@ import torch.nn.functional as F
 from active_learning_project.utils import convert_norm_str_to_p
 from sklearn.neighbors import NearestNeighbors
 from tqdm import tqdm
+from numba import njit
 
 rand_gen = np.random.RandomState(int(time.time()))
 DATA_ROOT = '/data/dataset/cifar10'
@@ -121,6 +122,78 @@ def select_farthest(net: nn.Module, data_loader: data.DataLoader, inds_dict: dic
     validate_new_inds(selected_inds, inds_dict)
     return selected_inds
 
+
+def find_sigma(embeddings: np.ndarray, inds_dict: dict, cfg: dict) -> float:
+    """Get all embeddings and integer M. Returns sigma, the average distance to the M th nearest neighbor"""
+    print('Calculating sigma for M={}...'.format(cfg['M']))
+    norm = convert_norm_str_to_p(cfg['distance_norm'])
+
+    taken_inds = inds_dict['train_inds'].copy()
+    if cfg['include_val_as_train']:
+        taken_inds += inds_dict['val_inds'].copy()
+    untaken_inds = inds_dict['unlabeled_inds'].copy()
+
+    knn = NearestNeighbors(
+        n_neighbors=cfg['M'],
+        p=norm,
+        algorithm='brute',
+        n_jobs=20
+    )
+    knn.fit(embeddings[taken_inds])
+    dist_mat, _ = knn.kneighbors(embeddings[untaken_inds], return_distance=True)
+    dist_to_M = dist_mat[:, cfg['M'] - 1]
+    sigma = np.average(dist_to_M)
+    print('Calculated sigma={}'.format(sigma))
+
+    return sigma
+
+def select_GMM(net: nn.Module, data_loader: data.DataLoader, inds_dict: dict, cfg: dict=None):
+    (embeddings, logits) = pytorch_evaluate(net, data_loader, fetch_keys=['embeddings', 'logits'], to_tensor=True)
+    pred_probs = F.softmax(logits).cpu().detach().numpy()
+    uncertainties = uncertainty_score(pred_probs)
+    embeddings = embeddings.cpu().detach().numpy()
+
+    norm = convert_norm_str_to_p(cfg['distance_norm'])
+    M = cfg['M']
+
+    taken_inds = inds_dict['train_inds'].copy()
+    if cfg['include_val_as_train']:
+        taken_inds += inds_dict['val_inds'].copy()
+    untaken_inds = inds_dict['unlabeled_inds'].copy()
+    selected_inds = []
+
+    sigma = find_sigma(embeddings, inds_dict, cfg)
+
+    knn = NearestNeighbors(
+        n_neighbors=10 * M,
+        p=norm,
+        algorithm='brute',
+        n_jobs=20
+    )
+
+    @njit
+    def myfunc(x):
+        return np.exp(-0.5 * (x / sigma)**2)
+
+    for i in tqdm(range(cfg['selection_size'])):
+        knn.fit(embeddings[taken_inds])
+        dist_mat, _ = knn.kneighbors(embeddings[untaken_inds], return_distance=True)
+        GMM_mat = myfunc(dist_mat)
+        updated_uncertainties = uncertainties[untaken_inds] - np.sum(GMM_mat, axis=1)
+        selected_ind_relative = updated_uncertainties.argsort()[-1]
+        selected_ind = np.take(untaken_inds, selected_ind_relative)
+
+        # update selected inds:
+        selected_inds.append(selected_ind)
+        assert selected_ind not in taken_inds
+        taken_inds.append(selected_ind)
+        untaken_inds.remove(selected_ind)
+
+    assert len(selected_inds) == cfg['selection_size']
+    selected_inds.sort()
+    validate_new_inds(selected_inds, inds_dict)
+    return selected_inds
+
 class SelectionMethodFactory(object):
 
     def config(self, name):
@@ -130,4 +203,6 @@ class SelectionMethodFactory(object):
             return select_confidence
         elif name == 'farthest':
             return select_farthest
+        elif name == 'GMM':
+            return select_GMM
         raise AssertionError('not selection method named {}'.format(name))
