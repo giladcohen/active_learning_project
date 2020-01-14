@@ -62,7 +62,7 @@ def select_random(net: nn.Module, data_loader: data.DataLoader, inds_dict: dict,
 
 def select_confidence(net: nn.Module, data_loader: data.DataLoader, inds_dict: dict, cfg: dict=None):
     (logits, ) = pytorch_evaluate(net, data_loader, fetch_keys=['logits'], to_tensor=True)
-    pred_probs = F.softmax(logits).cpu().detach().numpy()
+    pred_probs = F.softmax(logits, dim=1).cpu().detach().numpy()
     pred_probs = pred_probs[inds_dict['unlabeled_inds']]
     uncertainties = uncertainty_score(pred_probs)
     selected_inds_relative = uncertainties.argsort()[-cfg['selection_size']:]
@@ -149,7 +149,7 @@ def find_sigma(embeddings: np.ndarray, inds_dict: dict, cfg: dict) -> float:
 
 def select_GMM(net: nn.Module, data_loader: data.DataLoader, inds_dict: dict, cfg: dict=None):
     (embeddings, logits) = pytorch_evaluate(net, data_loader, fetch_keys=['embeddings', 'logits'], to_tensor=True)
-    pred_probs = F.softmax(logits).cpu().detach().numpy()
+    pred_probs = F.softmax(logits, dim=1).cpu().detach().numpy()
     uncertainties = uncertainty_score(pred_probs)
     embeddings = embeddings.cpu().detach().numpy()
 
