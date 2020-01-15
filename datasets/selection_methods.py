@@ -86,47 +86,28 @@ def select_farthest(net: nn.Module, data_loader: data.DataLoader, inds_dict: dic
 
     dist_mat = calculate_dist_mat_2(embeddings[untaken_inds], embeddings[selected_inds], norm)
 
-    # print('Constructing the distsnce matrix...')
-    # dist_mat = calculate_dist_map(embeddings, norm)
-    # dist_mat_tmp = dist_mat[untaken_inds]
-    # dist_mat_tmp = dist_mat_tmp[:, taken_inds]
+    for i in tqdm(range(cfg['selection_size'] - 1)):
+        min_dists = dist_mat.min(axis=1)
+        selected_ind_relative = min_dists.argmax()
+        selected_ind = int(np.take(untaken_inds, selected_ind_relative))
 
-    # knn = NearestNeighbors(
-    #     n_neighbors=len(taken_inds),
-    #     p=norm,
-    #     algorithm='brute',
-    #     n_jobs=20
-    # )
-    # knn.fit(embeddings[taken_inds])
-    # dist_mat, _ = knn.kneighbors(embeddings[untaken_inds], return_distance=True)
+        # update selected inds:
+        assert selected_ind not in selected_inds
+        selected_inds.append(selected_ind)
+        untaken_inds.remove(selected_ind)
 
-    # dist_mat = calculate_dist_mat_2(embeddings[untaken_inds], embeddings[taken_inds], norm)
-    #
-    # selected_inds = []
-    # for i in tqdm(range(cfg['selection_size'])):
-    #     min_dists = dist_mat.min(axis=1)
-    #     selected_ind_relative = min_dists.argmax()
-    #     selected_ind = int(np.take(untaken_inds, selected_ind_relative))
-    #
-    #     # update selected inds:
-    #     selected_inds.append(selected_ind)
-    #     assert selected_ind not in taken_inds
-    #     taken_inds.append(selected_ind)
-    #     untaken_inds.remove(selected_ind)
-    #
-    #     # update dist_mat
-    #     # first, removing the row that correspond to the untaken index
-    #     dist_mat = np.delete(dist_mat, selected_ind_relative, 0)
-    #     # next, we need to add the distance of all the (remaining) untaken inds to the newest selected_ind
-    #     # to that end, just calculate the distance from all the untaken inds to the freshly new taken ind
-    #     new_dists = calculate_dist_mat_2(embeddings[untaken_inds], embeddings[np.newaxis, selected_ind], norm)
-    #     dist_mat = np.hstack((dist_mat, new_dists))
-    #
-    # assert len(selected_inds) == cfg['selection_size']
-    # selected_inds.sort()
-    # validate_new_inds(selected_inds, inds_dict)
-    # return selected_inds
+        # update dist_mat
+        # first, removing the row that correspond to the untaken index
+        dist_mat = np.delete(dist_mat, selected_ind_relative, 0)
+        # next, we need to add the distance of all the (remaining) untaken inds to the newest selected_ind
+        # to that end, just calculate the distance from all the untaken inds to the freshly new taken ind
+        new_dists = calculate_dist_mat_2(embeddings[untaken_inds], embeddings[np.newaxis, selected_ind], norm)
+        dist_mat = np.hstack((dist_mat, new_dists))
 
+    assert len(selected_inds) == cfg['selection_size']
+    selected_inds.sort()
+    validate_new_inds(selected_inds, inds_dict)
+    return selected_inds
 
 def find_sigma(embeddings: np.ndarray, inds_dict: dict, cfg: dict) -> float:
     """Get all embeddings and integer M. Returns sigma, the average distance to the M th nearest neighbor"""
