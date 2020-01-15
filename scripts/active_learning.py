@@ -30,6 +30,7 @@ parser.add_argument('--selection_method', default='GMM', type=str, help='Active 
 parser.add_argument('--distance_norm', default='L2', type=str, help='Distance norm. Can be [L1/L2/L_inf]')
 parser.add_argument('--include_val_as_train', '-i', action='store_true', help='Treats validation as train for AL')
 parser.add_argument('--M', default=3, type=int, help='hyper-parameters for GMM-like selection')
+parser.add_argument('--mul_gauss', '-g', action='store_true', help='multiply the gaussian instead of adding')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -92,7 +93,8 @@ if args.selection_method in ['farthest', 'GMM']:
     })
 if args.selection_method in ['GMM']:
     selection_args.update({
-        'M': args.M
+        'M': args.M,
+        'mul_gauss': args.mul_gauss
     })
 
 def reset_optim():

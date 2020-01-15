@@ -147,6 +147,10 @@ def find_sigma(embeddings: np.ndarray, inds_dict: dict, cfg: dict) -> float:
 
     return sigma
 
+@njit
+def myfunc(x, sigma):
+    return np.exp(-0.5 * (x / sigma)**2)
+
 def select_GMM(net: nn.Module, data_loader: data.DataLoader, inds_dict: dict, cfg: dict=None):
     (embeddings, logits) = pytorch_evaluate(net, data_loader, fetch_keys=['embeddings', 'logits'], to_tensor=True)
     pred_probs = F.softmax(logits, dim=1).cpu().detach().numpy()
@@ -167,19 +171,17 @@ def select_GMM(net: nn.Module, data_loader: data.DataLoader, inds_dict: dict, cf
     knn = NearestNeighbors(
         n_neighbors=10 * M,
         p=norm,
-        algorithm='brute',
         n_jobs=20
     )
-
-    @njit
-    def myfunc(x):
-        return np.exp(-0.5 * (x / sigma)**2)
 
     for i in tqdm(range(cfg['selection_size'])):
         knn.fit(embeddings[taken_inds])
         dist_mat, _ = knn.kneighbors(embeddings[untaken_inds], return_distance=True)
-        GMM_mat = myfunc(dist_mat)
-        updated_uncertainties = uncertainties[untaken_inds] - np.sum(GMM_mat, axis=1)
+        GMM_mat = myfunc(dist_mat, sigma)
+        if cfg['mul_gauss']:
+            updated_uncertainties = uncertainties[untaken_inds] * np.prod(GMM_mat, axis=1)
+        else:
+            updated_uncertainties = uncertainties[untaken_inds] - np.sum(GMM_mat, axis=1)
         selected_ind_relative = updated_uncertainties.argsort()[-1]
         selected_ind = np.take(untaken_inds, selected_ind_relative)
 
@@ -193,6 +195,7 @@ def select_GMM(net: nn.Module, data_loader: data.DataLoader, inds_dict: dict, cf
     selected_inds.sort()
     validate_new_inds(selected_inds, inds_dict)
     return selected_inds
+
 
 class SelectionMethodFactory(object):
 
