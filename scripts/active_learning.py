@@ -110,8 +110,6 @@ def reset_optim():
 
 def reset_net():
     global net
-    checkpoint_file = os.path.join(BEST_CHECKPOINTS_DIR, 'best_net_epoch_{}'.format(epoch))
-    torch.save(global_state['best_net'], checkpoint_file)
     net.load_state_dict(global_state['best_net'])
 
 def update_trainval_loaders(train_inds: list, val_inds: list):
@@ -168,11 +166,6 @@ def train():
     train_loss = train_loss/(batch_idx + 1)
     train_acc = (100.0 * correct) / total
     print('Epoch #{} (TRAIN): loss={}\tacc={} ({}/{})'.format(epoch + 1, train_loss, train_acc, correct, total))
-    # update global_state
-    global_state['net']         = net.state_dict()
-    global_state['train_acc']   = train_acc
-    global_state['global_step'] = global_step
-    global_state['epoch']       = epoch
 
     # validation
     net.eval()
@@ -199,13 +192,15 @@ def train():
     global_state['val_acc'] = val_acc
 
     if val_acc > best_acc:
-        print('Found new best model. Saving...')
         best_acc = val_acc
-        global_state['best_acc'] = val_acc
+        print('Found new best model. Saving...')
         global_state['best_net'] = net.state_dict()
+        global_state['best_acc'] = best_acc
+        global_state['epoch'] = epoch
+        global_state['global_step'] = global_step
 
     print('Epoch #{} (VAL): loss={}\tacc={} ({}/{})\tbest_acc={}'.format(epoch + 1, val_loss, val_acc, correct, total, best_acc))
-    torch.save(global_state, CHECKPOINT_PATH)
+
     # updating learning rate if we see no improvement
     lr_scheduler.step(metrics=val_acc, epoch=epoch)
 
@@ -236,23 +231,24 @@ def test():
         test_writer.add_scalar('loss', test_loss, global_step)
         test_writer.add_scalar('acc', test_acc, global_step)
         print('Epoch #{} (TEST): loss={}\tacc={} ({}/{})'.format(epoch + 1, test_loss, test_acc, correct, total))
-        # updating state
-        global_state['test_acc'] = test_acc
-        torch.save(global_state, CHECKPOINT_PATH)
 
-def save_current_inds(unlabeled_inds, train_inds, val_inds):
+def save_global_state():
     global epoch
     global global_state
 
-    np.save(os.path.join(ACTIVE_IND_DIR, 'unlabeled_inds_epoch_{}'.format(epoch)), unlabeled_inds)
-    np.save(os.path.join(ACTIVE_IND_DIR, 'train_inds_epoch_{}'.format(epoch)), train_inds)
-    np.save(os.path.join(ACTIVE_IND_DIR, 'val_inds_epoch_{}'.format(epoch)), val_inds)
     global_state['unlabeled_inds'] = unlabeled_inds
     global_state['train_inds'] = train_inds
     global_state['val_inds'] = val_inds
-
-    # updating state
     torch.save(global_state, CHECKPOINT_PATH)
+
+    # model savings after each phase
+    checkpoint_file = os.path.join(BEST_CHECKPOINTS_DIR, 'best_net_epoch_{}'.format(epoch))
+    torch.save(global_state, checkpoint_file)
+
+    # redundant indices information is saved as well
+    np.save(os.path.join(ACTIVE_IND_DIR, 'unlabeled_inds_epoch_{}'.format(epoch)), unlabeled_inds)
+    np.save(os.path.join(ACTIVE_IND_DIR, 'train_inds_epoch_{}'.format(epoch)), train_inds)
+    np.save(os.path.join(ACTIVE_IND_DIR, 'val_inds_epoch_{}'.format(epoch)), val_inds)
 
 def get_inds_dict():
     return {'train_inds': train_inds, 'val_inds': val_inds, 'unlabeled_inds': unlabeled_inds}
@@ -266,10 +262,10 @@ if __name__ == "__main__":
         checkpoint = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
 
         # check if trained for DataParallel:
-        if 'module' in list(checkpoint['net'].keys())[0]:
-            checkpoint['net'] = remove_substr_from_keys(checkpoint['net'], 'module.')
+        if 'module' in list(checkpoint['best_net'].keys())[0]:
+            checkpoint['best_net'] = remove_substr_from_keys(checkpoint['best_net'], 'module.')
 
-        net.load_state_dict(checkpoint['net'])
+        net.load_state_dict(checkpoint['best_net'])
         best_acc       = checkpoint['best_acc']
         epoch          = checkpoint['epoch']
         global_step    = checkpoint['global_step']
@@ -303,7 +299,7 @@ if __name__ == "__main__":
         init_inds = select_random(None, None, inds_dict, selection_args)
         update_inds(train_inds, val_inds, init_inds)
         unlabeled_inds = [ind for ind in range(dataset_size) if ind not in (train_inds + val_inds)]
-        save_current_inds(unlabeled_inds, train_inds, val_inds)
+        save_global_state()
 
     # initializing train and val loaders + optmizer
     trainloader, valloader = update_trainval_loaders(train_inds, val_inds)
@@ -322,7 +318,7 @@ if __name__ == "__main__":
             new_inds = select(net, all_data_loader, inds_dict, cfg=selection_args)  # dataset w/o augmentations
             update_inds(train_inds, val_inds, new_inds)
             unlabeled_inds = [ind for ind in range(dataset_size) if ind not in (train_inds + val_inds)]
-            save_current_inds(unlabeled_inds, train_inds, val_inds)
+            save_global_state()
 
             # initializing train and val loaders + optmizer + checkpoint (to best checkpoint)
             trainloader, valloader = update_trainval_loaders(train_inds, val_inds)
@@ -332,5 +328,7 @@ if __name__ == "__main__":
 
         if epoch % 10 == 0:
             test()
-    test()  # post test the final model without training
+
+    reset_net()
+    test()  # post test the final best model
 
