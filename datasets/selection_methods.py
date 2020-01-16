@@ -117,13 +117,13 @@ def find_sigma(embeddings: np.ndarray, inds_dict: dict, cfg: dict) -> float:
     untaken_inds = inds_dict['unlabeled_inds'].copy()
 
     knn = NearestNeighbors(
-        n_neighbors=cfg['M'],
+        n_neighbors=cfg['M'] + 1,  # fetching M+1 neighbors because the first neighbor will be the sample itself
         p=norm,
         n_jobs=20
     )
     knn.fit(embeddings[untaken_inds])
     dist_mat, _ = knn.kneighbors(embeddings[untaken_inds], return_distance=True)
-    dist_to_M = dist_mat[:, cfg['M'] - 1]
+    dist_to_M = dist_mat[:, cfg['M']]
     sigma = np.average(dist_to_M)
     print('Calculated sigma={}'.format(sigma))
 

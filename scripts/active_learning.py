@@ -26,7 +26,7 @@ parser.add_argument('--wd', default=0.00039, type=float, help='weight decay')  #
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
 parser.add_argument('--patience', default=2, type=int, help='LR schedule patience')
 parser.add_argument('--cooldown', default=1, type=int, help='LR cooldown')
-parser.add_argument('--selection_method', default='GMM', type=str, help='Active learning index selection method')
+parser.add_argument('--selection_method', default='farthest', type=str, help='Active learning index selection method')
 parser.add_argument('--distance_norm', default='L2', type=str, help='Distance norm. Can be [L1/L2/L_inf]')
 parser.add_argument('--M', default=3, type=int, help='hyper-parameters for GMM-like selection')
 
@@ -315,7 +315,7 @@ if __name__ == "__main__":
     print('start training from epoch #{} for {} epochs'.format(epoch + 1, args.epochs))
     for epoch in tqdm(range(epoch, epoch + args.epochs)):
         if epoch in SELECTION_EPOCHS:
-            print('Reset network...')
+            print('\n\n\nReset network...')
             reset_net()
             print('Selecting {} new indices using {} method'.format(SELECTION_SIZE, args.selection_method))
             inds_dict = get_inds_dict()
