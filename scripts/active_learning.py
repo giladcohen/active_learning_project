@@ -26,11 +26,9 @@ parser.add_argument('--wd', default=0.00039, type=float, help='weight decay')  #
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
 parser.add_argument('--patience', default=2, type=int, help='LR schedule patience')
 parser.add_argument('--cooldown', default=1, type=int, help='LR cooldown')
-parser.add_argument('--selection_method', default='farthest', type=str, help='Active learning index selection method')
+parser.add_argument('--selection_method', default='GMM', type=str, help='Active learning index selection method')
 parser.add_argument('--distance_norm', default='L2', type=str, help='Distance norm. Can be [L1/L2/L_inf]')
-parser.add_argument('--include_val_as_train', '-i', action='store_true', help='Treats validation as train for AL')
 parser.add_argument('--M', default=3, type=int, help='hyper-parameters for GMM-like selection')
-parser.add_argument('--mul_gauss', '-g', action='store_true', help='multiply the gaussian instead of adding')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -42,7 +40,7 @@ DATA_ROOT = '/data/dataset/cifar10'
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 ACTIVE_IND_DIR  = os.path.join(args.checkpoint_dir, 'active_indices')
 BEST_CHECKPOINTS_DIR = os.path.join(args.checkpoint_dir, 'best_checkpoints')
-SELECTION_EPOCHS = [300, 600, 900, 1200]
+SELECTION_EPOCHS = [3, 6, 9, 12]
 SELECTION_SIZE = 1000
 
 rand_gen = np.random.RandomState(int(time.time()))
@@ -88,13 +86,11 @@ selection_args = {
 if args.selection_method in ['farthest', 'GMM']:
     assert args.distance_norm in ['L1', 'L2', 'L_inf']
     selection_args.update({
-        'distance_norm': args.distance_norm,
-        'include_val_as_train': args.include_val_as_train
+        'distance_norm': args.distance_norm
     })
 if args.selection_method in ['GMM']:
     selection_args.update({
-        'M': args.M,
-        'mul_gauss': args.mul_gauss
+        'M': args.M
     })
 
 def reset_optim():
@@ -319,7 +315,9 @@ if __name__ == "__main__":
     print('start training from epoch #{} for {} epochs'.format(epoch + 1, args.epochs))
     for epoch in tqdm(range(epoch, epoch + args.epochs)):
         if epoch in SELECTION_EPOCHS:
-            print('Reached epoch #{}. Selecting {} new indices using {} method'.format(epoch + 1, SELECTION_SIZE, args.selection_method))
+            print('Reset network...')
+            reset_net()
+            print('Selecting {} new indices using {} method'.format(SELECTION_SIZE, args.selection_method))
             inds_dict = get_inds_dict()
             new_inds = select(net, all_data_loader, inds_dict, cfg=selection_args)  # dataset w/o augmentations
             update_inds(train_inds, val_inds, new_inds)
@@ -329,7 +327,6 @@ if __name__ == "__main__":
             # initializing train and val loaders + optmizer + checkpoint (to best checkpoint)
             trainloader, valloader = update_trainval_loaders(train_inds, val_inds)
             reset_optim()
-            reset_net()
 
         train()
 

@@ -114,18 +114,14 @@ def find_sigma(embeddings: np.ndarray, inds_dict: dict, cfg: dict) -> float:
     print('Calculating sigma for M={}...'.format(cfg['M']))
     norm = convert_norm_str_to_p(cfg['distance_norm'])
 
-    taken_inds = inds_dict['train_inds'].copy()
-    if cfg['include_val_as_train']:
-        taken_inds += inds_dict['val_inds'].copy()
     untaken_inds = inds_dict['unlabeled_inds'].copy()
 
     knn = NearestNeighbors(
         n_neighbors=cfg['M'],
         p=norm,
-        algorithm='brute',
         n_jobs=20
     )
-    knn.fit(embeddings[taken_inds])
+    knn.fit(embeddings[untaken_inds])
     dist_mat, _ = knn.kneighbors(embeddings[untaken_inds], return_distance=True)
     dist_to_M = dist_mat[:, cfg['M'] - 1]
     sigma = np.average(dist_to_M)
@@ -135,7 +131,8 @@ def find_sigma(embeddings: np.ndarray, inds_dict: dict, cfg: dict) -> float:
 
 @njit
 def myfunc(x, sigma):
-    return np.exp(-0.5 * (x / sigma)**2)
+    """For multiplication"""
+    return 1.0 - np.exp(-0.5 * (x / sigma)**2)
 
 def select_GMM(net: nn.Module, data_loader: data.DataLoader, inds_dict: dict, cfg: dict=None):
     (embeddings, logits) = pytorch_evaluate(net, data_loader, fetch_keys=['embeddings', 'logits'], to_tensor=True)
@@ -144,44 +141,43 @@ def select_GMM(net: nn.Module, data_loader: data.DataLoader, inds_dict: dict, cf
     embeddings = embeddings.cpu().detach().numpy()
 
     norm = convert_norm_str_to_p(cfg['distance_norm'])
-    M = cfg['M']
 
-    taken_inds = inds_dict['train_inds'].copy()
-    if cfg['include_val_as_train']:
-        taken_inds += inds_dict['val_inds'].copy()
     untaken_inds = inds_dict['unlabeled_inds'].copy()
     selected_inds = []
 
     sigma = find_sigma(embeddings, inds_dict, cfg)
 
-    knn = NearestNeighbors(
-        n_neighbors=10 * M,
-        p=norm,
-        n_jobs=20
-    )
+    # first, select the unpooled samples with the top uncertainty
+    selected_ind_relative = uncertainties[untaken_inds].argmax()
+    selected_ind = np.take(untaken_inds, selected_ind_relative)
+    selected_inds.append(selected_ind)
+    untaken_inds.remove(selected_ind)
 
-    for i in tqdm(range(cfg['selection_size'])):
-        knn.fit(embeddings[taken_inds])
-        dist_mat, _ = knn.kneighbors(embeddings[untaken_inds], return_distance=True)
+    dist_mat = calculate_dist_mat_2(embeddings[untaken_inds], embeddings[selected_inds], norm)
+
+    for i in tqdm(range(cfg['selection_size'] - 1)):
         GMM_mat = myfunc(dist_mat, sigma)
-        if cfg['mul_gauss']:
-            updated_uncertainties = uncertainties[untaken_inds] * np.prod(GMM_mat, axis=1)
-        else:
-            updated_uncertainties = uncertainties[untaken_inds] - np.sum(GMM_mat, axis=1)
-        selected_ind_relative = updated_uncertainties.argsort()[-1]
+        updated_uncertainties = uncertainties[untaken_inds] * np.prod(GMM_mat, axis=1)
+        selected_ind_relative = updated_uncertainties.argmax()
         selected_ind = np.take(untaken_inds, selected_ind_relative)
 
         # update selected inds:
+        assert selected_ind not in selected_inds
         selected_inds.append(selected_ind)
-        assert selected_ind not in taken_inds
-        taken_inds.append(selected_ind)
         untaken_inds.remove(selected_ind)
+
+        # update dist_mat
+        # first, removing the row that correspond to the untaken index
+        dist_mat = np.delete(dist_mat, selected_ind_relative, 0)
+        # next, we need to add the distance of all the (remaining) untaken inds to the newest selected_ind
+        # to that end, just calculate the distance from all the untaken inds to the freshly new taken ind
+        new_dists = calculate_dist_mat_2(embeddings[untaken_inds], embeddings[np.newaxis, selected_ind], norm)
+        dist_mat = np.hstack((dist_mat, new_dists))
 
     assert len(selected_inds) == cfg['selection_size']
     selected_inds.sort()
     validate_new_inds(selected_inds, inds_dict)
     return selected_inds
-
 
 class SelectionMethodFactory(object):
 
