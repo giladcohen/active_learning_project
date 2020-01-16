@@ -134,7 +134,7 @@ def myfunc(x, sigma):
     """For multiplication"""
     return 1.0 - np.exp(-0.5 * (x / sigma)**2)
 
-def select_GMM(net: nn.Module, data_loader: data.DataLoader, inds_dict: dict, cfg: dict=None):
+def select_gmm(net: nn.Module, data_loader: data.DataLoader, inds_dict: dict, cfg: dict=None):
     (embeddings, logits) = pytorch_evaluate(net, data_loader, fetch_keys=['embeddings', 'logits'], to_tensor=True)
     pred_probs = F.softmax(logits, dim=1).cpu().detach().numpy()
     uncertainties = uncertainty_score(pred_probs)
@@ -188,6 +188,6 @@ class SelectionMethodFactory(object):
             return select_confidence
         elif name == 'farthest':
             return select_farthest
-        elif name == 'GMM':
-            return select_GMM
+        elif name == 'gmm':
+            return select_gmm
         raise AssertionError('not selection method named {}'.format(name))

@@ -83,12 +83,12 @@ select = SelectionMethodFactory().config(args.selection_method)
 selection_args = {
     'selection_size': SELECTION_SIZE
 }
-if args.selection_method in ['farthest', 'GMM']:
+if args.selection_method in ['farthest', 'gmm']:
     assert args.distance_norm in ['L1', 'L2', 'L_inf']
     selection_args.update({
         'distance_norm': args.distance_norm
     })
-if args.selection_method in ['GMM']:
+if args.selection_method in ['gmm']:
     selection_args.update({
         'M': args.M
     })
