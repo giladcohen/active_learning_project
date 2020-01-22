@@ -9,7 +9,7 @@ import numpy as np
 
 from torchvision import datasets
 from torchvision import transforms
-from torch.utils.data.sampler import SubsetRandomSampler
+from torch.utils.data.sampler import SubsetRandomSampler, SequentialSampler
 from sklearn.model_selection import train_test_split
 from torch.utils.data.dataset import Subset
 
@@ -92,7 +92,7 @@ def get_train_valid_loader(data_dir,
     val_idx.sort()
 
     train_sampler = SubsetRandomSampler(train_idx)
-    valid_sampler = SubsetRandomSampler(val_idx)
+    valid_sampler = SequentialSampler(val_idx)
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=batch_size, sampler=train_sampler,

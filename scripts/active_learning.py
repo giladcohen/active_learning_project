@@ -5,7 +5,6 @@ import torch.optim as optim
 import torch.backends.cudnn as cudnn
 
 import numpy as np
-import sys
 import json
 import os
 import argparse
@@ -188,8 +187,6 @@ def train():
 
     val_writer.add_scalar('loss', val_loss, global_step)
     val_writer.add_scalar('acc', val_acc, global_step)
-    # update global_state
-    global_state['val_acc'] = val_acc
 
     if val_acc > best_acc:
         best_acc = val_acc
@@ -329,6 +326,7 @@ if __name__ == "__main__":
         if epoch % 10 == 0:
             test()
 
+    save_global_state()
     reset_net()
     test()  # post test the final best model
 
