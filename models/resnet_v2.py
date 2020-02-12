@@ -8,6 +8,15 @@ def conv3x3(in_planes, out_planes, stride=1, bias=False):
 def to_1d(x):
     return x.view(x.size(0), -1)
 
+def activation_ratio(x):
+    """
+    :param x: feature map. tensor of size: [batch, feature_map_size, num_pix, num_pix], where num_pix=32/16/8/4
+    :return: activation ratio per 2D conv kernel. size to return value: [batch, feature_map_size]
+    """
+    spatial_size = x.size()[2] * x.size()[3]
+    activated_sum = x.sign().sum(dim=(2, 3))
+    return activated_sum / spatial_size
+
 class res_basic(nn.Module):
     def __init__(self, in_planes, planes, dropout_rate, stride=1, use_bn=True):
         super(res_basic, self).__init__()
@@ -93,35 +102,35 @@ class ResNet18(nn.Module):
         if self.use_bn:
             out = self.bn1(out)
         out = F.relu(out)
-        net['relu1'] = to_1d(out)
+        net['num_act1'] = activation_ratio(out)
 
         relu_out, out = self.layer1_0(out)
-        net['relu2'] = relu_out
-        net['relu3'] = out
+        net['num_act2'] = activation_ratio(relu_out)
+        net['num_act3'] = activation_ratio(out)
         relu_out, out = self.layer1_1(out)
-        net['relu4'] = relu_out
-        net['relu5'] = out
+        net['num_act4'] = activation_ratio(relu_out)
+        net['num_act5'] = activation_ratio(out)
 
         relu_out, out = self.layer2_0(out)
-        net['relu6'] = relu_out
-        net['relu7'] = out
+        net['num_act6'] = activation_ratio(relu_out)
+        net['num_act7'] = activation_ratio(out)
         relu_out, out = self.layer2_1(out)
-        net['relu8'] = relu_out
-        net['relu9'] = out
+        net['num_act8'] = activation_ratio(relu_out)
+        net['num_act9'] = activation_ratio(out)
 
         relu_out, out = self.layer3_0(out)
-        net['relu10'] = relu_out
-        net['relu11'] = out
+        net['num_act10'] = activation_ratio(relu_out)
+        net['num_act11'] = activation_ratio(out)
         relu_out, out = self.layer3_1(out)
-        net['relu12'] = relu_out
-        net['relu13'] = out
+        net['num_act12'] = activation_ratio(relu_out)
+        net['num_act13'] = activation_ratio(out)
 
         relu_out, out = self.layer4_0(out)
-        net['relu14'] = relu_out
-        net['relu15'] = out
+        net['num_act14'] = activation_ratio(relu_out)
+        net['num_act15'] = activation_ratio(out)
         relu_out, out = self.layer4_1(out)
-        net['relu16'] = relu_out
-        net['relu17'] = out
+        net['num_act16'] = activation_ratio(relu_out)
+        net['num_act17'] = activation_ratio(out)
 
         out = F.avg_pool2d(out, 4)
         out = to_1d(out)
