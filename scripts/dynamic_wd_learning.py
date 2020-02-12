@@ -1,5 +1,6 @@
 '''Train CIFAR10 with PyTorch.'''
 import torch
+import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
@@ -11,10 +12,11 @@ import argparse
 from tqdm import tqdm
 import time
 
-from active_learning_project.models import *
+from active_learning_project.models.resnet_v2 import ResNet18
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader
 from active_learning_project.datasets.selection_methods import select_random, update_inds, SelectionMethodFactory
 from active_learning_project.utils import remove_substr_from_keys
+from torchsummary import summary
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -65,8 +67,10 @@ dataset_size = len(trainloader.dataset)
 
 # Model
 print('==> Building model..')
-net = ResNet34()
+net = ResNet18()
 net = net.to(device)
+summary(net, (3, 32, 32))
+
 if device == 'cuda':
     # net = torch.nn.DataParallel(net)
     cudnn.benchmark = True

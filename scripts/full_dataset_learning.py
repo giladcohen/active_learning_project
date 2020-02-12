@@ -3,6 +3,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
+import torch.nn as nn
 
 import numpy as np
 import json
@@ -11,7 +12,7 @@ import argparse
 from tqdm import tqdm
 import time
 
-from active_learning_project.models import *
+from active_learning_project.models.resnet import ResNet34
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader
 from active_learning_project.datasets.selection_methods import select_random, update_inds, SelectionMethodFactory
 from active_learning_project.utils import remove_substr_from_keys
