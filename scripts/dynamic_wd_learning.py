@@ -96,6 +96,43 @@ def reset_net():
     global net
     net.load_state_dict(global_state['best_net'])
 
+<<<<<<< Updated upstream
+=======
+def add_to_tensor(t: torch.tensor, x: torch.tensor) -> torch.tensor:
+    """
+    :param t: Tensor to add to
+    :param x: addition
+    :return: t + x. If t is None, returns x.
+    """
+    if t is None:
+        t = x
+    else:
+        t = t + x
+
+    return t
+
+def weight_decay(outputs):
+    """
+    :param outputs: net output dictionary
+    :return: scalar differentiable tensor, weight decay multiplied by ratio of activations.
+    """
+    base_wd = torch.tensor(args.wd)
+    # l_reg = torch.tensor(0.0, requires_grad=True)
+    l_reg = None  # setting like this because it will automatically determine if we require grads or not
+    for name, params in net.named_parameters():
+        if name in weight_reg_map.keys() and not args.use_basic_wd:  # need special regularization
+            betas = outputs[weight_reg_map[name]]
+            assert betas.shape[0] == params.size()[0], \
+                "betas dim ({}) size must match params first dim ({})".format(betas.shape[0], params.size()[0])
+            for i, kernel in enumerate(params):  # for every conv kernel OR bn kernel (for bn the kernel is just scalar)
+                l_reg = add_to_tensor(l_reg, 0.5 * betas[i] * (kernel**2).sum())
+        else:  # add basic weight norm to regularization
+            l_reg = add_to_tensor(l_reg, 0.5 * (params**2).sum())
+    l_reg = l_reg * base_wd
+
+    return l_reg
+
+>>>>>>> Stashed changes
 def train():
     """Train and validate"""
     # Training
