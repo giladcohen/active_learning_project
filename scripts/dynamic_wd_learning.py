@@ -24,6 +24,7 @@ parser.add_argument('--resume', '-r', action='store_true', help='resume from che
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/active_learning/debug', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='300', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.00039, type=float, help='weight decay')  # was 5e-4 for batch_size=128
+parser.add_argument('--use_basic_wd', action='store_true', help='use just the regular weight decay wo betas factoring')
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
 parser.add_argument('--patience', default=3, type=int, help='LR schedule patience')
 parser.add_argument('--cooldown', default=1, type=int, help='LR cooldown')
@@ -71,6 +72,20 @@ net = ResNet18()
 net = net.to(device)
 summary(net, (3, 32, 32))
 
+def inverse_map(x: dict) -> dict:
+    """
+    :param x: dictionary listing for each key (relu activation) the relevant weight which are its input
+    :return: inverse mapping, showing for each weight param what "num_act" key to consider
+    """
+    inv_map = {}
+    for k, v in x.items():
+        for w in v:
+            inv_map[w] = k
+    return inv_map
+
+
+weight_reg_map = inverse_map(net.weight_reg_dict)
+
 if device == 'cuda':
     # net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
@@ -96,6 +111,40 @@ def reset_net():
     global net
     net.load_state_dict(global_state['best_net'])
 
+def add_to_tensor(t: torch.tensor, x: torch.tensor) -> torch.tensor:
+    """
+    :param t: Tensor to add to
+    :param x: addition
+    :return: t + x. If t is None, returns x.
+    """
+    if t is None:
+        t = x
+    else:
+        t = t + x
+
+    return t
+
+def weight_decay(outputs):
+    """
+    :param outputs: net output dictionary
+    :return: scalar differentiable tensor, weight decay multiplied by ratio of activations.
+    """
+    base_wd = torch.tensor(args.wd)
+    # l_reg = torch.tensor(0.0, requires_grad=True)
+    l_reg = None  # setting like this because it will automatically determine if we require grads or not
+    for name, params in net.named_parameters():
+        if name in weight_reg_map.keys() and not args.use_basic_wd:  # need special regularization
+            betas = outputs[weight_reg_map[name]]
+            assert betas.shape[0] == params.size()[0], \
+                "betas dim ({}) size must match params first dim ({})".format(betas.shape[0], params.size()[0])
+            for i, kernel in enumerate(params):  # for every conv kernel OR bn kernel (for bn the kernel is just scalar)
+                l_reg = add_to_tensor(l_reg, 0.5 * betas[i] * (kernel**2).sum())
+        else:  # add basic weight norm to regularization
+            l_reg = add_to_tensor(l_reg, 0.5 * (params**2).sum())
+    l_reg = l_reg * base_wd
+
+    return l_reg
+
 def train():
     """Train and validate"""
     # Training
@@ -111,48 +160,64 @@ def train():
     for batch_idx, (inputs, targets) in enumerate(trainloader):  # train a single step
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
-        outputs = net(inputs)['logits']
-        loss = criterion(outputs, targets)
+        outputs = net(inputs)
+        loss_ce = criterion(outputs['logits'], targets)
+        loss_wd = weight_decay(outputs)
+        loss = loss_ce + loss_wd
         loss.backward()
         optimizer.step()
 
         train_loss += loss.item()
-        _, predicted = outputs.max(1)
+
+        _, predicted = outputs['logits'].max(1)
         total += targets.size(0)
         correct += predicted.eq(targets).sum().item()
 
-        if global_step % 10 == 0:  # once ever 100 train iterations
-            train_writer.add_scalar('loss', train_loss/(batch_idx + 1), global_step)
+        if global_step % 10 == 0:  # sampling, once ever 100 train iterations
+            train_writer.add_scalar('loss',    loss,    global_step)
+            train_writer.add_scalar('loss_ce', loss_ce, global_step)
+            train_writer.add_scalar('loss_wd', loss_wd, global_step)
             train_writer.add_scalar('acc', (100.0 * correct)/total, global_step)
             train_writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], global_step)
 
         global_step += 1
 
-    train_loss = train_loss/(batch_idx + 1)
+    train_loss = train_loss / (batch_idx + 1)
     train_acc = (100.0 * correct) / total
     print('Epoch #{} (TRAIN): loss={}\tacc={} ({}/{})'.format(epoch + 1, train_loss, train_acc, correct, total))
 
     # validation
     net.eval()
     val_loss = 0
+    val_loss_ce = 0
+    val_loss_wd = 0
     correct = 0
     total = 0
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(valloader):
             inputs, targets = inputs.to(device), targets.to(device)
-            outputs = net(inputs)['logits']
-            loss = criterion(outputs, targets)
+            outputs = net(inputs)
+            loss_ce = criterion(outputs['logits'], targets)
+            loss_wd = weight_decay(outputs)
+            loss = loss_ce + loss_wd
 
-            val_loss += loss.item()
-            _, predicted = outputs.max(1)
+            val_loss    += loss.item()
+            val_loss_ce += loss_ce.item()
+            val_loss_wd += loss_wd.item()
+
+            _, predicted = outputs['logits'].max(1)
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
 
-    val_loss = val_loss/(batch_idx + 1)
+    val_loss    = val_loss / (batch_idx + 1)
+    val_loss_ce = val_loss_ce / (batch_idx + 1)
+    val_loss_wd = val_loss_wd / (batch_idx + 1)
     val_acc = (100.0 * correct) / total
 
-    val_writer.add_scalar('loss', val_loss, global_step)
-    val_writer.add_scalar('acc', val_acc, global_step)
+    val_writer.add_scalar('loss',    val_loss,    global_step)
+    val_writer.add_scalar('loss_ce', val_loss_ce, global_step)
+    val_writer.add_scalar('loss_wd', val_loss_wd, global_step)
+    val_writer.add_scalar('acc',     val_acc,     global_step)
 
     if val_acc > best_acc:
         best_acc = val_acc
@@ -176,23 +241,34 @@ def test():
         # test
         net.eval()
         test_loss = 0
+        test_loss_ce = 0
+        test_loss_wd = 0
         correct = 0
         total = 0
         for batch_idx, (inputs, targets) in enumerate(testloader):
             inputs, targets = inputs.to(device), targets.to(device)
-            outputs = net(inputs)['logits']
-            loss = criterion(outputs, targets)
+            outputs = net(inputs)
+            loss_ce = criterion(outputs['logits'], targets)
+            loss_wd = weight_decay(outputs)
+            loss = loss_ce + loss_wd
 
-            test_loss += loss.item()
-            _, predicted = outputs.max(1)
+            test_loss    += loss.item()
+            test_loss_ce += loss_ce.item()
+            test_loss_wd += loss_wd.item()
+
+            _, predicted = outputs['logits'].max(1)
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
 
-        test_loss = test_loss / (batch_idx + 1)
+        test_loss    = test_loss / (batch_idx + 1)
+        test_loss_ce = test_loss_ce / (batch_idx + 1)
+        test_loss_wd = test_loss_wd / (batch_idx + 1)
         test_acc = (100.0 * correct) / total
 
-        test_writer.add_scalar('loss', test_loss, global_step)
-        test_writer.add_scalar('acc', test_acc, global_step)
+        test_writer.add_scalar('loss',    test_loss,    global_step)
+        test_writer.add_scalar('loss_ce', test_loss_ce, global_step)
+        test_writer.add_scalar('loss_wd', test_loss_wd, global_step)
+        test_writer.add_scalar('acc',     test_acc,     global_step)
         print('Epoch #{} (TEST): loss={}\tacc={} ({}/{})'.format(epoch + 1, test_loss, test_acc, correct, total))
 
 def save_global_state():

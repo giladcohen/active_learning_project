@@ -13,9 +13,10 @@ def activation_ratio(x):
     :param x: feature map. tensor of size: [batch, feature_map_size, num_pix, num_pix], where num_pix=32/16/8/4
     :return: activation ratio per 2D conv kernel. size to return value: [batch, feature_map_size]
     """
+    batch_size = x.size()[0]
     spatial_size = x.size()[2] * x.size()[3]
-    activated_sum = x.sign().sum(dim=(2, 3))
-    return activated_sum / spatial_size
+    activated_sum = x.sign().sum(dim=(0, 2, 3))
+    return activated_sum / (batch_size * spatial_size)
 
 class res_basic(nn.Module):
     def __init__(self, in_planes, planes, dropout_rate, stride=1, use_bn=True):
@@ -94,6 +95,30 @@ class ResNet18(nn.Module):
         self.layer4_1 = res_basic(self.nStages[4], self.nStages[4], self.dropout_rate, stride=1, use_bn=self.use_bn)
 
         self.linear = nn.Linear(self.nStages[4], num_classes)
+
+        # Weight that should be considered for the regularization on each ReLU activation
+        self.weight_reg_dict = {
+            'num_act1': ['conv1.weight', 'bn1.weight', 'bn1.bias'],
+            'num_act2': ['layer1_0.conv1.weight', 'layer1_0.bn1.weight', 'layer1_0.bn1.bias'],
+            'num_act3': ['layer1_0.conv2.weight', 'layer1_0.bn2.weight', 'layer1_0.bn2.bias'],
+            'num_act4': ['layer1_1.conv1.weight', 'layer1_1.bn1.weight', 'layer1_1.bn1.bias'],
+            'num_act5': ['layer1_1.conv2.weight', 'layer1_1.bn2.weight', 'layer1_1.bn2.bias'],
+            'num_act6': ['layer2_0.conv1.weight', 'layer2_0.bn1.weight', 'layer2_0.bn1.bias'],
+            'num_act7': ['layer2_0.conv2.weight', 'layer2_0.bn2.weight', 'layer2_0.bn2.bias',
+                         'layer2_0.shortcut.0.weight', 'layer2_0.shortcut.1.weight', 'layer2_0.shortcut.1.bias'],
+            'num_act8': ['layer2_1.conv1.weight', 'layer2_1.bn1.weight', 'layer2_1.bn1.bias'],
+            'num_act9': ['layer2_1.conv2.weight', 'layer2_1.bn2.weight', 'layer2_1.bn2.bias'],
+            'num_act10': ['layer3_0.conv1.weight', 'layer3_0.bn1.weight', 'layer3_0.bn1.bias'],
+            'num_act11': ['layer3_0.conv2.weight', 'layer3_0.bn2.weight', 'layer3_0.bn2.bias',
+                          'layer3_0.shortcut.0.weight', 'layer3_0.shortcut.1.weight', 'layer3_0.shortcut.1.bias'],
+            'num_act12': ['layer3_1.conv1.weight', 'layer3_1.bn1.weight', 'layer3_1.bn1.bias'],
+            'num_act13': ['layer3_1.conv2.weight', 'layer3_1.bn2.weight', 'layer3_1.bn2.bias'],
+            'num_act14': ['layer4_0.conv1.weight', 'layer4_0.bn1.weight', 'layer4_0.bn1.bias'],
+            'num_act15': ['layer4_0.conv2.weight', 'layer4_0.bn2.weight', 'layer4_0.bn2.bias',
+                          'layer4_0.shortcut.0.weight', 'layer4_0.shortcut.1.weight', 'layer4_0.shortcut.1.bias'],
+            'num_act16': ['layer4_1.conv1.weight', 'layer4_1.bn1.weight', 'layer4_1.bn1.bias'],
+            'num_act17': ['layer4_1.conv2.weight', 'layer4_1.bn2.weight', 'layer4_1.bn2.bias']
+        }
 
     def forward(self, x):
         net = {}
