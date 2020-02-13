@@ -22,7 +22,7 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/active_learning/debug', type=str, help='checkpoint dir')
-parser.add_argument('--epochs', default='300', type=int, help='number of epochs')
+parser.add_argument('--epochs', default='200', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.00039, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--use_basic_wd', action='store_true', help='use just the regular weight decay wo betas factoring')
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
