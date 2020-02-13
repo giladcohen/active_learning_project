@@ -133,6 +133,7 @@ def weight_decay(outputs):
     # l_reg = torch.tensor(0.0, requires_grad=True)
     l_reg = None  # setting like this because it will automatically determine if we require grads or not
     for name, params in net.named_parameters():
+        print('DEBUG: calculating decay for layer {}'.format(name))
         if name in weight_reg_map.keys() and not args.use_basic_wd:  # need special regularization
             betas = outputs[weight_reg_map[name]]
             assert betas.shape[0] == params.size()[0], \
