@@ -12,6 +12,9 @@ import argparse
 from tqdm import tqdm
 import time
 
+import sys
+sys.path.insert(0, ".")
+
 from active_learning_project.models.resnet_v2 import ResNet18
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader
 from active_learning_project.datasets.selection_methods import select_random, update_inds, SelectionMethodFactory
@@ -21,7 +24,7 @@ from torchsummary import summary
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
-parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/debug', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='./checkpoint', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='200', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.00039, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--use_basic_wd', action='store_true', help='use just the regular weight decay wo betas factoring')
@@ -29,14 +32,14 @@ parser.add_argument('--factor', default=0.9, type=float, help='LR schedule facto
 parser.add_argument('--patience', default=3, type=int, help='LR schedule patience')
 parser.add_argument('--cooldown', default=1, type=int, help='LR cooldown')
 parser.add_argument('--val_size', default=0.05, type=float, help='Fraction of validation size')
-
+parser.add_argument('--n_workers', default=0, type=float, help='Data loading threads')
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 
 args = parser.parse_args()
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-DATA_ROOT = '/data/dataset/cifar10'
+DATA_ROOT = './cifar10'
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 
 rand_gen = np.random.RandomState(int(time.time()))
@@ -53,13 +56,13 @@ trainloader, valloader = get_train_valid_loader(
     augment=True,
     rand_gen=rand_gen,
     valid_size=args.val_size,
-    num_workers=1,
+    num_workers=args.n_workers,
     pin_memory=device=='cuda'
 )
 testloader = get_test_loader(
     data_dir=DATA_ROOT,
     batch_size=100,
-    num_workers=1,
+    num_workers=args.n_workers,
     pin_memory=device=='cuda'
 )
 
@@ -133,12 +136,17 @@ def weight_decay(outputs):
     # l_reg = torch.tensor(0.0, requires_grad=True)
     l_reg = None  # setting like this because it will automatically determine if we require grads or not
     for name, params in net.named_parameters():
-        if name in weight_reg_map.keys() and not args.use_basic_wd:  # need special regularization
+        if name in weight_reg_map.keys() and not args.use_basic_wd:
             betas = outputs[weight_reg_map[name]]
             assert betas.shape[0] == params.size()[0], \
-                "betas dim ({}) size must match params first dim ({})".format(betas.shape[0], params.size()[0])
-            for i, kernel in enumerate(params):  # for every conv kernel OR bn kernel (for bn the kernel is just scalar)
-                l_reg = add_to_tensor(l_reg, 0.5 * betas[i] * (kernel**2).sum())
+                    "betas dim ({}) size must match params first dim ({})".format(betas.shape[0], params.size()[0])
+            if len (params.shape) == 1:
+                l_reg = add_to_tensor(l_reg, 0.5*torch.sum(betas*(params**2)))
+            else:
+                betas = betas.unsqueeze(1).unsqueeze(1).unsqueeze(1)
+                l_reg = add_to_tensor(l_reg, 0.5*torch.sum(\
+                    betas.repeat([1, params.shape[1], params.shape[2], params.shape[3]])\
+                        *(params**2)))
         else:  # add basic weight norm to regularization
             l_reg = add_to_tensor(l_reg, 0.5 * (params**2).sum())
     l_reg = l_reg * base_wd
