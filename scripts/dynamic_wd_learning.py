@@ -101,7 +101,7 @@ def reset_optim():
     global lr_scheduler
     global best_acc
     best_acc = 0.0
-    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.mom, weight_decay=args.wd, nesterov=True)
+    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.mom, weight_decay=args.wd, nesterov=args.mom > 0)
     lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
         mode='max',
