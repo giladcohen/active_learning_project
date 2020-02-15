@@ -108,6 +108,8 @@ def reset_optim():
     global optimizer
     global lr_scheduler
     global best_acc
+    global avg_forward_time
+    global avg_backward_time
     best_acc = 0.0
     optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.mom, weight_decay=args.wd, nesterov=args.mom > 0)
     lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
@@ -173,19 +175,29 @@ def train():
     global global_state
     global global_step
     global epoch
+    global avg_forward_time
+    global avg_backward_time
 
     net.train()
     train_loss = 0
     correct = 0
     total = 0
+    acc_forward_time = 0.0
+    acc_backward_time = 0.0
     for batch_idx, (inputs, targets) in enumerate(trainloader):  # train a single step
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
+        start = time.time()
         outputs = net(inputs)
+        end = time.time()
+        acc_forward_time += (end - start)*(batch_idx > 0)
         loss_ce = criterion(outputs['logits'], targets)
         loss_wd = weight_decay(outputs)
         loss = loss_ce + loss_wd
+        start = time.time()
         loss.backward()
+        end = time.time()
+        acc_backward_time += (end - start)*(batch_idx > 0)
         optimizer.step()
 
         train_loss += loss.item()
@@ -204,8 +216,12 @@ def train():
         global_step += 1
 
     train_loss = train_loss / (batch_idx + 1)
+    avg_forward_time += acc_forward_time / batch_idx
+    avg_backward_time += acc_backward_time / batch_idx
     train_acc = (100.0 * correct) / total
     print('Epoch #{} (TRAIN): loss={}\tacc={} ({}/{})'.format(epoch + 1, train_loss, train_acc, correct, total))
+    print('Average forward time over %d steps: %f' %(batch_idx, acc_forward_time / batch_idx))
+    print('Average backward time over %d steps: %f' %(batch_idx, acc_backward_time / batch_idx))
 
     # validation
     net.eval()
@@ -317,6 +333,8 @@ if __name__ == "__main__":
         global_step    = checkpoint['global_step']
         train_inds     = checkpoint['train_inds']
         val_inds       = checkpoint['val_inds']
+        avg_forward_time = 0.0
+        avg_backward_time = 0.0
 
         global_state = checkpoint
     else:
@@ -326,6 +344,8 @@ if __name__ == "__main__":
         global_step    = 0
         train_inds     = []
         val_inds       = []
+        avg_forward_time = 0.0
+        avg_backward_time = 0.0
 
         global_state = {}
 
@@ -344,7 +364,10 @@ if __name__ == "__main__":
         if epoch % 10 == 0:
             test()
             save_global_state()
-
+    avg_forward_time = avg_forward_time / args.epochs
+    avg_backward_time = avg_backward_time / args.epochs
+    print('Average forward time over %d epochs: %f' %(args.epochs, avg_forward_time))
+    print('Average backward time over %d epochs: %f' %(args.epochs, avg_backward_time))
     save_global_state()
     reset_net()
     test()  # post test the final best model
