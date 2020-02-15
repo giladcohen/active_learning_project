@@ -24,7 +24,7 @@ from torchsummary import summary
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
-parser.add_argument('--checkpoint_dir', default='./checkpoint', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/debug', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='200', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.00039, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--use_basic_wd', action='store_true', help='use just the regular weight decay wo betas factoring')
@@ -32,14 +32,14 @@ parser.add_argument('--factor', default=0.9, type=float, help='LR schedule facto
 parser.add_argument('--patience', default=3, type=int, help='LR schedule patience')
 parser.add_argument('--cooldown', default=1, type=int, help='LR cooldown')
 parser.add_argument('--val_size', default=0.05, type=float, help='Fraction of validation size')
-parser.add_argument('--n_workers', default=0, type=float, help='Data loading threads')
+parser.add_argument('--n_workers', default=1, type=int, help='Data loading threads')
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 
 args = parser.parse_args()
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-DATA_ROOT = './cifar10'
+DATA_ROOT = '/data/dataset/cifar10'
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 
 rand_gen = np.random.RandomState(int(time.time()))
@@ -127,6 +127,14 @@ def add_to_tensor(t: torch.tensor, x: torch.tensor) -> torch.tensor:
 
     return t
 
+def expand_betas_for_conv(betas, dims):
+    """
+    :param betas: betas tensor
+    :param dims: shape of conv kernel. len(dims)=4. for example: [128, 64, 3, 3]
+    :return: tiles betas, in dims shape
+    """
+    return betas.unsqueeze(1).unsqueeze(1).unsqueeze(1).repeat(1, dims[1], dims[2], dims[3])
+
 def weight_decay(outputs):
     """
     :param outputs: net output dictionary
@@ -140,13 +148,9 @@ def weight_decay(outputs):
             betas = outputs[weight_reg_map[name]]
             assert betas.shape[0] == params.size()[0], \
                     "betas dim ({}) size must match params first dim ({})".format(betas.shape[0], params.size()[0])
-            if len (params.shape) == 1:
-                l_reg = add_to_tensor(l_reg, 0.5*torch.sum(betas*(params**2)))
-            else:
-                betas = betas.unsqueeze(1).unsqueeze(1).unsqueeze(1)
-                l_reg = add_to_tensor(l_reg, 0.5*torch.sum(\
-                    betas.repeat([1, params.shape[1], params.shape[2], params.shape[3]])\
-                        *(params**2)))
+            if len(params.size()) != 1:  # its conv layer
+                betas = expand_betas_for_conv(betas, params.shape)
+            l_reg = add_to_tensor(l_reg, 0.5 * (betas*(params**2)).sum())
         else:  # add basic weight norm to regularization
             l_reg = add_to_tensor(l_reg, 0.5 * (params**2).sum())
     l_reg = l_reg * base_wd
