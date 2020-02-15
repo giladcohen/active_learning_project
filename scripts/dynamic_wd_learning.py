@@ -36,7 +36,7 @@ parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/debug', type=
 parser.add_argument('--epochs', default='200', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.00039, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--use_basic_wd', action='store_true', help='use just the regular weight decay wo betas factoring')
-parser.add_argument('--use_bn', default=False, type=boolean_string, help='whether or not to use batch norm')
+parser.add_argument('--use_bn', default=True, type=boolean_string, help='whether or not to use batch norm')
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
 parser.add_argument('--patience', default=3, type=int, help='LR schedule patience')
 parser.add_argument('--cooldown', default=1, type=int, help='LR cooldown')
