@@ -21,6 +21,13 @@ from active_learning_project.datasets.selection_methods import select_random, up
 from active_learning_project.utils import remove_substr_from_keys
 from torchsummary import summary
 
+def boolean_string(s):
+    # to use --use_bn True or --use_bn False in the shell. See:
+    # https://stackoverflow.com/questions/44561722/why-in-argparse-a-true-is-always-true
+    if s not in {'False', 'True'}:
+        raise ValueError('Not a valid boolean string')
+    return s == 'True'
+
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
@@ -29,6 +36,7 @@ parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/debug', type=
 parser.add_argument('--epochs', default='200', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.00039, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--use_basic_wd', action='store_true', help='use just the regular weight decay wo betas factoring')
+parser.add_argument('--use_bn', default=True, type=boolean_string, help='whether or not to use batchnorm')
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
 parser.add_argument('--patience', default=3, type=int, help='LR schedule patience')
 parser.add_argument('--cooldown', default=1, type=int, help='LR cooldown')
