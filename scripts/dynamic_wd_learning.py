@@ -21,13 +21,22 @@ from active_learning_project.datasets.selection_methods import select_random, up
 from active_learning_project.utils import remove_substr_from_keys
 from torchsummary import summary
 
+def boolean_string(s):
+    # to use --use_bn True or --use_bn False in the shell. See:
+    # https://stackoverflow.com/questions/44561722/why-in-argparse-a-true-is-always-true
+    if s not in {'False', 'True'}:
+        raise ValueError('Not a valid boolean string')
+    return s == 'True'
+
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
+parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
-parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/shady/', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/debug', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='200', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.00039, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--use_basic_wd', action='store_true', help='use just the regular weight decay wo betas factoring')
+parser.add_argument('--use_bn', default=True, type=boolean_string, help='whether or not to use batchnorm')
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
 parser.add_argument('--patience', default=3, type=int, help='LR schedule patience')
 parser.add_argument('--cooldown', default=1, type=int, help='LR cooldown')
@@ -102,7 +111,7 @@ def reset_optim():
     global avg_forward_time
     global avg_backward_time
     best_acc = 0.0
-    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.wd)
+    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.mom, weight_decay=args.wd, nesterov=args.mom > 0)
     lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
         mode='max',
@@ -129,6 +138,14 @@ def add_to_tensor(t: torch.tensor, x: torch.tensor) -> torch.tensor:
 
     return t
 
+def expand_betas_for_conv(betas, dims):
+    """
+    :param betas: betas tensor
+    :param dims: shape of conv kernel. len(dims)=4. for example: [128, 64, 3, 3]
+    :return: tiles betas, in dims shape
+    """
+    return betas.unsqueeze(1).unsqueeze(1).unsqueeze(1).repeat(1, dims[1], dims[2], dims[3])
+
 def weight_decay(outputs):
     """
     :param outputs: net output dictionary
@@ -142,13 +159,9 @@ def weight_decay(outputs):
             betas = outputs[weight_reg_map[name]]
             assert betas.shape[0] == params.size()[0], \
                     "betas dim ({}) size must match params first dim ({})".format(betas.shape[0], params.size()[0])
-            if len (params.shape) == 1:
-                l_reg = add_to_tensor(l_reg, 0.5*torch.sum(betas*(params**2)))
-            else:
-                betas = betas.unsqueeze(1).unsqueeze(1).unsqueeze(1)
-                l_reg = add_to_tensor(l_reg, 0.5*torch.sum(\
-                    betas.repeat([1, params.shape[1], params.shape[2], params.shape[3]])\
-                        *(params**2)))
+            if len(params.size()) != 1:  # its conv layer
+                betas = expand_betas_for_conv(betas, params.shape)
+            l_reg = add_to_tensor(l_reg, 0.5 * (betas*(params**2)).sum())
         else:  # add basic weight norm to regularization
             l_reg = add_to_tensor(l_reg, 0.5 * (params**2).sum())
     l_reg = l_reg * base_wd
