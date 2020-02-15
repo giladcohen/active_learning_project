@@ -23,6 +23,7 @@ from torchsummary import summary
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
+parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/debug', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='200', type=int, help='number of epochs')
@@ -100,7 +101,7 @@ def reset_optim():
     global lr_scheduler
     global best_acc
     best_acc = 0.0
-    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.wd)
+    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.mom, weight_decay=args.wd, nesterov=True)
     lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
         mode='max',
