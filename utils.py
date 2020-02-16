@@ -192,3 +192,10 @@ def calculate_dist_mat_2(A: np.ndarray, B: np.array, norm: int) -> np.ndarray:
     dist_mat = cdist(A, B, metric='minkowski', **kwargs)
     return dist_mat
 
+def boolean_string(s):
+    # to use --use_bn True or --use_bn False in the shell. See:
+    # https://stackoverflow.com/questions/44561722/why-in-argparse-a-true-is-always-true
+    if s not in {'False', 'True'}:
+        raise ValueError('Not a valid boolean string')
+    return s == 'True'
+

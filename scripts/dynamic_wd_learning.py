@@ -20,19 +20,22 @@ from active_learning_project.datasets.train_val_test_data_loaders import get_tes
 from active_learning_project.datasets.selection_methods import select_random, update_inds, SelectionMethodFactory
 from active_learning_project.utils import remove_substr_from_keys
 from torchsummary import summary
+from active_learning_project.utils import boolean_string
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
+parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--checkpoint_dir', default='./checkpoint', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='200', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.00039, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--use_basic_wd', action='store_true', help='use just the regular weight decay wo betas factoring')
+parser.add_argument('--use_bn', default=True, type=boolean_string, help='whether or not to use batch norm')
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
 parser.add_argument('--patience', default=3, type=int, help='LR schedule patience')
 parser.add_argument('--cooldown', default=1, type=int, help='LR cooldown')
 parser.add_argument('--val_size', default=0.05, type=float, help='Fraction of validation size')
-parser.add_argument('--n_workers', default=0, type=float, help='Data loading threads')
+parser.add_argument('--n_workers', default=1, type=int, help='Data loading threads')
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 
@@ -71,7 +74,7 @@ dataset_size = len(trainloader.dataset)
 
 # Model
 print('==> Building model..')
-net = ResNet18()
+net = ResNet18(num_classes=len(classes), use_bn=args.use_bn)
 net = net.to(device)
 summary(net, (3, 32, 32))
 
@@ -100,7 +103,7 @@ def reset_optim():
     global lr_scheduler
     global best_acc
     best_acc = 0.0
-    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.wd)
+    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.mom, weight_decay=0.0, nesterov=args.mom > 0)
     lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
         mode='max',
@@ -127,6 +130,14 @@ def add_to_tensor(t: torch.tensor, x: torch.tensor) -> torch.tensor:
 
     return t
 
+def expand_betas_for_conv(betas, dims):
+    """
+    :param betas: betas tensor
+    :param dims: shape of conv kernel. len(dims)=4. for example: [128, 64, 3, 3]
+    :return: tiles betas, in dims shape
+    """
+    return betas.unsqueeze(1).unsqueeze(1).unsqueeze(1).repeat(1, dims[1], dims[2], dims[3])
+
 def weight_decay(outputs):
     """
     :param outputs: net output dictionary
@@ -136,24 +147,14 @@ def weight_decay(outputs):
     # l_reg = torch.tensor(0.0, requires_grad=True)
     l_reg = None  # setting like this because it will automatically determine if we require grads or not
     for name, params in net.named_parameters():
-        if name in weight_reg_map.keys() and not args.use_basic_wd and 'bn'in name : 
-            betas = outputs[weight_reg_map[name]].unsqueeze(1).unsqueeze(1).unsqueeze(1)
+        if name in weight_reg_map.keys() and not args.use_basic_wd:
+            betas = outputs[weight_reg_map[name]]
             assert betas.shape[0] == params.size()[0], \
-                "betas dim ({}) size must match params first dim ({})".format(betas.shape[0], params.size()[0])
-            l_reg = 0.5*torch.sum(betas)
-        if name in weight_reg_map.keys() and not args.use_basic_wd and 'shortcut' not in name:
-            betas = outputs[weight_reg_map[name]].unsqueeze(1).unsqueeze(1).unsqueeze(1)
-            assert betas.shape[0] == params.size()[0], \
-                "betas dim ({}) size must match params first dim ({})".format(betas.shape[0], params.size()[0])
-            l_reg = 0.5*torch.sum(betas)
-        if name in weight_reg_map.keys() and not args.use_basic_wd and 'bn' not in name and 'shortcut' not in name:
-            betas = outputs[weight_reg_map[name]].unsqueeze(1).unsqueeze(1).unsqueeze(1)
-            assert betas.shape[0] == params.size()[0], \
-                "betas dim ({}) size must match params first dim ({})".format(betas.shape[0], params.size()[0])
-            l_reg = 0.5*torch.sum(\
-                betas.repeat([1, params.shape[1], params.shape[2], params.shape[3]])\
-                    *(params**2))
-        if args.use_basic_wd:  # add basic weight norm to regularization
+                    "betas dim ({}) size must match params first dim ({})".format(betas.shape[0], params.size()[0])
+            if len(params.size()) != 1:  # its conv layer
+                betas = expand_betas_for_conv(betas, params.shape)
+            l_reg = add_to_tensor(l_reg, 0.5 * (betas*(params**2)).sum())
+        else:  # add basic weight norm to regularization
             l_reg = add_to_tensor(l_reg, 0.5 * (params**2).sum())
     l_reg = l_reg * base_wd
 
@@ -171,14 +172,22 @@ def train():
     train_loss = 0
     correct = 0
     total = 0
+    acc_forward_time = 0.0
+    acc_backward_time = 0.0
     for batch_idx, (inputs, targets) in enumerate(trainloader):  # train a single step
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
+        start = time.time()
         outputs = net(inputs)
         loss_ce = criterion(outputs['logits'], targets)
         loss_wd = weight_decay(outputs)
         loss = loss_ce + loss_wd
+        end = time.time()
+        acc_forward_time += (end - start)*(batch_idx > 0)
+        start = time.time()
         loss.backward()
+        end = time.time()
+        acc_backward_time += (end - start)*(batch_idx > 0)
         optimizer.step()
 
         train_loss += loss.item()
@@ -199,6 +208,8 @@ def train():
     train_loss = train_loss / (batch_idx + 1)
     train_acc = (100.0 * correct) / total
     print('Epoch #{} (TRAIN): loss={}\tacc={} ({}/{})'.format(epoch + 1, train_loss, train_acc, correct, total))
+    print('Average forward time over %d steps: %f' %(batch_idx, acc_forward_time / batch_idx))
+    print('Average backward time over %d steps: %f' %(batch_idx, acc_backward_time / batch_idx))
 
     # validation
     net.eval()
@@ -293,6 +304,11 @@ def save_global_state():
     global_state['val_inds'] = val_inds
     torch.save(global_state, CHECKPOINT_PATH)
 
+def flush():
+    trainloader.flush()
+    valloader.flush()
+    test_writer.flush()
+
 if __name__ == "__main__":
     if args.resume:
         # Load checkpoint.
@@ -337,10 +353,8 @@ if __name__ == "__main__":
         if epoch % 10 == 0:
             test()
             save_global_state()
-
     save_global_state()
     reset_net()
     test()  # post test the final best model
-    
-    ###
+    flush()
 

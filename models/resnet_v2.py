@@ -25,17 +25,21 @@ class res_basic(nn.Module):
         self.use_bias = False  # not self.use_bn
 
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=self.use_bias)
-        self.bn1 = nn.BatchNorm2d(planes)
+        if self. use_bn:
+            self.bn1 = nn.BatchNorm2d(planes)
         self.dropout = nn.Dropout(p=dropout_rate)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=self.use_bias)
-        self.bn2 = nn.BatchNorm2d(planes)
+        if self.use_bn:
+            self.bn2 = nn.BatchNorm2d(planes)
 
         self.shortcut = nn.Sequential()
         if stride != 1 or in_planes != planes:
-            self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, planes, kernel_size=1, stride=stride, bias=self.use_bias),
-                nn.BatchNorm2d(planes)
-            )
+            if self.use_bn:
+                self.shortcut = nn.Sequential(
+                    nn.Conv2d(in_planes, planes, kernel_size=1, stride=stride, bias=self.use_bias),
+                    nn.BatchNorm2d(planes))
+            else:
+                self.shortcut = nn.Sequential(nn.Conv2d(in_planes, planes, kernel_size=1, stride=stride, bias=self.use_bias))
 
     def forward(self, x):
         out = self.conv1(x)
@@ -70,17 +74,18 @@ class res_basic(nn.Module):
 
 
 class ResNet18(nn.Module):
-    def __init__(self, num_classes=10):
+    def __init__(self, num_classes=10, use_bn=True):
         super(ResNet18, self).__init__()
         # self.depth = 18
         self.dropout_rate = 0.0
-        self.use_bn = True
+        self.use_bn = use_bn
         self.use_bias = False  # not self.use_bn
 
         self.nStages = [64, 64, 128, 256, 512]
 
         self.conv1 = nn.Conv2d(3, self.nStages[0], kernel_size=3, stride=1, padding=1, bias=self.use_bias)
-        self.bn1 = nn.BatchNorm2d(self.nStages[0])
+        if self.use_bn:
+            self.bn1 = nn.BatchNorm2d(self.nStages[0])
 
         self.layer1_0 = res_basic(self.nStages[0], self.nStages[1], self.dropout_rate, stride=1, use_bn=self.use_bn)
         self.layer1_1 = res_basic(self.nStages[1], self.nStages[1], self.dropout_rate, stride=1, use_bn=self.use_bn)
