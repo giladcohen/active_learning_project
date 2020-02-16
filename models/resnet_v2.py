@@ -2,9 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-def conv3x3(in_planes, out_planes, stride=1, bias=False):
-    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=bias)
-
 def to_1d(x):
     return x.view(x.size(0), -1)
 
@@ -74,12 +71,13 @@ class res_basic(nn.Module):
 
 
 class ResNet18(nn.Module):
-    def __init__(self, num_classes=10, use_bn=True):
+    def __init__(self, num_classes=10, use_bn=True, return_logits_only=False):
         super(ResNet18, self).__init__()
         # self.depth = 18
         self.dropout_rate = 0.0
         self.use_bn = use_bn
         self.use_bias = False  # not self.use_bn
+        self.return_logits_only = return_logits_only
 
         self.nStages = [64, 64, 128, 256, 512]
 
@@ -127,6 +125,7 @@ class ResNet18(nn.Module):
 
     def forward(self, x):
         net = {}
+        net['images'] = x
 
         out = self.conv1(x)
         if self.use_bn:
@@ -183,5 +182,7 @@ class ResNet18(nn.Module):
         out = self.linear(out)
         net['logits'] = out
 
-        return net
-
+        if self.return_logits_only:
+            return net['logits']
+        else:
+            return net
