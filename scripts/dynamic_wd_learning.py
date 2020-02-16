@@ -20,13 +20,7 @@ from active_learning_project.datasets.train_val_test_data_loaders import get_tes
 from active_learning_project.datasets.selection_methods import select_random, update_inds, SelectionMethodFactory
 from active_learning_project.utils import remove_substr_from_keys
 from torchsummary import summary
-
-def boolean_string(s):
-    # to use --use_bn True or --use_bn False in the shell. See:
-    # https://stackoverflow.com/questions/44561722/why-in-argparse-a-true-is-always-true
-    if s not in {'False', 'True'}:
-        raise ValueError('Not a valid boolean string')
-    return s == 'True'
+from active_learning_project.utils import boolean_string
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -111,7 +105,7 @@ def reset_optim():
     global avg_forward_time
     global avg_backward_time
     best_acc = 0.0
-    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.mom, weight_decay=args.wd, nesterov=args.mom > 0)
+    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.mom, weight_decay=0.0, nesterov=args.mom > 0)
     lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
         mode='max',
@@ -316,6 +310,11 @@ def save_global_state():
     global_state['val_inds'] = val_inds
     torch.save(global_state, CHECKPOINT_PATH)
 
+def flush():
+    trainloader.flush()
+    valloader.flush()
+    test_writer.flush()
+
 if __name__ == "__main__":
     if args.resume:
         # Load checkpoint.
@@ -371,6 +370,5 @@ if __name__ == "__main__":
     save_global_state()
     reset_net()
     test()  # post test the final best model
-    
-    ###
+    flush()
 
