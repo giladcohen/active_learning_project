@@ -26,7 +26,7 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
-parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/debug', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='./checkpoint', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='200', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.00039, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--use_basic_wd', action='store_true', help='use just the regular weight decay wo betas factoring')
@@ -42,7 +42,7 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 args = parser.parse_args()
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-DATA_ROOT = '/data/dataset/cifar10'
+DATA_ROOT = './cifar10'
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 
 rand_gen = np.random.RandomState(int(time.time()))
@@ -102,8 +102,6 @@ def reset_optim():
     global optimizer
     global lr_scheduler
     global best_acc
-    global avg_forward_time
-    global avg_backward_time
     best_acc = 0.0
     optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.mom, weight_decay=0.0, nesterov=args.mom > 0)
     lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
@@ -169,8 +167,6 @@ def train():
     global global_state
     global global_step
     global epoch
-    global avg_forward_time
-    global avg_backward_time
 
     net.train()
     train_loss = 0
@@ -183,11 +179,11 @@ def train():
         optimizer.zero_grad()
         start = time.time()
         outputs = net(inputs)
-        end = time.time()
-        acc_forward_time += (end - start)*(batch_idx > 0)
         loss_ce = criterion(outputs['logits'], targets)
         loss_wd = weight_decay(outputs)
         loss = loss_ce + loss_wd
+        end = time.time()
+        acc_forward_time += (end - start)*(batch_idx > 0)
         start = time.time()
         loss.backward()
         end = time.time()
@@ -210,8 +206,6 @@ def train():
         global_step += 1
 
     train_loss = train_loss / (batch_idx + 1)
-    avg_forward_time += acc_forward_time / batch_idx
-    avg_backward_time += acc_backward_time / batch_idx
     train_acc = (100.0 * correct) / total
     print('Epoch #{} (TRAIN): loss={}\tacc={} ({}/{})'.format(epoch + 1, train_loss, train_acc, correct, total))
     print('Average forward time over %d steps: %f' %(batch_idx, acc_forward_time / batch_idx))
@@ -332,8 +326,6 @@ if __name__ == "__main__":
         global_step    = checkpoint['global_step']
         train_inds     = checkpoint['train_inds']
         val_inds       = checkpoint['val_inds']
-        avg_forward_time = 0.0
-        avg_backward_time = 0.0
 
         global_state = checkpoint
     else:
@@ -343,8 +335,6 @@ if __name__ == "__main__":
         global_step    = 0
         train_inds     = []
         val_inds       = []
-        avg_forward_time = 0.0
-        avg_backward_time = 0.0
 
         global_state = {}
 
@@ -363,10 +353,6 @@ if __name__ == "__main__":
         if epoch % 10 == 0:
             test()
             save_global_state()
-    avg_forward_time = avg_forward_time / args.epochs
-    avg_backward_time = avg_backward_time / args.epochs
-    print('Average forward time over %d epochs: %f' %(args.epochs, avg_forward_time))
-    print('Average backward time over %d epochs: %f' %(args.epochs, avg_backward_time))
     save_global_state()
     reset_net()
     test()  # post test the final best model
