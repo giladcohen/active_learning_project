@@ -183,9 +183,9 @@ if __name__ == "__main__":
     X_test_adv_normalized = np.zeros((test_size, 32, 32, 3))
     for i in range(test_size):
         tmp = inv_normalize(torch.tensor(X_test[i])).cpu().numpy()
-        X_test_normalized[i] = np.swapaxes(tmp, 2, 0)
+        X_test_normalized[i] = np.swapaxes(np.swapaxes(tmp, 0, 1), 1, 2)
         tmp = inv_normalize(torch.tensor(X_test_adv[i])).cpu().numpy()
-        X_test_adv_normalized[i] = np.swapaxes(tmp, 2, 0)
+        X_test_adv_normalized[i] = np.swapaxes(np.swapaxes(tmp, 0, 1), 1, 2)
 
     X_test_normalized_img     = (np.round(X_test_normalized * 255.0)).astype(np.int)
     X_test_adv_normalized_img = (np.round(X_test_adv_normalized * 255.0)).astype(np.int)
