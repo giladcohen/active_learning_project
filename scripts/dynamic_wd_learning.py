@@ -17,7 +17,6 @@ sys.path.insert(0, ".")
 
 from active_learning_project.models.resnet_v2 import ResNet18
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader
-from active_learning_project.datasets.selection_methods import select_random, update_inds, SelectionMethodFactory
 from active_learning_project.utils import remove_substr_from_keys
 from torchsummary import summary
 from active_learning_project.utils import boolean_string
