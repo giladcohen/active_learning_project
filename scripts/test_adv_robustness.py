@@ -25,7 +25,7 @@ from torchvision import transforms
 
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/simple_wd_0.00039_mom_0.9_160220', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/160220/simple_wd_0.00039_mom_0.9_160220', type=str, help='checkpoint dir')
 parser.add_argument('--attack', default='fgsm', type=str, help='checkpoint dir')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use trageted attack')
 
@@ -159,6 +159,18 @@ if __name__ == "__main__":
     adv_accuracy = np.sum(test_adv_preds == y_test) / test_size
     print('Accuracy on adversarial test examples: {}%'.format(adv_accuracy * 100))
 
+    # calculate attack rate
+    info = {}
+    for i in range(test_size):
+        info[i] = {}
+        info[i]['net_succ']    = test_preds[i] == y_test[i]
+        info[i]['attack_succ'] = test_preds[i] != test_adv_preds[i]
+
+    net_succ_indices             = [ind for ind in info if info[ind]['net_succ']]
+    net_succ_attack_succ_indices = [ind for ind in info if info[ind]['net_succ'] and info[ind]['attack_succ']]
+    test_attack_rate = len(net_succ_attack_succ_indices) / len(net_succ_indices)
+    print('adversarial ({}) test attack rate: {}'.format(args.attack, test_attack_rate * 100))
+
     # view X_adv
     # np.save(os.path.join(ATTACK_DIR, 'X_test_adv_eps_0.6_step_0.3.npy'), X_test_adv)
     # unorm = UnNormalize(mean=(0.4914, 0.4822, 0.4465), std=(0.2023, 0.1994, 0.2010))
@@ -179,3 +191,4 @@ if __name__ == "__main__":
     X_test_adv_normalized_img = (np.round(X_test_adv_normalized * 255.0)).astype(np.int)
     # np.save(os.path.join(ATTACK_DIR, 'X_test_img.npy'), X_test_normalized_img)
     np.save(os.path.join(ATTACK_DIR, 'X_test_adv_img.npy_eps_0.3_step_0.1'), X_test_adv_normalized_img)
+
