@@ -304,8 +304,8 @@ def save_global_state():
     torch.save(global_state, CHECKPOINT_PATH)
 
 def flush():
-    trainloader.flush()
-    valloader.flush()
+    train_writer.flush()
+    val_writer.flush()
     test_writer.flush()
 
 if __name__ == "__main__":
