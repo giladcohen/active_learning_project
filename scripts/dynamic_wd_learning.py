@@ -44,7 +44,7 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 args = parser.parse_args()
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-DATA_ROOT = './cifar10'
+DATA_ROOT = '/data/dataset/cifar10'
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 
 rand_gen = np.random.RandomState(int(time.time()))
@@ -141,10 +141,16 @@ def add_to_tensor(t: torch.tensor, x: torch.tensor) -> torch.tensor:
 def expand_betas_for_conv(betas, dims):
     """
     :param betas: betas tensor
-    :param dims: shape of conv kernel. len(dims)=4. for example: [128, 64, 3, 3]
+    :param dims: shape of conv kernel. for conv: len(dims)=4. for example: [128, 64, 3, 3]
     :return: tiles betas, in dims shape
     """
-    return betas.unsqueeze(1).unsqueeze(1).unsqueeze(1).repeat(1, dims[1], dims[2], dims[3])
+    if len(dims) == 2: # fully connected
+        ret = betas.unsqueeze(1).repeat(1, dims[1])
+    elif len(dims) == 4: # conv
+        ret = betas.unsqueeze(1).unsqueeze(1).unsqueeze(1).repeat(1, dims[1], dims[2], dims[3])
+    else:
+        raise AssertionError("len(dims) must be 2 or 4, but got: {}".format(len(dims)))
+    return ret
 
 def weight_decay(outputs):
     """
@@ -159,7 +165,7 @@ def weight_decay(outputs):
             betas = outputs[weight_reg_map[name]]
             assert betas.shape[0] == params.size()[0], \
                     "betas dim ({}) size must match params first dim ({})".format(betas.shape[0], params.size()[0])
-            if len(params.size()) != 1:  # its conv layer
+            if len(params.size()) > 1:  # its conv layer or linear. needs to unsqueeze()
                 betas = expand_betas_for_conv(betas, params.shape)
             l_reg = add_to_tensor(l_reg, 0.5 * (betas*(params**2)).sum())
         else:  # add basic weight norm to regularization

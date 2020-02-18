@@ -10,8 +10,8 @@ def activation_ratio(x):
     :param x: feature map. tensor of size: [batch, feature_map_size, num_pix, num_pix], where num_pix=32/16/8/4
     :return: activation ratio per 2D conv kernel. size to return value: [batch, feature_map_size]
     """
-    batch_size = x.size()[0]
-    spatial_size = x.size()[2] * x.size()[3]
+    batch_size = x.size(0)
+    spatial_size = x.size(2) * x.size(3)
     activated_sum = x.sign().sum(dim=(0, 2, 3))
     return activated_sum / (batch_size * spatial_size)
 
