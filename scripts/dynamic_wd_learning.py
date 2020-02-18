@@ -16,6 +16,7 @@ import sys
 sys.path.insert(0, ".")
 
 from active_learning_project.models.resnet_v2 import ResNet18
+from active_learning_project.models.jakubovitznet import JakubovitzNet
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader
 from active_learning_project.utils import remove_substr_from_keys
 from torchsummary import summary
@@ -25,6 +26,7 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
+parser.add_argument('--net', default='jaku', type=str, help='network architecture')
 parser.add_argument('--checkpoint_dir', default='./checkpoint', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='200', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.00039, type=float, help='weight decay')  # was 5e-4 for batch_size=128
@@ -35,6 +37,7 @@ parser.add_argument('--patience', default=3, type=int, help='LR schedule patienc
 parser.add_argument('--cooldown', default=1, type=int, help='LR cooldown')
 parser.add_argument('--val_size', default=0.05, type=float, help='Fraction of validation size')
 parser.add_argument('--n_workers', default=1, type=int, help='Data loading threads')
+
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 
@@ -73,7 +76,13 @@ dataset_size = len(trainloader.dataset)
 
 # Model
 print('==> Building model..')
-net = ResNet18(num_classes=len(classes), use_bn=args.use_bn)
+if args.net == 'jaku':
+    net = JakubovitzNet(num_classes=len(classes))
+elif args.net == 'resnet':
+    net = ResNet18(num_classes=len(classes), use_bn=args.use_bn)
+else:
+    raise AssertionError("network {} is unknown".format(args.net))
+
 net = net.to(device)
 summary(net, (3, 32, 32))
 
