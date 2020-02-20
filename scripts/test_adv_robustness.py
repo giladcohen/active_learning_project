@@ -14,6 +14,7 @@ import sys
 sys.path.insert(0, ".")
 
 from active_learning_project.models.resnet_v2 import ResNet18
+from active_learning_project.models.jakubovitznet import JakubovitzNet
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
     get_loader_with_specific_inds
 from torchsummary import summary
@@ -26,6 +27,7 @@ from torchvision import transforms
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/160220/simple_wd_0.00039_mom_0.9_160220', type=str, help='checkpoint dir')
+parser.add_argument('--net', default='jaku', type=str, help='network architecture')
 parser.add_argument('--attack', default='fgsm', type=str, help='checkpoint dir')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use trageted attack')
 
@@ -82,14 +84,18 @@ test_size  = len(testloader.dataset)
 # Model
 print('==> Building model..')
 use_bn = (train_args.get('use_bn') == True)
-net = ResNet18(num_classes=len(classes), use_bn=use_bn, return_logits_only=True)
+if args.net == 'jaku':
+    net = JakubovitzNet(num_classes=len(classes), return_logits_only=True)
+elif args.net == 'resnet':
+    net = ResNet18(num_classes=len(classes), use_bn=args.use_bn, return_logits_only=True)
+else:
+    raise AssertionError("network {} is unknown".format(args.net))
 net = net.to(device)
 
 # summary(net, (3, 32, 32))
 if device == 'cuda':
     # net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
-# net.load_state_dict(global_state['best_net'])
 net.load_state_dict(global_state['best_net'])
 
 criterion = nn.CrossEntropyLoss()
@@ -190,5 +196,4 @@ if __name__ == "__main__":
     X_test_normalized_img     = (np.round(X_test_normalized * 255.0)).astype(np.int)
     X_test_adv_normalized_img = (np.round(X_test_adv_normalized * 255.0)).astype(np.int)
     # np.save(os.path.join(ATTACK_DIR, 'X_test_img.npy'), X_test_normalized_img)
-    np.save(os.path.join(ATTACK_DIR, 'X_test_adv_img.npy_eps_0.3_step_0.1'), X_test_adv_normalized_img)
-
+    np.save(os.path.join(ATTACK_DIR, 'X_test_adv_img_eps_0.3_step_0.1.npy'), X_test_adv_normalized_img)
