@@ -46,22 +46,16 @@ class JakubovitzNet(nn.Module):
         net['images'] = x
 
         out = F.relu(self.conv1(x))
-        with torch.no_grad():
-            net['num_act1'] = activation_ratio(out)
+        net['num_act1'] = out
 
         out = F.max_pool2d(out, 2)
         out = F.relu(self.conv2(out))
-        with torch.no_grad():
-            net['num_act2'] = activation_ratio(out)
+        net['num_act2'] = out
 
         out = F.max_pool2d(out, 2)
         out = to_1d(out)
         out = F.relu(self.linear1(out))
-        with torch.no_grad():
-            net['num_act3'] = activation_ratio(out)
-
-        with torch.no_grad():
-            net['embeddings'] = out
+        net['num_act3'] = out
 
         out = self.dropout(out)
         out = self.linear2(out)
