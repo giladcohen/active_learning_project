@@ -37,6 +37,7 @@ parser.add_argument('--patience', default=3, type=int, help='LR schedule patienc
 parser.add_argument('--cooldown', default=1, type=int, help='LR cooldown')
 parser.add_argument('--val_size', default=0.05, type=float, help='Fraction of validation size')
 parser.add_argument('--n_workers', default=1, type=int, help='Data loading threads')
+parser.add_argument('--sparse_act', default=False, type=boolean_string, help = 'use sparse activation regularizer (L1 + L2)')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -174,6 +175,20 @@ def weight_decay(outputs):
 
     return l_reg
 
+def sparse_activation(outputs):
+    l_sparse = 0
+    if(args.sparse_activation):
+        for name, params in net.named_parameters():
+            if  'act' in name :
+                act_out = outputs[name]
+                l_1 = torch.mean(torch.abs(act_out))**2
+                l_2 = torch.mean(act_out**2)
+                l_sparse = add_to_tensor(l_sparse, l_1 + l_2)                                  
+
+    return l_sparse
+
+
+
 def train():
     """Train and validate"""
     # Training
@@ -195,7 +210,8 @@ def train():
         outputs = net(inputs)
         loss_ce = criterion(outputs['logits'], targets)
         loss_wd = weight_decay(outputs)
-        loss = loss_ce + loss_wd
+        loss_sprse_act = sparse_activation(outputs)
+        loss = loss_ce + loss_wd + loss_sprse_act
         end = time.time()
         acc_forward_time += (end - start)*(batch_idx > 0)
         start = time.time()
