@@ -204,8 +204,8 @@ def train():
     train_loss = train_loss / (batch_idx + 1)
     train_acc = (100.0 * correct) / total
     print('Epoch #{} (TRAIN): loss={}\tacc={} ({}/{})'.format(epoch + 1, train_loss, train_acc, correct, total))
-    # print('Average forward time over %d steps: %f' %(batch_idx, acc_forward_time / batch_idx))
-    # print('Average backward time over %d steps: %f' %(batch_idx, acc_backward_time / batch_idx))
+    print('Average forward time over %d steps: %f' %(batch_idx, acc_forward_time / batch_idx))
+    print('Average backward time over %d steps: %f' %(batch_idx, acc_backward_time / batch_idx))
 
     # validation
     net.eval()
