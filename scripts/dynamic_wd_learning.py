@@ -132,7 +132,7 @@ def activation_decay(outputs):
     if args.ad == 0.0:
         return torch.tensor(0.0)
 
-    base_ad = torch.tensor(args.wd)
+    base_ad = torch.tensor(args.ad)
     # l_reg = torch.tensor(0.0, requires_grad=True)
     l_reg = None  # setting like this because it will automatically determine if we require grads or not
     for key, val in outputs.items():
