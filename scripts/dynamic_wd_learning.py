@@ -26,11 +26,11 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.0, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
-parser.add_argument('--net', default='jaku', type=str, help='network architecture')
-parser.add_argument('--checkpoint_dir', default='./checkpoint', type=str, help='checkpoint dir')
-parser.add_argument('--epochs', default='250', type=int, help='number of epochs')
+parser.add_argument('--net', default='resnet', type=str, help='network architecture')
+parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/debug', type=str, help='checkpoint dir')
+parser.add_argument('--epochs', default='300', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.00039, type=float, help='weight decay')  # was 5e-4 for batch_size=128
-parser.add_argument('--use_basic_wd', action='store_true', help='use just the regular weight decay wo betas factoring')
+parser.add_argument('--ad', default=0.0, type=float, help='activation decay')
 parser.add_argument('--use_bn', default=True, type=boolean_string, help='whether or not to use batch norm')
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
 parser.add_argument('--patience', default=3, type=int, help='LR schedule patience')
@@ -86,20 +86,6 @@ else:
 net = net.to(device)
 summary(net, (3, 32, 32))
 
-def inverse_map(x: dict) -> dict:
-    """
-    :param x: dictionary listing for each key (relu activation) the relevant weight which are its input
-    :return: inverse mapping, showing for each weight param what "num_act" key to consider
-    """
-    inv_map = {}
-    for k, v in x.items():
-        for w in v:
-            inv_map[w] = k
-    return inv_map
-
-
-weight_reg_map = inverse_map(net.weight_reg_dict)
-
 if device == 'cuda':
     # net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
@@ -138,40 +124,34 @@ def add_to_tensor(t: torch.tensor, x: torch.tensor) -> torch.tensor:
 
     return t
 
-def expand_betas_for_conv(betas, dims):
-    """
-    :param betas: betas tensor
-    :param dims: shape of conv kernel. for conv: len(dims)=4. for example: [128, 64, 3, 3]
-    :return: tiles betas, in dims shape
-    """
-    if len(dims) == 2: # fully connected
-        ret = betas.unsqueeze(1).repeat(1, dims[1])
-    elif len(dims) == 4: # conv
-        ret = betas.unsqueeze(1).unsqueeze(1).unsqueeze(1).repeat(1, dims[1], dims[2], dims[3])
-    else:
-        raise AssertionError("len(dims) must be 2 or 4, but got: {}".format(len(dims)))
-    return ret
-
-def weight_decay(outputs):
+def activation_decay(outputs):
     """
     :param outputs: net output dictionary
+    :return: scalar differentiable tensor, weight decay multiplied by ratio of activations.
+    """
+    if args.ad == 0.0:
+        return torch.tensor(0.0)
+
+    base_ad = torch.tensor(args.wd)
+    # l_reg = torch.tensor(0.0, requires_grad=True)
+    l_reg = None  # setting like this because it will automatically determine if we require grads or not
+    for key, val in outputs.items():
+        if 'num_act' in key:
+            l_reg = add_to_tensor(l_reg, val)
+    l_reg = l_reg * base_ad
+    return l_reg
+
+def weight_decay(net):
+    """
+    :param net: network
     :return: scalar differentiable tensor, weight decay multiplied by ratio of activations.
     """
     base_wd = torch.tensor(args.wd)
     # l_reg = torch.tensor(0.0, requires_grad=True)
     l_reg = None  # setting like this because it will automatically determine if we require grads or not
     for name, params in net.named_parameters():
-        if name in weight_reg_map.keys() and not args.use_basic_wd:
-            betas = outputs[weight_reg_map[name]]
-            assert betas.shape[0] == params.size()[0], \
-                    "betas dim ({}) size must match params first dim ({})".format(betas.shape[0], params.size()[0])
-            if len(params.size()) > 1:  # its conv layer or linear. needs to unsqueeze()
-                betas = expand_betas_for_conv(betas, params.shape)
-            l_reg = add_to_tensor(l_reg, 0.5 * (betas*(params**2)).sum())
-        else:  # add basic weight norm to regularization
-            l_reg = add_to_tensor(l_reg, 0.5 * (params**2).sum())
+        l_reg = add_to_tensor(l_reg, 0.5 * (params**2).sum())
     l_reg = l_reg * base_wd
-
     return l_reg
 
 def train():
@@ -194,8 +174,9 @@ def train():
         start = time.time()
         outputs = net(inputs)
         loss_ce = criterion(outputs['logits'], targets)
-        loss_wd = weight_decay(outputs)
-        loss = loss_ce + loss_wd
+        loss_wd = weight_decay(net)
+        loss_ad = activation_decay(outputs)
+        loss = loss_ce + loss_wd + loss_ad
         end = time.time()
         acc_forward_time += (end - start)*(batch_idx > 0)
         start = time.time()
@@ -214,6 +195,7 @@ def train():
             train_writer.add_scalar('loss',    loss,    global_step)
             train_writer.add_scalar('loss_ce', loss_ce, global_step)
             train_writer.add_scalar('loss_wd', loss_wd, global_step)
+            train_writer.add_scalar('loss_ad', loss_ad, global_step)
             train_writer.add_scalar('acc', (100.0 * correct)/total, global_step)
             train_writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], global_step)
 
@@ -222,14 +204,15 @@ def train():
     train_loss = train_loss / (batch_idx + 1)
     train_acc = (100.0 * correct) / total
     print('Epoch #{} (TRAIN): loss={}\tacc={} ({}/{})'.format(epoch + 1, train_loss, train_acc, correct, total))
-    print('Average forward time over %d steps: %f' %(batch_idx, acc_forward_time / batch_idx))
-    print('Average backward time over %d steps: %f' %(batch_idx, acc_backward_time / batch_idx))
+    # print('Average forward time over %d steps: %f' %(batch_idx, acc_forward_time / batch_idx))
+    # print('Average backward time over %d steps: %f' %(batch_idx, acc_backward_time / batch_idx))
 
     # validation
     net.eval()
     val_loss = 0
     val_loss_ce = 0
     val_loss_wd = 0
+    val_loss_ad = 0
     correct = 0
     total = 0
     with torch.no_grad():
@@ -237,12 +220,14 @@ def train():
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = net(inputs)
             loss_ce = criterion(outputs['logits'], targets)
-            loss_wd = weight_decay(outputs)
-            loss = loss_ce + loss_wd
+            loss_wd = weight_decay(net)
+            loss_ad = activation_decay(outputs)
+            loss = loss_ce + loss_wd + loss_ad
 
             val_loss    += loss.item()
             val_loss_ce += loss_ce.item()
             val_loss_wd += loss_wd.item()
+            val_loss_ad += loss_ad.item()
 
             _, predicted = outputs['logits'].max(1)
             total += targets.size(0)
@@ -251,11 +236,13 @@ def train():
     val_loss    = val_loss / (batch_idx + 1)
     val_loss_ce = val_loss_ce / (batch_idx + 1)
     val_loss_wd = val_loss_wd / (batch_idx + 1)
+    val_loss_ad = val_loss_ad / (batch_idx + 1)
     val_acc = (100.0 * correct) / total
 
     val_writer.add_scalar('loss',    val_loss,    global_step)
     val_writer.add_scalar('loss_ce', val_loss_ce, global_step)
     val_writer.add_scalar('loss_wd', val_loss_wd, global_step)
+    val_writer.add_scalar('loss_ad', val_loss_ad, global_step)
     val_writer.add_scalar('acc',     val_acc,     global_step)
 
     if val_acc > best_acc:
@@ -282,18 +269,21 @@ def test():
         test_loss = 0
         test_loss_ce = 0
         test_loss_wd = 0
+        test_loss_ad = 0
         correct = 0
         total = 0
         for batch_idx, (inputs, targets) in enumerate(testloader):
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = net(inputs)
             loss_ce = criterion(outputs['logits'], targets)
-            loss_wd = weight_decay(outputs)
-            loss = loss_ce + loss_wd
+            loss_wd = weight_decay(net)
+            loss_ad = activation_decay(outputs)
+            loss = loss_ce + loss_wd + loss_ad
 
             test_loss    += loss.item()
             test_loss_ce += loss_ce.item()
             test_loss_wd += loss_wd.item()
+            test_loss_ad += loss_ad.item()
 
             _, predicted = outputs['logits'].max(1)
             total += targets.size(0)
@@ -302,11 +292,13 @@ def test():
         test_loss    = test_loss / (batch_idx + 1)
         test_loss_ce = test_loss_ce / (batch_idx + 1)
         test_loss_wd = test_loss_wd / (batch_idx + 1)
+        test_loss_ad = test_loss_ad / (batch_idx + 1)
         test_acc = (100.0 * correct) / total
 
         test_writer.add_scalar('loss',    test_loss,    global_step)
         test_writer.add_scalar('loss_ce', test_loss_ce, global_step)
         test_writer.add_scalar('loss_wd', test_loss_wd, global_step)
+        test_writer.add_scalar('loss_ad', test_loss_ad, global_step)
         test_writer.add_scalar('acc',     test_acc,     global_step)
         print('Epoch #{} (TEST): loss={}\tacc={} ({}/{})'.format(epoch + 1, test_loss, test_acc, correct, total))
 
@@ -371,4 +363,3 @@ if __name__ == "__main__":
     reset_net()
     test()  # post test the final best model
     flush()
-

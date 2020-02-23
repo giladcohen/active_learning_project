@@ -1,19 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-def to_1d(x):
-    return x.view(x.size(0), -1)
-
-def activation_ratio(x):
-    """
-    :param x: feature map. tensor of size: [batch, feature_map_size, num_pix, num_pix], where num_pix=32/16/8/4
-    :return: activation ratio per 2D conv kernel. size to return value: [batch, feature_map_size]
-    """
-    batch_size = x.size(0)
-    spatial_size = x.size(2) * x.size(3)
-    activated_sum = x.sign().sum(dim=(0, 2, 3))
-    return activated_sum / (batch_size * spatial_size)
+from active_learning_project.utils import to_1d, activation_batch_ratio
 
 class res_basic(nn.Module):
     def __init__(self, in_planes, planes, dropout_rate, stride=1, use_bn=True):
@@ -131,49 +119,49 @@ class ResNet18(nn.Module):
         if self.use_bn:
             out = self.bn1(out)
         out = F.relu(out)
-        with torch.no_grad():
-            net['num_act1'] = activation_ratio(out)
+        # with torch.no_grad():
+        net['num_act1'] = activation_batch_ratio(out)
 
         relu_out, out = self.layer1_0(out)
-        with torch.no_grad():
-            net['num_act2'] = activation_ratio(relu_out)
-            net['num_act3'] = activation_ratio(out)
+        # with torch.no_grad():
+        net['num_act2'] = activation_batch_ratio(relu_out)
+        net['num_act3'] = activation_batch_ratio(out)
 
         relu_out, out = self.layer1_1(out)
-        with torch.no_grad():
-            net['num_act4'] = activation_ratio(relu_out)
-            net['num_act5'] = activation_ratio(out)
+        # with torch.no_grad():
+        net['num_act4'] = activation_batch_ratio(relu_out)
+        net['num_act5'] = activation_batch_ratio(out)
 
         relu_out, out = self.layer2_0(out)
-        with torch.no_grad():
-            net['num_act6'] = activation_ratio(relu_out)
-            net['num_act7'] = activation_ratio(out)
+        # with torch.no_grad():
+        net['num_act6'] = activation_batch_ratio(relu_out)
+        net['num_act7'] = activation_batch_ratio(out)
 
         relu_out, out = self.layer2_1(out)
-        with torch.no_grad():
-            net['num_act8'] = activation_ratio(relu_out)
-            net['num_act9'] = activation_ratio(out)
+        # with torch.no_grad():
+        net['num_act8'] = activation_batch_ratio(relu_out)
+        net['num_act9'] = activation_batch_ratio(out)
 
         relu_out, out = self.layer3_0(out)
-        with torch.no_grad():
-            net['num_act10'] = activation_ratio(relu_out)
-            net['num_act11'] = activation_ratio(out)
+        # with torch.no_grad():
+        net['num_act10'] = activation_batch_ratio(relu_out)
+        net['num_act11'] = activation_batch_ratio(out)
 
         relu_out, out = self.layer3_1(out)
 
-        with torch.no_grad():
-            net['num_act12'] = activation_ratio(relu_out)
-            net['num_act13'] = activation_ratio(out)
+        # with torch.no_grad():
+        net['num_act12'] = activation_batch_ratio(relu_out)
+        net['num_act13'] = activation_batch_ratio(out)
 
         relu_out, out = self.layer4_0(out)
-        with torch.no_grad():
-            net['num_act14'] = activation_ratio(relu_out)
-            net['num_act15'] = activation_ratio(out)
+        # with torch.no_grad():
+        net['num_act14'] = activation_batch_ratio(relu_out)
+        net['num_act15'] = activation_batch_ratio(out)
 
         relu_out, out = self.layer4_1(out)
-        with torch.no_grad():
-            net['num_act16'] = activation_ratio(relu_out)
-            net['num_act17'] = activation_ratio(out)
+        # with torch.no_grad():
+        net['num_act16'] = activation_batch_ratio(relu_out)
+        net['num_act17'] = activation_batch_ratio(out)
 
         out = F.avg_pool2d(out, 4)
         out = to_1d(out)

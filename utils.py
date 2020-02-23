@@ -198,3 +198,33 @@ def boolean_string(s):
     if s not in {'False', 'True'}:
         raise ValueError('Not a valid boolean string')
     return s == 'True'
+
+
+# network funcs
+def to_1d(x):
+    return x.view(x.size(0), -1)
+
+def activation_ratio(x):
+    """
+    :param x: feature map. tensor of size: [batch, feature_map_size, num_pix, num_pix], where num_pix=32/16/8/4
+    :return: activation ratio per 2D conv kernel. size to return value: [batch, feature_map_size]
+    """
+    batch_size = x.size(0)
+    is_1d = len(x.size()) == 2
+    if is_1d:
+        spatial_size = 1
+        dim = 0
+    else:
+        spatial_size = x.size(2) * x.size(3)
+        dim = (0, 2, 3)
+    activated_sum = x.sign().sum(dim=dim)
+    return activated_sum / (batch_size * spatial_size)
+
+def activation_batch_ratio(x):
+    """
+    :param x: feature map. tensor of size: [batch, feature_map_size, num_pix, num_pix], where num_pix=32/16/8/4
+    :return: activation ratio averaged on the batch, for every pixel. size to return value: [batch, feature_map_size]
+    """
+    batch_size = x.size(0)
+    activated_sum = x.sign().sum()
+    return activated_sum / batch_size

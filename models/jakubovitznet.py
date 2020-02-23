@@ -2,25 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-def to_1d(x):
-    return x.view(x.size(0), -1)
-
-def activation_ratio(x):
-    """
-    :param x: feature map. tensor of size: [batch, feature_map_size, num_pix, num_pix], where num_pix=32/16/8/4
-    :return: activation ratio per 2D conv kernel. size to return value: [batch, feature_map_size]
-    """
-    batch_size = x.size(0)
-    is_1d = len(x.size()) == 2
-    if is_1d:
-        spatial_size = 1
-        dim = 0
-    else:
-        spatial_size = x.size(2) * x.size(3)
-        dim = (0, 2, 3)
-    activated_sum = x.sign().sum(dim=dim)
-    return activated_sum / (batch_size * spatial_size)
+from active_learning_project.utils import to_1d, activation_ratio
 
 class JakubovitzNet(nn.Module):
     def __init__(self, num_classes=10, return_logits_only=False):
