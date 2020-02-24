@@ -179,17 +179,17 @@ def sparse_activation(outputs):
     l_sparse = 0
     err_sparse = 0
     N = 0
-    for name, params in net.named_parameters():
-        if  'act' in name :
+    for name in outputs:
+        if  'act' in  name:
             N += 1
-            act_out = params[name]
+            act_out = outputs[name]
             if(args.sparse_act > 0.0):
                 l_1 = torch.mean(torch.abs(act_out))**2
                 l_2 = torch.mean(act_out**2)
                 l_sparse = add_to_tensor(l_sparse, l_1 + l_2)                                  
             with torch.no_grad():
                 err_sparse += torch.mean( act_out != 0)/act_out.numel()
-    if(N == 0):
+    if(args.sparse_act == 0):
         N = 1
     return args.sparse_act * l_sparse, err_sparse/N
 
