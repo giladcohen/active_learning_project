@@ -37,7 +37,7 @@ parser.add_argument('--patience', default=3, type=int, help='LR schedule patienc
 parser.add_argument('--cooldown', default=1, type=int, help='LR cooldown')
 parser.add_argument('--val_size', default=0.05, type=float, help='Fraction of validation size')
 parser.add_argument('--n_workers', default=1, type=int, help='Data loading threads')
-parser.add_argument('--sparse_act', default=0, type=int, help = 'use sparse activation regularizer (L1 + L2)')
+parser.add_argument('--sparse_act', default=0, type=float, help = 'use sparse activation regularizer (L1 + L2)')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', action='store_true', help='to bypass pycharm bug')
