@@ -37,7 +37,7 @@ parser.add_argument('--patience', default=3, type=int, help='LR schedule patienc
 parser.add_argument('--cooldown', default=1, type=int, help='LR cooldown')
 parser.add_argument('--val_size', default=0.05, type=float, help='Fraction of validation size')
 parser.add_argument('--n_workers', default=1, type=int, help='Data loading threads')
-parser.add_argument('--sparse_act', default='store_true', help = 'use sparse activation regularizer (L1 + L2)')
+parser.add_argument('--sparse_act', default=0, type=int, help = 'use sparse activation regularizer (L1 + L2)')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', action='store_true', help='to bypass pycharm bug')
@@ -177,15 +177,20 @@ def weight_decay(outputs):
 
 def sparse_activation(outputs):
     l_sparse = 0
-    if(args.sparse_act):
-        for name, params in net.named_parameters():
-            if  'act' in name :
-                act_out = params[name]
+    err_sparse = 0
+    N = 0
+    for name, params in net.named_parameters():
+        if  'act' in name :
+            N += 1
+            act_out = params[name]
+            if(args.sparse_act > 0):
                 l_1 = torch.mean(torch.abs(act_out))**2
                 l_2 = torch.mean(act_out**2)
                 l_sparse = add_to_tensor(l_sparse, l_1 + l_2)                                  
+            with torch.no_grad():
+                err_sparse += torch.mean( act_out != 0)/act_out.numel()
 
-    return l_sparse
+    return args.sparse_act * l_sparse, err_sparse/N
 
 
 
@@ -210,7 +215,7 @@ def train():
         outputs = net(inputs)
         loss_ce = criterion(outputs['logits'], targets)
         loss_wd = weight_decay(outputs)
-        loss_sprse_act = sparse_activation(outputs)
+        loss_sprse_act, err_sparse  = sparse_activation(outputs)
         loss = loss_ce + loss_wd + loss_sprse_act
         end = time.time()
         acc_forward_time += (end - start)*(batch_idx > 0)
@@ -230,6 +235,7 @@ def train():
             train_writer.add_scalar('loss',    loss,    global_step)
             train_writer.add_scalar('loss_ce', loss_ce, global_step)
             train_writer.add_scalar('loss_wd', loss_wd, global_step)
+            train_writer.add_scalar('loss_act_sprse', err_sparse, global_step)
             train_writer.add_scalar('acc', (100.0 * correct)/total, global_step)
             train_writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], global_step)
 
@@ -254,7 +260,7 @@ def train():
             outputs = net(inputs)
             loss_ce = criterion(outputs['logits'], targets)
             loss_wd = weight_decay(outputs)
-            loss_sprse_act = sparse_activation(outputs)
+            loss_sprse_act, err_sparse = sparse_activation(outputs)
             loss = loss_ce + loss_wd + loss_sprse_act
 
             val_loss    += loss.item()
@@ -274,6 +280,7 @@ def train():
     val_writer.add_scalar('loss_ce', val_loss_ce, global_step)
     val_writer.add_scalar('loss_wd', val_loss_wd, global_step)
     val_writer.add_scalar('acc',     val_acc,     global_step)
+    val_writer.add_scalar('loss_act_sprse', err_sparse,     global_step)
 
     if val_acc > best_acc:
         best_acc = val_acc
@@ -307,7 +314,7 @@ def test():
             loss_ce = criterion(outputs['logits'], targets)
             loss_wd = weight_decay(outputs)
 
-            loss_sprse_act = sparse_activation(outputs)
+            loss_sprse_act, err_sparse = sparse_activation(outputs)
             loss = loss_ce + loss_wd + loss_sprse_act
 
             test_loss    += loss.item()
@@ -326,6 +333,7 @@ def test():
         test_writer.add_scalar('loss',    test_loss,    global_step)
         test_writer.add_scalar('loss_ce', test_loss_ce, global_step)
         test_writer.add_scalar('loss_wd', test_loss_wd, global_step)
+        test_writer.add_scalar('loss_act_sprse', err_sparse, global_step)
         test_writer.add_scalar('acc',     test_acc,     global_step)
         print('Epoch #{} (TEST): loss={}\tacc={} ({}/{})'.format(epoch + 1, test_loss, test_acc, correct, total))
 
