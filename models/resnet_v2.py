@@ -131,40 +131,40 @@ class ResNet18(nn.Module):
         if self.use_bn:
             out = self.bn1(out)
         out = F.relu(out)
-        net['num_act1'] = activation_ratio(out)
+        net['num_act1'] = out
 
         relu_out, out = self.layer1_0(out)
-        net['num_act2'] = activation_ratio(relu_out)
-        net['num_act3'] = activation_ratio(out)
+        net['num_act2'] = relu_out
+        net['num_act3'] = out
 
         relu_out, out = self.layer1_1(out)
-        net['num_act4'] = activation_ratio(relu_out)
-        net['num_act5'] = activation_ratio(out)
+        net['num_act4'] = relu_out
+        net['num_act5'] = out
 
         relu_out, out = self.layer2_0(out)
-        net['num_act6'] = activation_ratio(relu_out)
-        net['num_act7'] = activation_ratio(out)
+        net['num_act6'] = relu_out
+        net['num_act7'] = out
 
         relu_out, out = self.layer2_1(out)
-        net['num_act8'] = activation_ratio(relu_out)
-        net['num_act9'] = activation_ratio(out)
+        net['num_act8'] = relu_out
+        net['num_act9'] = out
 
         relu_out, out = self.layer3_0(out)
-        net['num_act10'] = activation_ratio(relu_out)
-        net['num_act11'] = activation_ratio(out)
+        net['num_act10'] = relu_out
+        net['num_act11'] = out
 
         relu_out, out = self.layer3_1(out)
 
-        net['num_act12'] = activation_ratio(relu_out)
-        net['num_act13'] = activation_ratio(out)
+        net['num_act12'] = relu_out
+        net['num_act13'] = out
 
         relu_out, out = self.layer4_0(out)
-        net['num_act14'] = activation_ratio(relu_out)
-        net['num_act15'] = activation_ratio(out)
+        net['num_act14'] = relu_out
+        net['num_act15'] = out
 
         relu_out, out = self.layer4_1(out)
-        net['num_act16'] = activation_ratio(relu_out)
-        net['num_act17'] = activation_ratio(out)
+        net['num_act16'] = relu_out
+        net['num_act17'] = out
 
         out = F.avg_pool2d(out, 4)
         out = to_1d(out)
