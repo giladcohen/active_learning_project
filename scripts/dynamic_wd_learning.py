@@ -95,7 +95,7 @@ if device == 'cuda':
 criterion = nn.CrossEntropyLoss()
 base_wd = torch.tensor(args.wd)
 base_ad = torch.tensor(args.ad)
-N = torch.tensor(17)  # num of ReLU layers. TODO(gilad): Set for each layer
+NUM_LAYERS = torch.tensor(17)  # TODO(gilad): Set for each layer
 
 def reset_optim():
     global optimizer
@@ -145,7 +145,7 @@ def activation_decay(outputs):
         if 'num_act' in key:
             ad_dict[key] = val.item()
             l_reg = add_to_tensor(l_reg, val)
-    l_reg = (l_reg / N) * base_ad
+    l_reg = (l_reg / NUM_LAYERS) * base_ad
     return l_reg, ad_dict
 
 def calc_sparsity(s_dict):
@@ -156,7 +156,7 @@ def calc_sparsity(s_dict):
     alpha_tot = 0.0
     for key, val in s_dict.items():
         alpha_tot += val
-    score = 1.0 - (alpha_tot / N)
+    score = 1.0 - (alpha_tot / NUM_LAYERS.item())
     return score
 
 def weight_decay(net):
@@ -353,7 +353,7 @@ def test():
             _, predicted = outputs['logits'].max(1)
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
-            test_sparsity += calc_sparsity(test_ad_dict)
+            test_sparsity += calc_sparsity(ad_dict)
 
         N = batch_idx + 1
         test_loss    = test_loss / N
