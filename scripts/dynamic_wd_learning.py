@@ -27,7 +27,7 @@ parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--net', default='resnet', type=str, help='network architecture')
-parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/debug5', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/debug7', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='300', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.0001, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--ad', default=0.0, type=float, help='activation decay')
@@ -37,6 +37,7 @@ parser.add_argument('--patience', default=3, type=int, help='LR schedule patienc
 parser.add_argument('--cooldown', default=1, type=int, help='LR cooldown')
 parser.add_argument('--val_size', default=0.05, type=float, help='Fraction of validation size')
 parser.add_argument('--n_workers', default=1, type=int, help='Data loading threads')
+parser.add_argument('--metric', default='sparsity', type=str, help='metric to optimize. accuracy or sparsity')
 parser.add_argument('--debug', '-d', action='store_true', help='debug logs and dumps')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -99,8 +100,8 @@ N = torch.tensor(17)  # num of ReLU layers. TODO(gilad): Set for each layer
 def reset_optim():
     global optimizer
     global lr_scheduler
-    global best_acc
-    best_acc = 0.0
+    global best_metric
+    best_metric = 0.0
     optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.mom, weight_decay=0.0, nesterov=args.mom > 0)
     lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
@@ -162,7 +163,7 @@ def weight_decay(net):
 def train():
     """Train and validate"""
     # Training
-    global best_acc
+    global best_metric
     global global_state
     global global_step
     global epoch
@@ -284,16 +285,23 @@ def train():
             val_writer.add_scalar('losses/loss_ad_{}'.format(key[7:]), alpha * args.ad, global_step)
             val_writer.add_scalar('metrics/sparsity_{}'.format(key[7:]), 1.0 - alpha, global_step)
 
-    if val_acc > best_acc:
-        best_acc = val_acc
+    if args.metric == 'accuracy':
+        new_metric = val_acc
+    elif args.metric == 'sparsity':
+        new_metric = val_sparsity
+    else:
+        raise AssertionError('Unknown metric for optimization {}'.format(args.metric))
+
+    if new_metric > best_metric:
+        best_metric = new_metric
         print('Found new best model. Saving...')
         global_state['best_net'] = net.state_dict()
-        global_state['best_acc'] = best_acc
+        global_state['best_metric'] = best_metric
         global_state['epoch'] = epoch
         global_state['global_step'] = global_step
 
-    print('Epoch #{} (VAL): loss={}\tacc={} ({}/{})\t sparsity={}\tbest_acc={}'
-          .format(epoch + 1, val_loss, val_acc, correct, total, val_sparsity, best_acc))
+    print('Epoch #{} (VAL): loss={}\tacc={} ({}/{})\tsparsity={}\tbest_metric({})={}'
+          .format(epoch + 1, val_loss, val_acc, correct, total, val_sparsity, args.metric, best_metric))
 
     # updating learning rate if we see no improvement
     lr_scheduler.step(metrics=val_acc, epoch=epoch)
@@ -358,7 +366,8 @@ def test():
                 test_writer.add_scalar('losses/loss_ad_{}'.format(key[7:]), alpha * args.ad, global_step)
                 test_writer.add_scalar('metrics/sparsity_{}'.format(key[7:]), 1.0 - alpha, global_step)
 
-        print('Epoch #{} (TEST): loss={}\tacc={} ({}/{})'.format(epoch + 1, test_loss, test_acc, correct, total))
+        print('Epoch #{} (TEST): loss={}\tacc={} ({}/{})\tsparsity={}'
+              .format(epoch + 1, test_loss, test_acc, correct, total, test_sparsity))
 
 def save_global_state():
     global epoch
@@ -385,7 +394,7 @@ if __name__ == "__main__":
             checkpoint['best_net'] = remove_substr_from_keys(checkpoint['best_net'], 'module.')
 
         net.load_state_dict(checkpoint['best_net'])
-        best_acc       = checkpoint['best_acc']
+        best_metric       = checkpoint['best_metric']
         epoch          = checkpoint['epoch']
         global_step    = checkpoint['global_step']
         train_inds     = checkpoint['train_inds']
@@ -394,7 +403,7 @@ if __name__ == "__main__":
         global_state = checkpoint
     else:
         # no old knowledge
-        best_acc       = 0.0
+        best_metric    = 0.0
         epoch          = 0
         global_step    = 0
         train_inds     = []
