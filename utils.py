@@ -220,10 +220,18 @@ def activation_ratio(x):
     activated_sum = x.sign().sum(dim=dim)
     return activated_sum / (batch_size * spatial_size)
 
+def activation_ratio_avg(x):
+    """
+    :param x: feature map. tensor of size: [batch, feature_map_size, num_pix, num_pix], where num_pix=32/16/8/4
+    :return: average activation ratio on all 2D conv kernels. size to return value: [batch, feature_map_size]
+    """
+    return x.sign().mean()
+
+
 def activation_batch_ratio(x):
     """
     :param x: feature map. tensor of size: [batch, feature_map_size, num_pix, num_pix], where num_pix=32/16/8/4
-    :return: activation ratio averaged on the batch, for every pixel. size to return value: [batch, feature_map_size]
+    :return: activation ratio averaged on the batch, for every pixel. size to return value: scalar
     """
     batch_size = x.size(0)
     activated_sum = x.sign().sum()
