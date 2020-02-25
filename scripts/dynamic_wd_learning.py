@@ -134,8 +134,8 @@ def activation_decay(outputs):
     :param outputs: net output dictionary
     :return: scalar differentiable tensor, activation decay multiplied by ratio of activations, dict of losses for debug
     """
-    if args.ad == 0.0:
-        return torch.tensor(0.0), {}
+    # if args.ad == 0.0:
+    #     return torch.tensor(0.0), {}
 
     ad_dict = {}
     # l_reg = torch.tensor(0.0, requires_grad=True)
