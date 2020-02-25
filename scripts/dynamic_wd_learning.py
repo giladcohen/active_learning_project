@@ -148,6 +148,17 @@ def activation_decay(outputs):
     l_reg = (l_reg / N) * base_ad
     return l_reg, ad_dict
 
+def calc_sparsity(s_dict):
+    """
+    :param s_dict: sparsity dict for all the layers
+    :return: sparsity metric score
+    """
+    alpha_tot = 0.0
+    for key, val in s_dict.items():
+        alpha_tot += val
+    score = 1.0 - (alpha_tot / N)
+    return score
+
 def weight_decay(net):
     """
     :param net: network
@@ -200,7 +211,7 @@ def train():
         correct += num_corrected
         acc = num_corrected / targets.size(0)
 
-        sparsity = (1.0 - (loss_ad / base_ad)).item()  # for current iter calculation
+        sparsity = calc_sparsity(ad_dict)  # for current iter calculation
         train_sparsity += sparsity
 
         if global_step % 10 == 0:  # sampling, once ever 100 train iterations
@@ -261,7 +272,7 @@ def train():
             _, predicted = outputs['logits'].max(1)
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
-            val_sparsity += (1.0 - (loss_ad / base_ad)).item()
+            val_sparsity += calc_sparsity(ad_dict)
 
     N = batch_idx + 1
     val_loss    = val_loss / N
@@ -342,7 +353,7 @@ def test():
             _, predicted = outputs['logits'].max(1)
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
-            test_sparsity += (1.0 - (loss_ad / base_ad)).item()
+            test_sparsity += calc_sparsity(test_ad_dict)
 
         N = batch_idx + 1
         test_loss    = test_loss / N
