@@ -286,14 +286,14 @@ def train():
             val_writer.add_scalar('metrics/sparsity_{}'.format(key[7:]), 1.0 - alpha, global_step)
 
     if args.metric == 'accuracy':
-        new_metric = val_acc
+        metric = val_acc
     elif args.metric == 'sparsity':
-        new_metric = val_sparsity
+        metric = val_sparsity
     else:
         raise AssertionError('Unknown metric for optimization {}'.format(args.metric))
 
-    if new_metric > best_metric:
-        best_metric = new_metric
+    if metric > best_metric:
+        best_metric = metric
         print('Found new best model. Saving...')
         global_state['best_net'] = net.state_dict()
         global_state['best_metric'] = best_metric
@@ -304,7 +304,7 @@ def train():
           .format(epoch + 1, val_loss, val_acc, correct, total, val_sparsity, args.metric, best_metric))
 
     # updating learning rate if we see no improvement
-    lr_scheduler.step(metrics=val_acc, epoch=epoch)
+    lr_scheduler.step(metrics=metric, epoch=epoch)
 
 def test():
     global global_state
