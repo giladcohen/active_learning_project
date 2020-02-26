@@ -88,7 +88,7 @@ use_bn = (train_args.get('use_bn') == True)
 if train_args['net'] == 'jaku':
     net = JakubovitzNet(num_classes=len(classes), return_logits_only=True)
 elif train_args['net'] == 'resnet':
-    net = ResNet18(num_classes=len(classes), use_bn=args.use_bn, return_logits_only=True)
+    net = ResNet18(num_classes=len(classes), use_bn=use_bn, return_logits_only=True)
 else:
     raise AssertionError("network {} is unknown".format(train_args['net']))
 net = net.to(device)
