@@ -12,6 +12,8 @@ import time
 
 import sys
 sys.path.insert(0, ".")
+sys.path.insert(0, "./adversarial_robustness_toolbox")
+
 
 from active_learning_project.models.resnet_v2 import ResNet18
 from active_learning_project.models.jakubovitznet import JakubovitzNet
