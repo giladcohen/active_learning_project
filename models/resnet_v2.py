@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from active_learning_project.utils import to_1d, activation_batch_ratio, activation_ratio_avg, activation_L1_ratio
+from collections import OrderedDict
 
 class res_basic(nn.Module):
     def __init__(self, in_planes, planes, dropout_rate, stride=1, use_bn=True):
@@ -59,13 +60,12 @@ class res_basic(nn.Module):
 
 
 class ResNet18(nn.Module):
-    def __init__(self, num_classes=10, use_bn=True, return_logits_only=False):
+    def __init__(self, num_classes=10, use_bn=True):
         super(ResNet18, self).__init__()
         # self.depth = 18
         self.dropout_rate = 0.0
         self.use_bn = use_bn
         self.use_bias = False  # not self.use_bn
-        self.return_logits_only = return_logits_only
 
         self.nStages = [64, 64, 128, 256, 512]
 
@@ -112,7 +112,7 @@ class ResNet18(nn.Module):
         }
 
     def forward(self, x):
-        net = {}
+        net = OrderedDict()
         net['images'] = x
 
         out = self.conv1(x)
@@ -186,7 +186,4 @@ class ResNet18(nn.Module):
         out = self.linear(out)
         net['logits'] = out
 
-        if self.return_logits_only:
-            return net['logits']
-        else:
-            return net
+        return net
