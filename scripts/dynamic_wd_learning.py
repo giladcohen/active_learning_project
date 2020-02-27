@@ -28,7 +28,7 @@ parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of S
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--net', default='resnet', type=str, help='network architecture')
 parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/debug20', type=str, help='checkpoint dir')
-parser.add_argument('--epochs', default='300', type=int, help='number of epochs')
+parser.add_argument('--epochs', default='250', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.0001, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--ad', default=0.01, type=float, help='activation decay')
 parser.add_argument('--use_bn', default=True, type=boolean_string, help='whether or not to use batch norm')
