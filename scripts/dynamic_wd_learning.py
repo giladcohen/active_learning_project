@@ -27,7 +27,7 @@ parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--net', default='resnet', type=str, help='network architecture')
-parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/debug20', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/debug', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='250', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.0001, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--ad', default=0.01, type=float, help='activation decay')
@@ -87,6 +87,20 @@ else:
 
 net = net.to(device)
 summary(net, (3, 32, 32))
+
+def inverse_map(x: dict) -> dict:
+    """
+    :param x: dictionary listing for each key (relu activation) the relevant weight which are its input
+    :return: inverse mapping, showing for each weight param what "num_act" key to consider
+    """
+    inv_map = {}
+    for k, v in x.items():
+        for w in v:
+            inv_map[w] = k
+    return inv_map
+
+
+weight_reg_map = inverse_map(net.weight_reg_dict)
 
 if device == 'cuda':
     # net = torch.nn.DataParallel(net)
@@ -182,6 +196,24 @@ def weight_decay(net):
     l_reg = l_reg * base_wd
     return l_reg
 
+def collect_debug(writer, ad_dict, sp_dict, N=1, grads=False):
+    for key in ad_dict.keys():
+        val = ad_dict[key] / N
+        writer.add_scalar('losses/loss_ad_{}'.format(key[6:]), val * args.ad, global_step)
+    for key in sp_dict.keys():
+        val = sp_dict[key] / N
+        writer.add_scalar('metrics/sparsity_{}'.format(key[7:]), val, global_step)
+    if grads:  # should be used only during training
+        assert N == 1
+        ad_grads_dict = {}
+        for name, params in net.named_parameters():
+            if name in weight_reg_map.keys():
+                key = weight_reg_map[name]
+                ad_grads_dict[key] = ad_grads_dict.get(key, 0) + params.grad.abs().mean().item()
+        for key, val in ad_grads_dict.items():
+            writer.add_scalar('loss_grads/grad_ad_{}'.format(key[3:]), val, global_step)
+
+
 def train():
     """Train and validate"""
     # Training
@@ -210,7 +242,7 @@ def train():
         end = time.time()
         acc_forward_time += (end - start)*(batch_idx > 0)
         start = time.time()
-        loss.backward()
+        loss.backward(retain_graph=args.debug)
         end = time.time()
         acc_backward_time += (end - start)*(batch_idx > 0)
         optimizer.step()
@@ -237,10 +269,7 @@ def train():
             train_writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], global_step)
 
             if args.debug:
-                for key, val in ad_dict.items():
-                    train_writer.add_scalar('losses/loss_ad_{}'.format(key[6:]), val * args.ad, global_step)
-                for key, val in sp_dict.items():
-                    train_writer.add_scalar('metrics/sparsity_{}'.format(key[7:]), val, global_step)
+                collect_debug(train_writer, ad_dict, sp_dict, grads=True)
 
         global_step += 1
 
@@ -308,12 +337,7 @@ def train():
     val_writer.add_scalar('metrics/sparsity', val_sparsity, global_step)
 
     if args.debug:
-        for key in val_ad_dict.keys():
-            val = val_ad_dict[key] / N
-            val_writer.add_scalar('losses/loss_ad_{}'.format(key[6:]), val * args.ad, global_step)
-        for key in val_sp_dict.keys():
-            val = val_sp_dict[key] / N
-            val_writer.add_scalar('metrics/sparsity_{}'.format(key[7:]), val, global_step)
+        collect_debug(val_writer, val_ad_dict, val_sp_dict, N)
 
     if args.metric == 'accuracy':
         metric = val_acc
@@ -395,12 +419,7 @@ def test():
         test_writer.add_scalar('metrics/sparsity', test_sparsity, global_step)
 
         if args.debug:
-            for key in test_ad_dict.keys():
-                val = test_ad_dict[key] / N
-                test_writer.add_scalar('losses/loss_ad_{}'.format(key[6:]), val * args.ad, global_step)
-            for key in test_sp_dict.keys():
-                val = test_sp_dict[key] / N
-                test_writer.add_scalar('metrics/sparsity_{}'.format(key[7:]), val, global_step)
+            collect_debug(test_writer, test_ad_dict, test_sp_dict, N)
 
         print('Epoch #{} (TEST): loss={}\tacc={} ({}/{})\tsparsity={}'
               .format(epoch + 1, test_loss, test_acc, correct, total, test_sparsity))
