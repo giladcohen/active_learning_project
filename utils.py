@@ -227,6 +227,22 @@ def activation_ratio_avg(x):
     """
     return x.sign().mean()
 
+def activation_L1_ratio(x):
+    """
+    :param x: feature map. tensor of size: [batch, feature_map_size, num_pix, num_pix], where num_pix=32/16/8/4
+    :return: average L1 activation ratio on all 2D conv kernels. size to return value: [batch, feature_map_size]
+    """
+    batch_size = x.size(0)
+    is_1d = len(x.size()) == 2
+    if is_1d:
+        spatial_size = 1
+        dim = 0
+    else:
+        spatial_size = x.size(2) * x.size(3)
+        dim = (0, 2, 3)
+
+    activated_sum = (x[x > 0]).sqrt().sum()
+    return activated_sum / (batch_size * spatial_size)
 
 def activation_batch_ratio(x):
     """

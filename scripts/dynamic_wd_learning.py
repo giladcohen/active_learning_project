@@ -27,10 +27,10 @@ parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--net', default='resnet', type=str, help='network architecture')
-parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/debug7', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/debug20', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='300', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.0001, type=float, help='weight decay')  # was 5e-4 for batch_size=128
-parser.add_argument('--ad', default=0.0, type=float, help='activation decay')
+parser.add_argument('--ad', default=0.01, type=float, help='activation decay')
 parser.add_argument('--use_bn', default=True, type=boolean_string, help='whether or not to use batch norm')
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
 parser.add_argument('--patience', default=3, type=int, help='LR schedule patience')
@@ -142,21 +142,32 @@ def activation_decay(outputs):
     l_reg = None  # setting like this because it will automatically determine if we require grads or not
 
     for key, val in outputs.items():
-        if 'num_act' in key:
+        if 'L1_act' in key:
             ad_dict[key] = val.item()
             l_reg = add_to_tensor(l_reg, val)
     l_reg = (l_reg / NUM_LAYERS) * base_ad
     return l_reg, ad_dict
+
+def activation_sparsity(outputs):
+    """
+    :param outputs: net output dictionary
+    :return: dict. sparse metric for each layer.
+    """
+    sp_dict = {}
+    for key, val in outputs.items():
+        if 'num_act' in key:
+            sp_dict[key] = 1.0 - val.item()
+    return sp_dict
 
 def calc_sparsity(s_dict):
     """
     :param s_dict: sparsity dict for all the layers
     :return: sparsity metric score
     """
-    alpha_tot = 0.0
+    sparsity_tot = 0.0
     for key, val in s_dict.items():
-        alpha_tot += val
-    score = 1.0 - (alpha_tot / NUM_LAYERS.item())
+        sparsity_tot += val
+    score = sparsity_tot / NUM_LAYERS.item()
     return score
 
 def weight_decay(net):
@@ -194,6 +205,7 @@ def train():
         loss_ce = criterion(outputs['logits'], targets)
         loss_wd = weight_decay(net)
         loss_ad, ad_dict = activation_decay(outputs)
+        sp_dict = activation_sparsity(outputs)
         loss = loss_ce + loss_wd + loss_ad
         end = time.time()
         acc_forward_time += (end - start)*(batch_idx > 0)
@@ -211,7 +223,7 @@ def train():
         correct += num_corrected
         acc = num_corrected / targets.size(0)
 
-        sparsity = calc_sparsity(ad_dict)  # for current iter calculation
+        sparsity = calc_sparsity(sp_dict)  # for current iter calculation
         train_sparsity += sparsity
 
         if global_step % 10 == 0:  # sampling, once ever 100 train iterations
@@ -225,9 +237,10 @@ def train():
             train_writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], global_step)
 
             if args.debug:
-                for key, alpha in ad_dict.items():
-                    train_writer.add_scalar('losses/loss_ad_{}'.format(key[7:]), alpha * args.ad, global_step)
-                    train_writer.add_scalar('metrics/sparsity_{}'.format(key[7:]), 1.0 - alpha, global_step)
+                for key, val in ad_dict.items():
+                    train_writer.add_scalar('losses/loss_ad_{}'.format(key[6:]), val * args.ad, global_step)
+                for key, val in sp_dict.items():
+                    train_writer.add_scalar('metrics/sparsity_{}'.format(key[7:]), val, global_step)
 
         global_step += 1
 
@@ -251,6 +264,7 @@ def train():
     correct = 0
     total = 0
     val_ad_dict = {}
+    val_sp_dict = {}
 
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(valloader):
@@ -259,6 +273,7 @@ def train():
             loss_ce = criterion(outputs['logits'], targets)
             loss_wd = weight_decay(net)
             loss_ad, ad_dict = activation_decay(outputs)
+            sp_dict = activation_sparsity(outputs)
             loss = loss_ce + loss_wd + loss_ad
 
             val_loss    += loss.item()
@@ -268,11 +283,13 @@ def train():
             if args.debug:
                 for key, val in ad_dict.items():
                     val_ad_dict[key] = val_ad_dict.get(key, 0) + val
+                for key, val in sp_dict.items():
+                    val_sp_dict[key] = val_sp_dict.get(key, 0) + val
 
             _, predicted = outputs['logits'].max(1)
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
-            val_sparsity += calc_sparsity(ad_dict)
+            val_sparsity += calc_sparsity(sp_dict)
 
     N = batch_idx + 1
     val_loss    = val_loss / N
@@ -292,9 +309,11 @@ def train():
 
     if args.debug:
         for key in val_ad_dict.keys():
-            alpha = val_ad_dict[key] / N
-            val_writer.add_scalar('losses/loss_ad_{}'.format(key[7:]), alpha * args.ad, global_step)
-            val_writer.add_scalar('metrics/sparsity_{}'.format(key[7:]), 1.0 - alpha, global_step)
+            val = val_ad_dict[key] / N
+            val_writer.add_scalar('losses/loss_ad_{}'.format(key[6:]), val * args.ad, global_step)
+        for key in val_sp_dict.keys():
+            val = val_sp_dict[key] / N
+            val_writer.add_scalar('metrics/sparsity_{}'.format(key[7:]), val, global_step)
 
     if args.metric == 'accuracy':
         metric = val_acc
@@ -333,6 +352,7 @@ def test():
         correct = 0
         total = 0
         test_ad_dict = {}
+        test_sp_dict = {}
 
         for batch_idx, (inputs, targets) in enumerate(testloader):
             inputs, targets = inputs.to(device), targets.to(device)
@@ -340,6 +360,7 @@ def test():
             loss_ce = criterion(outputs['logits'], targets)
             loss_wd = weight_decay(net)
             loss_ad, ad_dict = activation_decay(outputs)
+            sp_dict = activation_sparsity(outputs)
             loss = loss_ce + loss_wd + loss_ad
 
             test_loss    += loss.item()
@@ -349,11 +370,13 @@ def test():
             if args.debug:
                 for key, val in ad_dict.items():
                     test_ad_dict[key] = test_ad_dict.get(key, 0) + val
+                for key, val in sp_dict.items():
+                    test_sp_dict[key] = test_sp_dict.get(key, 0) + val
 
             _, predicted = outputs['logits'].max(1)
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
-            test_sparsity += calc_sparsity(ad_dict)
+            test_sparsity += calc_sparsity(sp_dict)
 
         N = batch_idx + 1
         test_loss    = test_loss / N
@@ -373,9 +396,11 @@ def test():
 
         if args.debug:
             for key in test_ad_dict.keys():
-                alpha = test_ad_dict[key] / N
-                test_writer.add_scalar('losses/loss_ad_{}'.format(key[7:]), alpha * args.ad, global_step)
-                test_writer.add_scalar('metrics/sparsity_{}'.format(key[7:]), 1.0 - alpha, global_step)
+                val = test_ad_dict[key] / N
+                test_writer.add_scalar('losses/loss_ad_{}'.format(key[6:]), val * args.ad, global_step)
+            for key in test_sp_dict.keys():
+                val = test_sp_dict[key] / N
+                test_writer.add_scalar('metrics/sparsity_{}'.format(key[7:]), val, global_step)
 
         print('Epoch #{} (TEST): loss={}\tacc={} ({}/{})\tsparsity={}'
               .format(epoch + 1, test_loss, test_acc, correct, total, test_sparsity))
