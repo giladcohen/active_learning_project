@@ -323,7 +323,7 @@ def train():
     predicted = np.asarray(predicted)
     labels = np.asarray(labels)
     train_acc = 100.0 * np.mean(predicted == labels)
-    print('Epoch #{} (TRAIN): loss={}\tacc={}\tsparsity={}'
+    print('Epoch #{} (TRAIN): loss={}\tacc={:.2f}\tsparsity={:.4f}'
           .format(epoch + 1, train_loss, train_acc, train_sparsity))
     if args.debug:
         print('Average forward time over %d steps: %f' %(batch_idx, acc_forward_time / batch_idx))
@@ -401,7 +401,7 @@ def train():
         global_state['epoch'] = epoch
         global_state['global_step'] = global_step
 
-    print('Epoch #{} (VAL): loss={}\tacc={:.2f}\tadv_acc={:.2f}\trobustness={:.4f}\tsparsity={:.4f}\tbest_metric({})={}'
+    print('Epoch #{} (VAL): loss={}\tacc={:.2f}\tadv_acc={:.2f}\trobustness={:.4f}\tsparsity={:.4f}\tbest_metric({})={:.4f}'
           .format(epoch + 1, val_loss, val_acc, val_adv_acc, val_adv_robustness, val_sparsity, args.metric, best_metric))
 
     # updating learning rate if we see no improvement
@@ -469,7 +469,7 @@ def test():
     if args.debug:
         collect_debug(test_writer, test_ad_dict, test_sp_dict, N)
 
-    print('Epoch #{} (TEST): loss={}\tacc={:.2f}\tadv_acc={:.2f}\trobustness={:.4f}\tsparsity={}'
+    print('Epoch #{} (TEST): loss={}\tacc={:.2f}\tadv_acc={:.2f}\trobustness={:.4f}\tsparsity={:.4f}'
           .format(epoch + 1, test_loss, test_acc, test_adv_acc, test_adv_robustness, test_sparsity))
 
 def save_global_state():
