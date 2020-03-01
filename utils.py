@@ -242,7 +242,8 @@ def activation_L1_ratio(x):
         dim = (0, 2, 3)
 
     activated_sum = (x[x > 0]).sqrt().sum()
-    return activated_sum / (batch_size * spatial_size)
+    activated_sum = activated_sum / (batch_size * spatial_size)
+    return torch.exp(-1.0 * activated_sum)
 
 def activation_batch_ratio(x):
     """
