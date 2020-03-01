@@ -62,7 +62,7 @@ class res_basic(nn.Module):
 class ResNet18(nn.Module):
     def __init__(self, num_classes=10, use_bn=True):
         super(ResNet18, self).__init__()
-        # self.depth = 18
+        self.depth = 17
         self.dropout_rate = 0.0
         self.use_bn = use_bn
         self.use_bias = False  # not self.use_bn

@@ -125,7 +125,7 @@ if device == 'cuda':
 criterion = nn.CrossEntropyLoss()
 base_wd = torch.tensor(args.wd)
 base_ad = torch.tensor(args.ad)
-NUM_LAYERS = torch.tensor(17)  # TODO(gilad): Set for each layer
+NUM_LAYERS = torch.tensor(net.depth)
 
 def reset_optim():
     global optimizer
@@ -281,7 +281,6 @@ def train():
         loss_ce = criterion(outputs['logits'], targets)
         loss_wd = weight_decay(net)
         loss_ad, ad_dict = activation_decay(outputs)
-        sp_dict = activation_sparsity(outputs)
         loss = loss_ce + loss_wd + loss_ad
         end = time.time()
         acc_forward_time += (end - start)*(batch_idx > 0)
@@ -299,6 +298,7 @@ def train():
         num_corrected = preds.eq(targets).sum().item()
         acc = num_corrected / targets.size(0)
 
+        sp_dict = activation_sparsity(outputs)
         sparsity = calc_sparsity(sp_dict)  # for current iter calculation
         train_sparsity += sparsity
 
@@ -520,7 +520,7 @@ if __name__ == "__main__":
 
     reset_optim()
     classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
-                                   optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=10)
+                                   optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 
     # create X_val and X_test which are normalized:
     X_val = -1.0 * np.ones(shape=(val_size, 3, 32, 32), dtype=np.float32)
@@ -535,14 +535,14 @@ if __name__ == "__main__":
         e = b + targets.shape[0]
         X_test[b:e] = inputs.cpu().numpy()
 
-    y_val = np.array(valloader.dataset.targets)
+    y_val = np.asarray(valloader.dataset.targets)
     y_test = np.asarray(testloader.dataset.targets)
 
     if args.targeted:
         if not os.path.isfile(os.path.join(ATTACK_DIR, 'y_val_targets.npy')):
-            y_val_targets = random_targets(np.asarray(y_val), len(classes))  # .argmax(axis=1)
+            y_val_targets = random_targets(y_val, len(classes))  # .argmax(axis=1)
             np.save(os.path.join(ATTACK_DIR, 'y_val_targets.npy'), y_val_targets.argmax(axis=1))
-            y_test_targets = random_targets(np.asarray(y_test), len(classes))  # .argmax(axis=1)
+            y_test_targets = random_targets(y_test, len(classes))  # .argmax(axis=1)
             np.save(os.path.join(ATTACK_DIR, 'y_test_targets.npy'), y_test_targets.argmax(axis=1))
         else:
             y_val_targets = np.load(os.path.join(ATTACK_DIR, 'y_val_targets.npy'))
