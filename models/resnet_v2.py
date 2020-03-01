@@ -1,19 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-def to_1d(x):
-    return x.view(x.size(0), -1)
-
-def activation_ratio(x):
-    """
-    :param x: feature map. tensor of size: [batch, feature_map_size, num_pix, num_pix], where num_pix=32/16/8/4
-    :return: activation ratio per 2D conv kernel. size to return value: [batch, feature_map_size]
-    """
-    batch_size = x.size(0)
-    spatial_size = x.size(2) * x.size(3)
-    activated_sum = x.sign().sum(dim=(0, 2, 3))
-    return activated_sum / (batch_size * spatial_size)
+from active_learning_project.utils import to_1d, activation_batch_ratio, activation_ratio_avg, activation_L1_ratio
+from collections import OrderedDict
 
 class res_basic(nn.Module):
     def __init__(self, in_planes, planes, dropout_rate, stride=1, use_bn=True):
@@ -71,13 +60,12 @@ class res_basic(nn.Module):
 
 
 class ResNet18(nn.Module):
-    def __init__(self, num_classes=10, use_bn=True, return_logits_only=False):
+    def __init__(self, num_classes=10, use_bn=True):
         super(ResNet18, self).__init__()
-        # self.depth = 18
+        self.depth = 17
         self.dropout_rate = 0.0
         self.use_bn = use_bn
         self.use_bias = False  # not self.use_bn
-        self.return_logits_only = return_logits_only
 
         self.nStages = [64, 64, 128, 256, 512]
 
@@ -101,79 +89,95 @@ class ResNet18(nn.Module):
 
         # Weight that should be considered for the regularization on each ReLU activation
         self.weight_reg_dict = {
-            'num_act1': ['conv1.weight', 'bn1.weight', 'bn1.bias'],
-            'num_act2': ['layer1_0.conv1.weight', 'layer1_0.bn1.weight', 'layer1_0.bn1.bias'],
-            'num_act3': ['layer1_0.conv2.weight', 'layer1_0.bn2.weight', 'layer1_0.bn2.bias'],
-            'num_act4': ['layer1_1.conv1.weight', 'layer1_1.bn1.weight', 'layer1_1.bn1.bias'],
-            'num_act5': ['layer1_1.conv2.weight', 'layer1_1.bn2.weight', 'layer1_1.bn2.bias'],
-            'num_act6': ['layer2_0.conv1.weight', 'layer2_0.bn1.weight', 'layer2_0.bn1.bias'],
-            'num_act7': ['layer2_0.conv2.weight', 'layer2_0.bn2.weight', 'layer2_0.bn2.bias',
+            'act1': ['conv1.weight', 'bn1.weight', 'bn1.bias'],
+            'act2': ['layer1_0.conv1.weight', 'layer1_0.bn1.weight', 'layer1_0.bn1.bias'],
+            'act3': ['layer1_0.conv2.weight', 'layer1_0.bn2.weight', 'layer1_0.bn2.bias'],
+            'act4': ['layer1_1.conv1.weight', 'layer1_1.bn1.weight', 'layer1_1.bn1.bias'],
+            'act5': ['layer1_1.conv2.weight', 'layer1_1.bn2.weight', 'layer1_1.bn2.bias'],
+            'act6': ['layer2_0.conv1.weight', 'layer2_0.bn1.weight', 'layer2_0.bn1.bias'],
+            'act7': ['layer2_0.conv2.weight', 'layer2_0.bn2.weight', 'layer2_0.bn2.bias',
                          'layer2_0.shortcut.0.weight', 'layer2_0.shortcut.1.weight', 'layer2_0.shortcut.1.bias'],
-            'num_act8': ['layer2_1.conv1.weight', 'layer2_1.bn1.weight', 'layer2_1.bn1.bias'],
-            'num_act9': ['layer2_1.conv2.weight', 'layer2_1.bn2.weight', 'layer2_1.bn2.bias'],
-            'num_act10': ['layer3_0.conv1.weight', 'layer3_0.bn1.weight', 'layer3_0.bn1.bias'],
-            'num_act11': ['layer3_0.conv2.weight', 'layer3_0.bn2.weight', 'layer3_0.bn2.bias',
+            'act8': ['layer2_1.conv1.weight', 'layer2_1.bn1.weight', 'layer2_1.bn1.bias'],
+            'act9': ['layer2_1.conv2.weight', 'layer2_1.bn2.weight', 'layer2_1.bn2.bias'],
+            'act10': ['layer3_0.conv1.weight', 'layer3_0.bn1.weight', 'layer3_0.bn1.bias'],
+            'act11': ['layer3_0.conv2.weight', 'layer3_0.bn2.weight', 'layer3_0.bn2.bias',
                           'layer3_0.shortcut.0.weight', 'layer3_0.shortcut.1.weight', 'layer3_0.shortcut.1.bias'],
-            'num_act12': ['layer3_1.conv1.weight', 'layer3_1.bn1.weight', 'layer3_1.bn1.bias'],
-            'num_act13': ['layer3_1.conv2.weight', 'layer3_1.bn2.weight', 'layer3_1.bn2.bias'],
-            'num_act14': ['layer4_0.conv1.weight', 'layer4_0.bn1.weight', 'layer4_0.bn1.bias'],
-            'num_act15': ['layer4_0.conv2.weight', 'layer4_0.bn2.weight', 'layer4_0.bn2.bias',
+            'act12': ['layer3_1.conv1.weight', 'layer3_1.bn1.weight', 'layer3_1.bn1.bias'],
+            'act13': ['layer3_1.conv2.weight', 'layer3_1.bn2.weight', 'layer3_1.bn2.bias'],
+            'act14': ['layer4_0.conv1.weight', 'layer4_0.bn1.weight', 'layer4_0.bn1.bias'],
+            'act15': ['layer4_0.conv2.weight', 'layer4_0.bn2.weight', 'layer4_0.bn2.bias',
                           'layer4_0.shortcut.0.weight', 'layer4_0.shortcut.1.weight', 'layer4_0.shortcut.1.bias'],
-            'num_act16': ['layer4_1.conv1.weight', 'layer4_1.bn1.weight', 'layer4_1.bn1.bias'],
-            'num_act17': ['layer4_1.conv2.weight', 'layer4_1.bn2.weight', 'layer4_1.bn2.bias']
+            'act16': ['layer4_1.conv1.weight', 'layer4_1.bn1.weight', 'layer4_1.bn1.bias'],
+            'act17': ['layer4_1.conv2.weight', 'layer4_1.bn2.weight', 'layer4_1.bn2.bias']
         }
 
     def forward(self, x):
-        net = {}
+        net = OrderedDict()
         net['images'] = x
 
         out = self.conv1(x)
         if self.use_bn:
             out = self.bn1(out)
         out = F.relu(out)
+        net['L1_act1'] = activation_L1_ratio(out)
         with torch.no_grad():
-            net['num_act1'] = activation_ratio(out)
+            net['num_act1'] = activation_ratio_avg(out)
 
         relu_out, out = self.layer1_0(out)
+        net['L1_act2'] = activation_L1_ratio(relu_out)
+        net['L1_act3'] = activation_L1_ratio(out)
         with torch.no_grad():
-            net['num_act2'] = activation_ratio(relu_out)
-            net['num_act3'] = activation_ratio(out)
+            net['num_act2'] = activation_ratio_avg(relu_out)
+            net['num_act3'] = activation_ratio_avg(out)
 
         relu_out, out = self.layer1_1(out)
+        net['L1_act4'] = activation_L1_ratio(relu_out)
+        net['L1_act5'] = activation_L1_ratio(out)
         with torch.no_grad():
-            net['num_act4'] = activation_ratio(relu_out)
-            net['num_act5'] = activation_ratio(out)
+            net['num_act4'] = activation_ratio_avg(relu_out)
+            net['num_act5'] = activation_ratio_avg(out)
 
         relu_out, out = self.layer2_0(out)
+        net['L1_act6'] = activation_L1_ratio(relu_out)
+        net['L1_act7'] = activation_L1_ratio(out)
         with torch.no_grad():
-            net['num_act6'] = activation_ratio(relu_out)
-            net['num_act7'] = activation_ratio(out)
+            net['num_act6'] = activation_ratio_avg(relu_out)
+            net['num_act7'] = activation_ratio_avg(out)
 
         relu_out, out = self.layer2_1(out)
+        net['L1_act8'] = activation_L1_ratio(relu_out)
+        net['L1_act9'] = activation_L1_ratio(out)
         with torch.no_grad():
-            net['num_act8'] = activation_ratio(relu_out)
-            net['num_act9'] = activation_ratio(out)
+            net['num_act8'] = activation_ratio_avg(relu_out)
+            net['num_act9'] = activation_ratio_avg(out)
 
         relu_out, out = self.layer3_0(out)
+        net['L1_act10'] = activation_L1_ratio(relu_out)
+        net['L1_act11'] = activation_L1_ratio(out)
         with torch.no_grad():
-            net['num_act10'] = activation_ratio(relu_out)
-            net['num_act11'] = activation_ratio(out)
+            net['num_act10'] = activation_ratio_avg(relu_out)
+            net['num_act11'] = activation_ratio_avg(out)
 
         relu_out, out = self.layer3_1(out)
-
+        net['L1_act12'] = activation_L1_ratio(relu_out)
+        net['L1_act13'] = activation_L1_ratio(out)
         with torch.no_grad():
-            net['num_act12'] = activation_ratio(relu_out)
-            net['num_act13'] = activation_ratio(out)
+            net['num_act12'] = activation_ratio_avg(relu_out)
+            net['num_act13'] = activation_ratio_avg(out)
 
         relu_out, out = self.layer4_0(out)
+        net['L1_act14'] = activation_L1_ratio(relu_out)
+        net['L1_act15'] = activation_L1_ratio(out)
         with torch.no_grad():
-            net['num_act14'] = activation_ratio(relu_out)
-            net['num_act15'] = activation_ratio(out)
+            net['num_act14'] = activation_ratio_avg(relu_out)
+            net['num_act15'] = activation_ratio_avg(out)
 
         relu_out, out = self.layer4_1(out)
+        net['L1_act16'] = activation_L1_ratio(relu_out)
+        net['L1_act17'] = activation_L1_ratio(out)
         with torch.no_grad():
-            net['num_act16'] = activation_ratio(relu_out)
-            net['num_act17'] = activation_ratio(out)
+            net['num_act16'] = activation_ratio_avg(relu_out)
+            net['num_act17'] = activation_ratio_avg(out)
 
         out = F.avg_pool2d(out, 4)
         out = to_1d(out)
@@ -182,7 +186,4 @@ class ResNet18(nn.Module):
         out = self.linear(out)
         net['logits'] = out
 
-        if self.return_logits_only:
-            return net['logits']
-        else:
-            return net
+        return net

@@ -12,6 +12,8 @@ import time
 
 import sys
 sys.path.insert(0, ".")
+sys.path.insert(0, "./adversarial_robustness_toolbox")
+
 
 from active_learning_project.models.resnet_v2 import ResNet18
 from active_learning_project.models.jakubovitznet import JakubovitzNet
@@ -26,7 +28,7 @@ from torchvision import transforms
 
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/160220/simple_wd_0.00039_mom_0.9_160220', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/debug42', type=str, help='checkpoint dir')
 parser.add_argument('--attack', default='fgsm', type=str, help='checkpoint dir')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use trageted attack')
 
@@ -84,9 +86,9 @@ test_size  = len(testloader.dataset)
 print('==> Building model..')
 use_bn = (train_args.get('use_bn') == True)
 if train_args['net'] == 'jaku':
-    net = JakubovitzNet(num_classes=len(classes), return_logits_only=True)
+    net = JakubovitzNet(num_classes=len(classes))
 elif train_args['net'] == 'resnet':
-    net = ResNet18(num_classes=len(classes), use_bn=args.use_bn, return_logits_only=True)
+    net = ResNet18(num_classes=len(classes), use_bn=use_bn)
 else:
     raise AssertionError("network {} is unknown".format(train_args['net']))
 net = net.to(device)

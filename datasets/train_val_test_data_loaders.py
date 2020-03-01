@@ -24,12 +24,12 @@ def get_train_valid_loader(data_dir,
                            pin_memory=False):
     """
     Utility function for loading and returning train and valid
-    multi-process iterators over the CIFAR-10 dataset. A sample
+    multi-process iterators over the CIFAR-10 train_dataset. A sample
     9x9 grid of the images can be optionally displayed.
     If using CUDA, num_workers should be set to 1 and pin_memory to True.
     Params
     ------
-    - data_dir: path directory to the dataset.
+    - data_dir: path directory to the train_dataset.
     - batch_size: how many samples per batch to load.
     - augment: whether to apply the data augmentation scheme
       mentioned in the paper. Only applied on the train split.
@@ -37,7 +37,7 @@ def get_train_valid_loader(data_dir,
     - valid_size: percentage split of the training set used for
       the validation set. Should be a float in the range [0, 1].
     - shuffle: whether to shuffle the train/validation indices.
-    - num_workers: number of subprocesses to use when loading the dataset.
+    - num_workers: number of subprocesses to use when loading the train_dataset.
     - pin_memory: whether to copy tensors into CUDA pinned memory. Set it to
       True if using GPU.
     Returns
@@ -91,19 +91,22 @@ def get_train_valid_loader(data_dir,
     train_idx.sort()
     val_idx.sort()
 
-    train_sampler = SubsetRandomSampler(train_idx)
-    valid_sampler = SequentialSampler(val_idx)
+    train_dataset.data = train_dataset.data[train_idx]
+    train_dataset.targets = np.asarray(train_dataset.targets)[train_idx]
+    valid_dataset.data = valid_dataset.data[val_idx]
+    valid_dataset.targets = np.asarray(valid_dataset.targets)[val_idx]
 
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=batch_size, sampler=train_sampler,
-        num_workers=num_workers, pin_memory=pin_memory,
-    )
-    valid_loader = torch.utils.data.DataLoader(
-        valid_dataset, batch_size=batch_size, sampler=valid_sampler,
+        train_dataset, batch_size=batch_size, shuffle=True,
         num_workers=num_workers, pin_memory=pin_memory,
     )
 
-    return (train_loader, valid_loader)
+    valid_loader = torch.utils.data.DataLoader(
+        valid_dataset, batch_size=batch_size, shuffle=False,
+        num_workers=num_workers, pin_memory=pin_memory,
+    )
+
+    return train_loader, valid_loader, train_idx, val_idx
 
 def get_loader_with_specific_inds(data_dir,
                                   batch_size,
