@@ -27,7 +27,7 @@ parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--net', default='resnet', type=str, help='network architecture')
-parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/debug', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/debug101', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='250', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.0001, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--ad', default=0.01, type=float, help='activation decay')
@@ -57,7 +57,7 @@ test_writer  = SummaryWriter(os.path.join(args.checkpoint_dir, 'test'))
 # Data
 print('==> Preparing data..')
 
-trainloader, valloader = get_train_valid_loader(
+trainloader, valloader, train_inds, val_inds = get_train_valid_loader(
     data_dir=DATA_ROOT,
     batch_size=100,
     augment=True,
@@ -224,11 +224,11 @@ def train():
 
     net.train()
     train_loss = 0
-    correct = 0
-    total = 0
     train_sparsity = 0
     acc_forward_time = 0.0
     acc_backward_time = 0.0
+    predicted = []
+    labels = []
     for batch_idx, (inputs, targets) in enumerate(trainloader):  # train a single step
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
@@ -249,10 +249,10 @@ def train():
 
         train_loss += loss.item()
 
-        _, predicted = outputs['logits'].max(1)
-        total += targets.size(0)
-        num_corrected = predicted.eq(targets).sum().item()
-        correct += num_corrected
+        _, preds = outputs['logits'].max(1)
+        predicted.extend(preds.cpu().numpy())
+        labels.extend(targets.cpu().numpy())
+        num_corrected = preds.eq(targets).sum().item()
         acc = num_corrected / targets.size(0)
 
         sparsity = calc_sparsity(sp_dict)  # for current iter calculation
@@ -276,9 +276,11 @@ def train():
     N = batch_idx + 1
     train_loss = train_loss / N
     train_sparsity = train_sparsity / N
-    train_acc = (100.0 * correct) / total
-    print('Epoch #{} (TRAIN): loss={}\tacc={} ({}/{})\tsparsity={}'
-          .format(epoch + 1, train_loss, train_acc, correct, total, train_sparsity))
+    predicted = np.asarray(predicted)
+    labels = np.asarray(labels)
+    train_acc = 100.0 * np.mean(predicted == labels)
+    print('Epoch #{} (TRAIN): loss={}\tacc={}\tsparsity={}'
+          .format(epoch + 1, train_loss, train_acc, train_sparsity))
     if args.debug:
         print('Average forward time over %d steps: %f' %(batch_idx, acc_forward_time / batch_idx))
         print('Average backward time over %d steps: %f' %(batch_idx, acc_backward_time / batch_idx))
@@ -290,10 +292,9 @@ def train():
     val_loss_wd = 0
     val_loss_ad = 0
     val_sparsity = 0
-    correct = 0
-    total = 0
     val_ad_dict = {}
     val_sp_dict = {}
+    predicted = []
 
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(valloader):
@@ -315,9 +316,7 @@ def train():
                 for key, val in sp_dict.items():
                     val_sp_dict[key] = val_sp_dict.get(key, 0) + val
 
-            _, predicted = outputs['logits'].max(1)
-            total += targets.size(0)
-            correct += predicted.eq(targets).sum().item()
+            predicted.extend(outputs['logits'].max(1)[1].cpu().numpy())
             val_sparsity += calc_sparsity(sp_dict)
 
     N = batch_idx + 1
@@ -325,7 +324,9 @@ def train():
     val_loss_ce = val_loss_ce / N
     val_loss_wd = val_loss_wd / N
     val_loss_ad = val_loss_ad / N
-    val_acc = (100.0 * correct) / total
+    predicted = np.asarray(predicted)
+    targets = np.array(valloader.dataset.dataset.targets)[val_inds]
+    val_acc = 100.0 * np.mean(predicted == targets)
     val_sparsity = val_sparsity / N
 
     val_writer.add_scalar('losses/loss',    val_loss,    global_step)
@@ -354,8 +355,8 @@ def train():
         global_state['epoch'] = epoch
         global_state['global_step'] = global_step
 
-    print('Epoch #{} (VAL): loss={}\tacc={} ({}/{})\tsparsity={}\tbest_metric({})={}'
-          .format(epoch + 1, val_loss, val_acc, correct, total, val_sparsity, args.metric, best_metric))
+    print('Epoch #{} (VAL): loss={}\tacc={}\tsparsity={}\tbest_metric({})={}'
+          .format(epoch + 1, val_loss, val_acc, val_sparsity, args.metric, best_metric))
 
     # updating learning rate if we see no improvement
     lr_scheduler.step(metrics=metric, epoch=epoch)
@@ -373,10 +374,9 @@ def test():
         test_loss_wd = 0
         test_loss_ad = 0
         test_sparsity = 0
-        correct = 0
-        total = 0
         test_ad_dict = {}
         test_sp_dict = {}
+        predicted = []
 
         for batch_idx, (inputs, targets) in enumerate(testloader):
             inputs, targets = inputs.to(device), targets.to(device)
@@ -397,9 +397,7 @@ def test():
                 for key, val in sp_dict.items():
                     test_sp_dict[key] = test_sp_dict.get(key, 0) + val
 
-            _, predicted = outputs['logits'].max(1)
-            total += targets.size(0)
-            correct += predicted.eq(targets).sum().item()
+            predicted.extend(outputs['logits'].max(1)[1].cpu().numpy())
             test_sparsity += calc_sparsity(sp_dict)
 
         N = batch_idx + 1
@@ -407,7 +405,9 @@ def test():
         test_loss_ce = test_loss_ce / N
         test_loss_wd = test_loss_wd / N
         test_loss_ad = test_loss_ad / N
-        test_acc = (100.0 * correct) / total
+        predicted = np.asarray(predicted)
+        targets   = np.asarray(testloader.dataset.targets)
+        test_acc = 100.0 * np.mean(predicted == targets)
         test_sparsity = test_sparsity / N
 
         test_writer.add_scalar('losses/loss',    test_loss,    global_step)
@@ -421,8 +421,8 @@ def test():
         if args.debug:
             collect_debug(test_writer, test_ad_dict, test_sp_dict, N)
 
-        print('Epoch #{} (TEST): loss={}\tacc={} ({}/{})\tsparsity={}'
-              .format(epoch + 1, test_loss, test_acc, correct, total, test_sparsity))
+        print('Epoch #{} (TEST): loss={}\tacc={}\tsparsity={}'
+              .format(epoch + 1, test_loss, test_acc, test_sparsity))
 
 def save_global_state():
     global epoch
@@ -461,16 +461,15 @@ if __name__ == "__main__":
         best_metric    = 0.0
         epoch          = 0
         global_step    = 0
-        train_inds     = []
-        val_inds       = []
+        # train_inds     = train_inds
+        # val_inds       = val_inds
 
         global_state = {}
 
     # dumping args to txt file
     with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'w') as f:
         json.dump(args.__dict__, f, indent=2)
-    train_inds = trainloader.sampler.indices
-    val_inds = valloader.sampler.data_source
+
     reset_optim()
     print('Testing epoch #{}'.format(epoch + 1))
     test()
