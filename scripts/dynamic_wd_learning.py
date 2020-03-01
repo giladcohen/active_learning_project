@@ -21,13 +21,16 @@ from active_learning_project.datasets.train_val_test_data_loaders import get_tes
 from active_learning_project.utils import remove_substr_from_keys
 from torchsummary import summary
 from active_learning_project.utils import boolean_string
+from adversarial_robustness_toolbox.art.classifiers import PyTorchClassifier
+from cleverhans.utils import random_targets, to_categorical
+from adversarial_robustness_toolbox.art.attacks import FastGradientMethod
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--net', default='resnet', type=str, help='network architecture')
-parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/debug101', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/disk4/dynamic_wd/debug104', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='250', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.0001, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--ad', default=0.01, type=float, help='activation decay')
@@ -39,6 +42,9 @@ parser.add_argument('--val_size', default=0.05, type=float, help='Fraction of va
 parser.add_argument('--n_workers', default=1, type=int, help='Data loading threads')
 parser.add_argument('--metric', default='sparsity', type=str, help='metric to optimize. accuracy or sparsity')
 parser.add_argument('--debug', '-d', action='store_true', help='debug logs and dumps')
+parser.add_argument('--attack', default='fgsm', type=str, help='checkpoint dir')
+parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
+
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -48,6 +54,12 @@ args = parser.parse_args()
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 DATA_ROOT = '/data/dataset/cifar10'
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
+ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack)
+if args.targeted:
+    ATTACK_DIR = ATTACK_DIR + '_targeted'
+os.makedirs(ATTACK_DIR, exist_ok=True)
+
+BATCH_SIZE = 100
 
 rand_gen = np.random.RandomState(int(time.time()))
 train_writer = SummaryWriter(os.path.join(args.checkpoint_dir, 'train'))
@@ -59,7 +71,7 @@ print('==> Preparing data..')
 
 trainloader, valloader, train_inds, val_inds = get_train_valid_loader(
     data_dir=DATA_ROOT,
-    batch_size=100,
+    batch_size=BATCH_SIZE,
     augment=True,
     rand_gen=rand_gen,
     valid_size=args.val_size,
@@ -68,13 +80,15 @@ trainloader, valloader, train_inds, val_inds = get_train_valid_loader(
 )
 testloader = get_test_loader(
     data_dir=DATA_ROOT,
-    batch_size=100,
+    batch_size=BATCH_SIZE,
     num_workers=args.n_workers,
     pin_memory=device=='cuda'
 )
 
 classes = trainloader.dataset.classes
-dataset_size = len(trainloader.dataset)
+train_size = len(trainloader.dataset)
+val_size   = len(valloader.dataset)
+test_size  = len(testloader.dataset)
 
 # Model
 print('==> Building model..')
@@ -213,6 +227,34 @@ def collect_debug(writer, ad_dict, sp_dict, N=1, grads=False):
         for key, val in ad_grads_dict.items():
             writer.add_scalar('loss_grads/grad_ad_{}'.format(key[3:]), val, global_step)
 
+def calc_robustness(X, predicted, targets, adv_targets=None):
+    """
+    Calculating robustness of network to attack
+    :param X: dataset
+    :param predicted: predicted labels
+    :param adv_targets: adversarial targets
+    :return: float, robustness
+    """
+    net.eval()
+    n = X.shape[0]
+    X_adv = attack.generate(x=X, y=adv_targets)
+    adv_logits = classifier.predict(X_adv, batch_size=BATCH_SIZE)
+    adv_preds = np.argmax(adv_logits, axis=1)
+    adv_accuracy = 100.0 * np.sum(adv_preds == targets) / n
+
+    # calculate attack rate
+    info = {}
+    for i in range(n):
+        info[i] = {}
+        info[i]['net_succ']    = predicted[i] == targets[i]
+        info[i]['attack_succ'] = predicted[i] != adv_preds[i]
+
+    net_succ_indices             = [ind for ind in info if info[ind]['net_succ']]
+    net_succ_attack_succ_indices = [ind for ind in info if info[ind]['net_succ'] and info[ind]['attack_succ']]
+    attack_rate = len(net_succ_attack_succ_indices) / len(net_succ_indices)
+    robustness = 1.0 - attack_rate
+
+    return adv_accuracy, robustness
 
 def train():
     """Train and validate"""
@@ -325,8 +367,8 @@ def train():
     val_loss_wd = val_loss_wd / N
     val_loss_ad = val_loss_ad / N
     predicted = np.asarray(predicted)
-    targets = np.array(valloader.dataset.targets)
-    val_acc = 100.0 * np.mean(predicted == targets)
+    val_acc = 100.0 * np.mean(predicted == y_val)
+    val_adv_acc, val_adv_robustness = calc_robustness(X_val, predicted, y_val, y_val_targets)
     val_sparsity = val_sparsity / N
 
     val_writer.add_scalar('losses/loss',    val_loss,    global_step)
@@ -336,6 +378,8 @@ def train():
 
     val_writer.add_scalar('metrics/acc', val_acc, global_step)
     val_writer.add_scalar('metrics/sparsity', val_sparsity, global_step)
+    val_writer.add_scalar('metrics/adv_acc', val_adv_acc, global_step)
+    val_writer.add_scalar('metrics/adv_robustness', val_adv_robustness, global_step)
 
     if args.debug:
         collect_debug(val_writer, val_ad_dict, val_sp_dict, N)
@@ -355,8 +399,8 @@ def train():
         global_state['epoch'] = epoch
         global_state['global_step'] = global_step
 
-    print('Epoch #{} (VAL): loss={}\tacc={}\tsparsity={}\tbest_metric({})={}'
-          .format(epoch + 1, val_loss, val_acc, val_sparsity, args.metric, best_metric))
+    print('Epoch #{} (VAL): loss={}\tacc={:.2f}\tadv_acc={:.2f}\trobustness={:.4f}\tsparsity={:.4f}\tbest_metric({})={}'
+          .format(epoch + 1, val_loss, val_acc, val_adv_acc, val_adv_robustness, val_sparsity, args.metric, best_metric))
 
     # updating learning rate if we see no improvement
     lr_scheduler.step(metrics=metric, epoch=epoch)
@@ -400,29 +444,31 @@ def test():
             predicted.extend(outputs['logits'].max(1)[1].cpu().numpy())
             test_sparsity += calc_sparsity(sp_dict)
 
-        N = batch_idx + 1
-        test_loss    = test_loss / N
-        test_loss_ce = test_loss_ce / N
-        test_loss_wd = test_loss_wd / N
-        test_loss_ad = test_loss_ad / N
-        predicted = np.asarray(predicted)
-        targets   = np.asarray(testloader.dataset.targets)
-        test_acc = 100.0 * np.mean(predicted == targets)
-        test_sparsity = test_sparsity / N
+    N = batch_idx + 1
+    test_loss    = test_loss / N
+    test_loss_ce = test_loss_ce / N
+    test_loss_wd = test_loss_wd / N
+    test_loss_ad = test_loss_ad / N
+    predicted = np.asarray(predicted)
+    test_acc = 100.0 * np.mean(predicted == y_test)
+    test_adv_acc, test_adv_robustness = calc_robustness(X_test, predicted, y_test, y_test_targets)
+    test_sparsity = test_sparsity / N
 
-        test_writer.add_scalar('losses/loss',    test_loss,    global_step)
-        test_writer.add_scalar('losses/loss_ce', test_loss_ce, global_step)
-        test_writer.add_scalar('losses/loss_wd', test_loss_wd, global_step)
-        test_writer.add_scalar('losses/loss_ad', test_loss_ad, global_step)
+    test_writer.add_scalar('losses/loss',    test_loss,    global_step)
+    test_writer.add_scalar('losses/loss_ce', test_loss_ce, global_step)
+    test_writer.add_scalar('losses/loss_wd', test_loss_wd, global_step)
+    test_writer.add_scalar('losses/loss_ad', test_loss_ad, global_step)
 
-        test_writer.add_scalar('metrics/acc', test_acc, global_step)
-        test_writer.add_scalar('metrics/sparsity', test_sparsity, global_step)
+    test_writer.add_scalar('metrics/acc', test_acc, global_step)
+    test_writer.add_scalar('metrics/sparsity', test_sparsity, global_step)
+    test_writer.add_scalar('metrics/adv_acc', test_adv_acc, global_step)
+    test_writer.add_scalar('metrics/adv_robustness', test_adv_robustness, global_step)
 
-        if args.debug:
-            collect_debug(test_writer, test_ad_dict, test_sp_dict, N)
+    if args.debug:
+        collect_debug(test_writer, test_ad_dict, test_sp_dict, N)
 
-        print('Epoch #{} (TEST): loss={}\tacc={}\tsparsity={}'
-              .format(epoch + 1, test_loss, test_acc, test_sparsity))
+    print('Epoch #{} (TEST): loss={}\tacc={:.2f}\tadv_acc={:.2f}\trobustness={:.4f}\tsparsity={}'
+          .format(epoch + 1, test_loss, test_acc, test_adv_acc, test_adv_robustness, test_sparsity))
 
 def save_global_state():
     global epoch
@@ -471,6 +517,55 @@ if __name__ == "__main__":
         json.dump(args.__dict__, f, indent=2)
 
     reset_optim()
+    classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
+                                   optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=10)
+
+    # create X_val and X_test which are normalized:
+    X_val = -1.0 * np.ones(shape=(val_size, 3, 32, 32), dtype=np.float32)
+    X_test = -1.0 * np.ones(shape=(test_size, 3, 32, 32), dtype=np.float32)
+    for batch_idx, (inputs, targets) in enumerate(valloader):
+        b = batch_idx * BATCH_SIZE
+        e = b + targets.shape[0]
+        X_val[b:e] = inputs.cpu().numpy()
+
+    for batch_idx, (inputs, targets) in enumerate(testloader):
+        b = batch_idx * BATCH_SIZE
+        e = b + targets.shape[0]
+        X_test[b:e] = inputs.cpu().numpy()
+
+    y_val = np.array(valloader.dataset.targets)
+    y_test = np.asarray(testloader.dataset.targets)
+
+    if args.targeted:
+        if not os.path.isfile(os.path.join(ATTACK_DIR, 'y_val_targets.npy')):
+            y_val_targets = random_targets(np.asarray(y_val), len(classes))  # .argmax(axis=1)
+            np.save(os.path.join(ATTACK_DIR, 'y_val_targets.npy'), y_val_targets.argmax(axis=1))
+            y_test_targets = random_targets(np.asarray(y_test), len(classes))  # .argmax(axis=1)
+            np.save(os.path.join(ATTACK_DIR, 'y_test_targets.npy'), y_test_targets.argmax(axis=1))
+        else:
+            y_val_targets = np.load(os.path.join(ATTACK_DIR, 'y_val_targets.npy'))
+            y_val_targets = to_categorical(y_val_targets, nb_classes=len(classes))
+            y_test_targets = np.load(os.path.join(ATTACK_DIR, 'y_test_targets.npy'))
+            y_test_targets = to_categorical(y_test_targets, nb_classes=len(classes))
+    else:
+        y_val_targets = None
+        y_test_targets = None
+
+    if args.attack == 'fgsm':
+        attack = FastGradientMethod(
+            classifier=classifier,
+            norm=np.inf,
+            eps=0.3,
+            eps_step=0.1,
+            targeted=args.targeted,
+            num_random_init=0,
+            batch_size=BATCH_SIZE
+        )
+    else:
+        err_str = print('Attack {} is not supported'.format(args.attack))
+        print(err_str)
+        raise AssertionError(err_str)
+
     print('Testing epoch #{}'.format(epoch + 1))
     test()
 
