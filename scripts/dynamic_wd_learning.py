@@ -325,7 +325,7 @@ def train():
     val_loss_wd = val_loss_wd / N
     val_loss_ad = val_loss_ad / N
     predicted = np.asarray(predicted)
-    targets = np.array(valloader.dataset.dataset.targets)[val_inds]
+    targets = np.array(valloader.dataset.targets)
     val_acc = 100.0 * np.mean(predicted == targets)
     val_sparsity = val_sparsity / N
 

@@ -91,16 +91,18 @@ def get_train_valid_loader(data_dir,
     train_idx.sort()
     val_idx.sort()
 
-    train_sampler = SubsetRandomSampler(train_idx)
+    train_dataset.data = train_dataset.data[train_idx]
+    train_dataset.targets = np.asarray(train_dataset.targets)[train_idx]
+    valid_dataset.data = valid_dataset.data[val_idx]
+    valid_dataset.targets = np.asarray(valid_dataset.targets)[val_idx]
+
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=batch_size, sampler=train_sampler,
+        train_dataset, batch_size=batch_size, shuffle=True,
         num_workers=num_workers, pin_memory=pin_memory,
     )
 
-    valid_subset = Subset(valid_dataset, val_idx)
-    valid_sampler = SequentialSampler(valid_subset)
     valid_loader = torch.utils.data.DataLoader(
-        valid_subset, batch_size=batch_size, sampler=valid_sampler,
+        valid_dataset, batch_size=batch_size, shuffle=False,
         num_workers=num_workers, pin_memory=pin_memory,
     )
 
