@@ -91,10 +91,6 @@ def get_train_valid_loader(data_dir,
     train_idx.sort()
     val_idx.sort()
 
-    # normalize
-    train_dataset.data = train_dataset.data / 255.0
-    valid_dataset.data = valid_dataset.data / 255.0
-
     train_dataset.data = train_dataset.data[train_idx]
     train_dataset.targets = np.asarray(train_dataset.targets)[train_idx]
     valid_dataset.data = valid_dataset.data[val_idx]
@@ -177,7 +173,6 @@ def get_all_data_loader(data_dir,
         root=data_dir, train=True,
         download=True, transform=transform,
     )
-    dataset.data = dataset.data / 255.0
 
     loader = torch.utils.data.DataLoader(
         dataset, batch_size=batch_size, shuffle=False,
@@ -224,7 +219,6 @@ def get_test_loader(data_dir,
         root=data_dir, train=False,
         download=True, transform=transform,
     )
-    dataset.data = dataset.data / 255.0
 
     data_loader = torch.utils.data.DataLoader(
         dataset, batch_size=batch_size, shuffle=False,
