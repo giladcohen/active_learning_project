@@ -48,27 +48,27 @@ def get_train_valid_loader(data_dir,
     error_msg = "[!] valid_size should be in the range [0, 1]."
     assert ((valid_size >= 0) and (valid_size <= 1)), error_msg
 
-    normalize = transforms.Normalize(
-        mean=[0.4914, 0.4822, 0.4465],
-        std=[0.2023, 0.1994, 0.2010],
-    )
+    # normalize = transforms.Normalize(
+    #     mean=[0.4914, 0.4822, 0.4465],
+    #     std=[0.2023, 0.1994, 0.2010],
+    # )
 
     # define transforms
     valid_transform = transforms.Compose([
             transforms.ToTensor(),
-            normalize,
+            # normalize,
     ])
     if augment:
         train_transform = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            normalize,
+            # normalize,
         ])
     else:
         train_transform = transforms.Compose([
             transforms.ToTensor(),
-            normalize,
+            # normalize,
         ])
 
     # load the dataset
@@ -90,6 +90,10 @@ def get_train_valid_loader(data_dir,
         train_test_split(indices, test_size=num_val, random_state=rand_gen, shuffle=shuffle, stratify=train_dataset.targets)
     train_idx.sort()
     val_idx.sort()
+
+    # normalize
+    train_dataset.data = train_dataset.data / 255.0
+    valid_dataset.data = valid_dataset.data / 255.0
 
     train_dataset.data = train_dataset.data[train_idx]
     train_dataset.targets = np.asarray(train_dataset.targets)[train_idx]
@@ -117,10 +121,10 @@ def get_loader_with_specific_inds(data_dir,
     """
     Same like get_train_valid_loader but with exact indices for training and validation
     """
-    normalize = transforms.Normalize(
-        mean=[0.4914, 0.4822, 0.4465],
-        std=[0.2023, 0.1994, 0.2010],
-    )
+    # normalize = transforms.Normalize(
+    #     mean=[0.4914, 0.4822, 0.4465],
+    #     std=[0.2023, 0.1994, 0.2010],
+    # )
 
     # define transforms
     if is_training:
@@ -128,12 +132,12 @@ def get_loader_with_specific_inds(data_dir,
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            normalize,
+            # normalize,
         ])
     else:
         transform = transforms.Compose([
             transforms.ToTensor(),
-            normalize,
+            # normalize,
         ])
 
     # load the dataset
@@ -141,9 +145,11 @@ def get_loader_with_specific_inds(data_dir,
         root=data_dir, train=True,
         download=True, transform=transform,
     )
-    subset = Subset(dataset, indices)
+    dataset.data = dataset.data[indices]
+    dataset.targets = np.asarray(dataset.targets)[indices]
+
     loader = torch.utils.data.DataLoader(
-        subset, batch_size=batch_size, shuffle=is_training,
+        dataset, batch_size=batch_size, shuffle=is_training,
         num_workers=num_workers, pin_memory=pin_memory,
     )
     return loader
@@ -155,15 +161,15 @@ def get_all_data_loader(data_dir,
     """
     Same like get_train_valid_loader but with exact indices for training and validation
     """
-    normalize = transforms.Normalize(
-        mean=[0.4914, 0.4822, 0.4465],
-        std=[0.2023, 0.1994, 0.2010],
-    )
+    # normalize = transforms.Normalize(
+    #     mean=[0.4914, 0.4822, 0.4465],
+    #     std=[0.2023, 0.1994, 0.2010],
+    # )
 
     # define transforms
     transform = transforms.Compose([
         transforms.ToTensor(),
-        normalize,
+        # normalize,
     ])
 
     # load the dataset
@@ -171,6 +177,8 @@ def get_all_data_loader(data_dir,
         root=data_dir, train=True,
         download=True, transform=transform,
     )
+    dataset.data = dataset.data / 255.0
+
     loader = torch.utils.data.DataLoader(
         dataset, batch_size=batch_size, shuffle=False,
         num_workers=num_workers, pin_memory=pin_memory,
@@ -197,25 +205,26 @@ def get_test_loader(data_dir,
     -------
     - data_loader: test set iterator.
     """
-    normalize = transforms.Normalize(
-        mean=[0.4914, 0.4822, 0.4465],
-        std=[0.2023, 0.1994, 0.2010],
-        # WAS:
-        # mean=[0.485, 0.456, 0.406],
-        # std=[0.229, 0.224, 0.225],
-        # but changed to match the validation scaling
-    )
+    # normalize = transforms.Normalize(
+    #     mean=[0.4914, 0.4822, 0.4465],
+    #     std=[0.2023, 0.1994, 0.2010],
+    #     # WAS:
+    #     # mean=[0.485, 0.456, 0.406],
+    #     # std=[0.229, 0.224, 0.225],
+    #     # but changed to match the validation scaling
+    # )
 
     # define transform
     transform = transforms.Compose([
         transforms.ToTensor(),
-        normalize,
+        # normalize,
     ])
 
     dataset = datasets.CIFAR10(
         root=data_dir, train=False,
         download=True, transform=transform,
     )
+    dataset.data = dataset.data / 255.0
 
     data_loader = torch.utils.data.DataLoader(
         dataset, batch_size=batch_size, shuffle=False,
