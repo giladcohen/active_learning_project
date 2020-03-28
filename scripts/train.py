@@ -33,7 +33,7 @@ parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of S
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--net', default='resnet34', type=str, help='network architecture')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/train_220320', type=str, help='checkpoint dir')
-parser.add_argument('--epochs', default='250', type=int, help='number of epochs')
+parser.add_argument('--epochs', default='300', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.0001, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
 parser.add_argument('--patience', default=3, type=int, help='LR schedule patience')
