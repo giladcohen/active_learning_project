@@ -313,6 +313,7 @@ if __name__ == "__main__":
             test()
             save_global_state()
     save_global_state()
+    test()
     reset_net()
     test()  # post test the final best model
     flush()
