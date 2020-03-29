@@ -17,7 +17,7 @@ sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 
 
-from active_learning_project.models.resnet import ResNet34
+from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.models.jakubovitznet import JakubovitzNet
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader
 from active_learning_project.utils import remove_substr_from_keys
@@ -31,7 +31,7 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
-parser.add_argument('--net', default='resnet34', type=str, help='network architecture')
+parser.add_argument('--net', default='resnet101', type=str, help='network architecture')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/train_220320', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='300', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.0001, type=float, help='weight decay')  # was 5e-4 for batch_size=128
@@ -89,6 +89,8 @@ if args.net == 'jaku':
     net = JakubovitzNet(num_classes=len(classes))
 elif args.net == 'resnet34':
     net = ResNet34()
+elif args.net == 'resnet101':
+    net = ResNet101()
 else:
     raise AssertionError("network {} is unknown".format(args.net))
 
