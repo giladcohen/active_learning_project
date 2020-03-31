@@ -22,10 +22,6 @@ from active_learning_project.models.jakubovitznet import JakubovitzNet
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader
 from active_learning_project.utils import remove_substr_from_keys
 from torchsummary import summary
-from active_learning_project.utils import boolean_string
-from adversarial_robustness_toolbox.art.classifiers import PyTorchClassifier
-from cleverhans.utils import random_targets, to_categorical
-from adversarial_robustness_toolbox.art.attacks import FastGradientMethod
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
