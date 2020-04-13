@@ -202,17 +202,27 @@ if __name__ == "__main__":
     for i, set_ind in enumerate(val_inds):
         info['val'][i] = {}
         net_succ = val_preds[i] == y_val[i]
-        attack_succ = val_preds[i] != val_adv_preds[i]
+        attack_flipped = val_preds[i] != val_adv_preds[i]
+        if args.targeted:
+            attack_succ = attack_flipped and val_adv_preds[i] == y_val_adv[i]
+        else:
+            attack_succ = attack_flipped
         info['val'][i]['global_index'] = set_ind
         info['val'][i]['net_succ'] = net_succ
+        info['val'][i]['attack_flipped'] = attack_flipped
         info['val'][i]['attack_succ'] = attack_succ
     info['test'] = {}
     for i, set_ind in enumerate(test_inds):
         info['test'][i] = {}
         net_succ = test_preds[i] == y_test[i]
-        attack_succ = test_preds[i] != test_adv_preds[i]
+        attack_flipped = test_preds[i] != test_adv_preds[i]
+        if args.targeted:
+            attack_succ = attack_flipped and test_adv_preds[i] == y_test_adv[i]
+        else:
+            attack_succ = attack_flipped
         info['test'][i]['global_index'] = set_ind
         info['test'][i]['net_succ'] = net_succ
+        info['test'][i]['attack_flipped'] = attack_flipped
         info['test'][i]['attack_succ'] = attack_succ
 
     # calculate number of net_succ
