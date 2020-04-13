@@ -47,54 +47,6 @@ def init_params(net):
 def remove_substr_from_keys(d: dict, substr):
     return {x.replace(substr, ''): v for x, v in d.items()}
 
-# _, term_width = os.popen('stty size', 'r').read().split()
-# term_width = int(term_width)
-# TOTAL_BAR_LENGTH = 65.
-# last_time = time.time()
-# begin_time = last_time
-# def progress_bar(current, total, msg=None):
-#     global last_time, begin_time
-#     if current == 0:
-#         begin_time = time.time()  # Reset for new bar.
-#
-#     cur_len = int(TOTAL_BAR_LENGTH*current/total)
-#     rest_len = int(TOTAL_BAR_LENGTH - cur_len) - 1
-#
-#     sys.stdout.write(' [')
-#     for i in range(cur_len):
-#         sys.stdout.write('=')
-#     sys.stdout.write('>')
-#     for i in range(rest_len):
-#         sys.stdout.write('.')
-#     sys.stdout.write(']')
-#
-#     cur_time = time.time()
-#     step_time = cur_time - last_time
-#     last_time = cur_time
-#     tot_time = cur_time - begin_time
-#
-#     L = []
-#     L.append('  Step: %s' % format_time(step_time))
-#     L.append(' | Tot: %s' % format_time(tot_time))
-#     if msg:
-#         L.append(' | ' + msg)
-#
-#     msg = ''.join(L)
-#     sys.stdout.write(msg)
-#     for i in range(term_width-int(TOTAL_BAR_LENGTH)-len(msg)-3):
-#         sys.stdout.write(' ')
-#
-#     # Go back to the center of the bar.
-#     for i in range(term_width-int(TOTAL_BAR_LENGTH/2)+2):
-#         sys.stdout.write('\b')
-#     sys.stdout.write(' %d/%d ' % (current+1, total))
-#
-#     if current < total-1:
-#         sys.stdout.write('\r')
-#     else:
-#         sys.stdout.write('\n')
-#     sys.stdout.flush()
-
 def format_time(seconds):
     days = int(seconds / 3600/24)
     seconds = seconds - days*3600*24
@@ -126,6 +78,13 @@ def format_time(seconds):
     if f == '':
         f = '0ms'
     return f
+
+# def get_np_data(data_loader: data.DataLoader) -> np.ndarray:
+#     batch_size = data_loader.batch_size
+#     for batch_idx, (inputs, targets) in enumerate(data_loader):
+#         b = batch_idx * batch_size
+#         e = b + targets.shape[0]
+#         X[b:e] = inputs.cpu().numpy()
 
 def pytorch_evaluate(net: nn.Module, data_loader: data.DataLoader, fetch_keys: list, to_tensor: bool=False) -> tuple:
     # Fetching inference outputs as numpy arrays
@@ -253,3 +212,14 @@ def activation_batch_ratio(x):
     batch_size = x.size(0)
     activated_sum = x.sign().sum()
     return activated_sum / batch_size
+
+def convert_tensor_to_image(X: np.ndarray):
+    """
+    :param X: np.array of size (Batch, feature_dims, H, W)
+    :return: X with (Batch, H, W, feature_dims) between 0:255, uint8
+    """
+    X *= 255.0
+    X = np.round(X)
+    X = X.astype(np.uint8)
+    X = np.transpose(X, [0, 2, 3, 1])
+    return X

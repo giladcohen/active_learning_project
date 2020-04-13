@@ -27,7 +27,7 @@ from cleverhans.utils import random_targets, to_categorical
 from torchvision import transforms
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/train_230320_00', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack', default='fgsm', type=str, help='checkpoint dir')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use trageted attack')
 
@@ -133,12 +133,13 @@ if __name__ == "__main__":
     val_preds = val_preds.argmax(axis=1)
     val_acc = np.sum(val_preds == y_val) / val_size
     print('Accuracy on benign val examples: {}%'.format(val_acc * 100))
+    np.save(os.path.join(ATTACK_DIR, 'val_preds.npy'), val_preds)
 
     test_preds = classifier.predict(X_test, batch_size=batch_size)
     test_preds = test_preds.argmax(axis=1)
     test_acc = np.sum(test_preds == y_test) / test_size
     print('Accuracy on benign test examples: {}%'.format(test_acc * 100))
-
+    np.save(os.path.join(ATTACK_DIR, 'test_preds.npy'), test_preds)
 
     # attack
     # creating targeted labels
@@ -166,8 +167,8 @@ if __name__ == "__main__":
         attack = FastGradientMethod(
             classifier=classifier,
             norm=np.inf,
-            eps=0.3,
-            eps_step=0.1,
+            eps=0.01,
+            eps_step=0.003,
             targeted=args.targeted,
             num_random_init=0,
             batch_size=batch_size
