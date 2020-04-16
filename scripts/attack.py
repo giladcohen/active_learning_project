@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
+from torchsummary import summary
 
 import numpy as np
 import json
@@ -19,7 +20,6 @@ sys.path.insert(0, "./adversarial_robustness_toolbox")
 from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
     get_loader_with_specific_inds
-from torchsummary import summary
 from active_learning_project.utils import boolean_string, pytorch_evaluate
 from art.attacks import FastGradientMethod
 from art.classifiers import PyTorchClassifier
@@ -128,18 +128,17 @@ if __name__ == "__main__":
         e = b + targets.shape[0]
         X_test[b:e] = inputs.cpu().numpy()
 
-
-    val_preds = classifier.predict(X_val, batch_size=batch_size)
-    val_preds = val_preds.argmax(axis=1)
-    val_acc = np.sum(val_preds == y_val) / val_size
+    y_val_preds = classifier.predict(X_val, batch_size=batch_size)
+    y_val_preds = y_val_preds.argmax(axis=1)
+    val_acc = np.sum(y_val_preds == y_val) / val_size
     print('Accuracy on benign val examples: {}%'.format(val_acc * 100))
-    np.save(os.path.join(ATTACK_DIR, 'val_preds.npy'), val_preds)
+    np.save(os.path.join(ATTACK_DIR, 'y_val_preds.npy'), y_val_preds)
 
-    test_preds = classifier.predict(X_test, batch_size=batch_size)
-    test_preds = test_preds.argmax(axis=1)
-    test_acc = np.sum(test_preds == y_test) / test_size
+    y_test_preds = classifier.predict(X_test, batch_size=batch_size)
+    y_test_preds = y_test_preds.argmax(axis=1)
+    test_acc = np.sum(y_test_preds == y_test) / test_size
     print('Accuracy on benign test examples: {}%'.format(test_acc * 100))
-    np.save(os.path.join(ATTACK_DIR, 'test_preds.npy'), test_preds)
+    np.save(os.path.join(ATTACK_DIR, 'y_test_preds.npy'), y_test_preds)
 
     # attack
     # creating targeted labels
@@ -180,71 +179,71 @@ if __name__ == "__main__":
 
     X_val_adv = attack.generate(x=X_val, y=y_val_targets)
     val_adv_logits = classifier.predict(X_val_adv, batch_size=batch_size)
-    val_adv_preds = np.argmax(val_adv_logits, axis=1)
-    val_adv_accuracy = np.sum(val_adv_preds == y_val) / val_size
+    y_val_adv_preds = np.argmax(val_adv_logits, axis=1)
+    val_adv_accuracy = np.sum(y_val_adv_preds == y_val) / val_size
 
     X_test_adv = attack.generate(x=X_test, y=y_test_targets)
     test_adv_logits = classifier.predict(X_test_adv, batch_size=batch_size)
-    test_adv_preds = np.argmax(test_adv_logits, axis=1)
-    test_adv_accuracy = np.sum(test_adv_preds == y_test) / test_size
+    y_test_adv_preds = np.argmax(test_adv_logits, axis=1)
+    test_adv_accuracy = np.sum(y_test_adv_preds == y_test) / test_size
     print('Accuracy on adversarial val examples: {}%'.format(val_adv_accuracy * 100))
     print('Accuracy on adversarial test examples: {}%'.format(test_adv_accuracy * 100))
 
     # saving adv images and predictions
     np.save(os.path.join(ATTACK_DIR, 'X_val_adv.npy'), X_val_adv)
-    np.save(os.path.join(ATTACK_DIR, 'val_adv_preds.npy'), val_adv_preds)
+    np.save(os.path.join(ATTACK_DIR, 'y_val_adv_preds.npy'), y_val_adv_preds)
     np.save(os.path.join(ATTACK_DIR, 'X_test_adv.npy'), X_test_adv)
-    np.save(os.path.join(ATTACK_DIR, 'test_adv_preds.npy'), test_adv_preds)
+    np.save(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'), y_test_adv_preds)
 
     # calculate attack rate
-    info = {}
-    info['val'] = {}
-    for i, set_ind in enumerate(val_inds):
-        info['val'][i] = {}
-        net_succ = val_preds[i] == y_val[i]
-        attack_flipped = val_preds[i] != val_adv_preds[i]
-        if args.targeted:
-            attack_succ = attack_flipped and val_adv_preds[i] == y_val_adv[i]
-        else:
-            attack_succ = attack_flipped
-        info['val'][i]['global_index'] = set_ind
-        info['val'][i]['net_succ'] = net_succ
-        info['val'][i]['attack_flipped'] = attack_flipped
-        info['val'][i]['attack_succ'] = attack_succ
-    info['test'] = {}
-    for i, set_ind in enumerate(test_inds):
-        info['test'][i] = {}
-        net_succ = test_preds[i] == y_test[i]
-        attack_flipped = test_preds[i] != test_adv_preds[i]
-        if args.targeted:
-            attack_succ = attack_flipped and test_adv_preds[i] == y_test_adv[i]
-        else:
-            attack_succ = attack_flipped
-        info['test'][i]['global_index'] = set_ind
-        info['test'][i]['net_succ'] = net_succ
-        info['test'][i]['attack_flipped'] = attack_flipped
-        info['test'][i]['attack_succ'] = attack_succ
-
-    # calculate number of net_succ
-    val_net_succ_indices = [ind for ind in info['val'] if info['val'][ind]['net_succ']]
-    val_net_succ_attack_succ_indices = [ind for ind in info['val'] if info['val'][ind]['net_succ'] and info['val'][ind]['attack_succ']]
-    test_net_succ_indices = [ind for ind in info['test'] if info['test'][ind]['net_succ']]
-    test_net_succ_attack_succ_indices = [ind for ind in info['test'] if info['test'][ind]['net_succ'] and info['test'][ind]['attack_succ']]
-    val_attack_rate = len(val_net_succ_attack_succ_indices) / len(val_net_succ_indices)
-    test_attack_rate = len(test_net_succ_attack_succ_indices) / len(test_net_succ_indices)
-    print('adversarial ({}) validation attack rate: {}\nadversarial ({}) test attack rate: {}'
-          .format(args.attack, val_attack_rate, args.attack, test_attack_rate))
-
-    # save info
-    info_file = os.path.join(ATTACK_DIR, 'info.pkl')
-    if not os.path.isfile(info_file):
-        print('saving info as pickle to {}'.format(info_file))
-        with open(info_file, 'wb') as handle:
-            pickle.dump(info, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    else:
-        print('loading info as pickle from {}'.format(info_file))
-        with open(info_file, 'rb') as handle:
-            info_old = pickle.load(handle)
-        assert info == info_old
+    # info = {}
+    # info['val'] = {}
+    # for i, set_ind in enumerate(val_inds):
+    #     info['val'][i] = {}
+    #     net_succ = y_val_preds[i] == y_val[i]
+    #     attack_flipped = y_val_preds[i] != y_val_adv_preds[i]
+    #     if args.targeted:
+    #         attack_succ = attack_flipped and y_val_adv_preds[i] == y_val_adv[i]
+    #     else:
+    #         attack_succ = attack_flipped
+    #     info['val'][i]['global_index'] = set_ind
+    #     info['val'][i]['net_succ'] = net_succ
+    #     info['val'][i]['attack_flipped'] = attack_flipped
+    #     info['val'][i]['attack_succ'] = attack_succ
+    # info['test'] = {}
+    # for i, set_ind in enumerate(test_inds):
+    #     info['test'][i] = {}
+    #     net_succ = y_test_preds[i] == y_test[i]
+    #     attack_flipped = y_test_preds[i] != y_test_adv_preds[i]
+    #     if args.targeted:
+    #         attack_succ = attack_flipped and y_test_adv_preds[i] == y_test_adv[i]
+    #     else:
+    #         attack_succ = attack_flipped
+    #     info['test'][i]['global_index'] = set_ind
+    #     info['test'][i]['net_succ'] = net_succ
+    #     info['test'][i]['attack_flipped'] = attack_flipped
+    #     info['test'][i]['attack_succ'] = attack_succ
+    #
+    # # calculate number of net_succ
+    # val_net_succ_indices = [ind for ind in info['val'] if info['val'][ind]['net_succ']]
+    # val_net_succ_attack_succ_indices = [ind for ind in info['val'] if info['val'][ind]['net_succ'] and info['val'][ind]['attack_succ']]
+    # test_net_succ_indices = [ind for ind in info['test'] if info['test'][ind]['net_succ']]
+    # test_net_succ_attack_succ_indices = [ind for ind in info['test'] if info['test'][ind]['net_succ'] and info['test'][ind]['attack_succ']]
+    # val_attack_rate = len(val_net_succ_attack_succ_indices) / len(val_net_succ_indices)
+    # test_attack_rate = len(test_net_succ_attack_succ_indices) / len(test_net_succ_indices)
+    # print('adversarial ({}) validation attack rate: {}\nadversarial ({}) test attack rate: {}'
+    #       .format(args.attack, val_attack_rate, args.attack, test_attack_rate))
+    #
+    # # save info
+    # info_file = os.path.join(ATTACK_DIR, 'info.pkl')
+    # if not os.path.isfile(info_file):
+    #     print('saving info as pickle to {}'.format(info_file))
+    #     with open(info_file, 'wb') as handle:
+    #         pickle.dump(info, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    # else:
+    #     print('loading info as pickle from {}'.format(info_file))
+    #     with open(info_file, 'rb') as handle:
+    #         info_old = pickle.load(handle)
+    #     assert info == info_old
 
 

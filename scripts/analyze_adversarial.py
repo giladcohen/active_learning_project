@@ -9,12 +9,17 @@ import matplotlib.pyplot as plt
 import pickle
 
 CHECKPOINT_DIR = '/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-with open(os.path.join(CHECKPOINT_DIR, 'commandline_args.txt'), 'r') as f:
-    train_args = json.load(f)
-ATTACK = 'fgsm_targeted'
-ATTACK_DIR = os.path.join(CHECKPOINT_DIR, ATTACK)
 CHECKPOINT_PATH = os.path.join(CHECKPOINT_DIR, 'ckpt.pth')
 DATA_ROOT = '/data/dataset/cifar10'
+with open(os.path.join(CHECKPOINT_DIR, 'commandline_args.txt'), 'r') as f:
+    train_args = json.load(f)
+attack = 'fgsm'
+targeted = True
+ATTACK_DIR = os.path.join(CHECKPOINT_DIR, attack)
+if targeted:
+    ATTACK_DIR = ATTACK_DIR + '_targeted'
+REV_DIR = os.path.join(ATTACK_DIR, 'rev')
+os.makedirs(REV_DIR, exist_ok=True)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -57,43 +62,68 @@ train_size = len(trainloader.dataset)
 val_size   = len(valloader.dataset)
 test_size  = len(testloader.dataset)
 
-X_val          = valloader.dataset.data
-y_val          = valloader.dataset.targets
-val_preds      = np.load(os.path.join(ATTACK_DIR, 'val_preds.npy'))
-X_val_adv      = np.load(os.path.join(ATTACK_DIR, 'X_val_adv.npy'))
-val_adv_preds  = np.load(os.path.join(ATTACK_DIR, 'val_adv_preds.npy'))
+X_val            = valloader.dataset.data
+y_val            = valloader.dataset.targets
+y_val_preds      = np.load(os.path.join(ATTACK_DIR, 'y_val_preds.npy'))
+X_val_adv        = np.load(os.path.join(ATTACK_DIR, 'X_val_adv.npy'))
+y_val_adv_preds  = np.load(os.path.join(ATTACK_DIR, 'y_val_adv_preds.npy'))
 
-X_test         = testloader.dataset.data
-y_test         = testloader.dataset.targets
-test_preds     = np.load(os.path.join(ATTACK_DIR, 'test_preds.npy'))
-X_test_adv     = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
-test_adv_preds = np.load(os.path.join(ATTACK_DIR, 'test_adv_preds.npy'))
+X_test           = testloader.dataset.data
+y_test           = testloader.dataset.targets
+y_test_preds     = np.load(os.path.join(ATTACK_DIR, 'y_test_preds.npy'))
+X_test_adv       = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
+y_test_adv_preds = np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'))
 
-if 'targeted' in ATTACK:
-    y_val_adv = np.load(os.path.join(ATTACK_DIR, 'y_val_adv.npy'))
-    y_test_adv     = np.load(os.path.join(ATTACK_DIR, 'y_test_adv.npy'))
+X_test_rev       = np.load(os.path.join(REV_DIR   , 'X_test_rev.npy'))
+y_test_rev_preds = np.load(os.path.join(REV_DIR, 'y_test_rev_preds.npy'))
 
-# convert adv to BRGB:
-X_val_adv  = convert_tensor_to_image(X_val_adv)
-X_test_adv = convert_tensor_to_image(X_test_adv)
+if targeted:
+    y_val_adv  = np.load(os.path.join(ATTACK_DIR, 'y_val_adv.npy'))
+    y_test_adv = np.load(os.path.join(ATTACK_DIR, 'y_test_adv.npy'))
 
 # get stats:
-info_file = os.path.join(ATTACK_DIR, 'info.pkl')
-print('loading info as pickle from {}'.format(info_file))
-with open(info_file, 'rb') as handle:
-    info = pickle.load(handle)
+info = {}
+info['val'] = {}
+for i, set_ind in enumerate(val_inds):
+    info['val'][i] = {}
+    net_succ = y_val_preds[i] == y_val[i]
+    attack_flipped = y_val_preds[i] != y_val_adv_preds[i]
+    if targeted:
+        attack_succ = attack_flipped and y_val_adv_preds[i] == y_val_adv[i]
+    else:
+        attack_succ = attack_flipped
+    info['val'][i]['global_index'] = set_ind
+    info['val'][i]['net_succ'] = net_succ
+    info['val'][i]['attack_flipped'] = attack_flipped
+    info['val'][i]['attack_succ'] = attack_succ
+info['test'] = {}
+for i, set_ind in enumerate(test_inds):
+    info['test'][i] = {}
+    net_succ = y_test_preds[i] == y_test[i]
+    attack_flipped = y_test_preds[i] != y_test_adv_preds[i]
+    if targeted:
+        attack_succ = attack_flipped and y_test_adv_preds[i] == y_test_adv[i]
+    else:
+        attack_succ = attack_flipped
+    rev_flip = y_test_rev_preds[i] != y_test_adv_preds[i]
+    rev_succ = rev_flip and y_test_rev_preds[i] == y_test[i]
+    info['test'][i]['global_index'] = set_ind
+    info['test'][i]['net_succ'] = net_succ
+    info['test'][i]['attack_flipped'] = attack_flipped
+    info['test'][i]['attack_succ'] = attack_succ
+    info['test'][i]['rev_flip'] = rev_flip
+    info['test'][i]['rev_succ'] = rev_succ
 
-val_acc = np.sum(val_preds == y_val) / val_size
-test_acc = np.sum(test_preds == y_test) / test_size
+val_acc = np.sum(y_val_preds == y_val) / val_size
+test_acc = np.sum(y_test_preds == y_test) / test_size
 print('Accuracy on benign val examples: {}%'.format(val_acc * 100))
 print('Accuracy on benign test examples: {}%'.format(test_acc * 100))
 
-val_adv_accuracy = np.sum(val_adv_preds == y_val) / val_size
-test_adv_accuracy = np.sum(test_adv_preds == y_test) / test_size
+val_adv_accuracy = np.sum(y_val_adv_preds == y_val) / val_size
+test_adv_accuracy = np.sum(y_test_adv_preds == y_test) / test_size
 print('Accuracy on adversarial val examples: {}%'.format(val_adv_accuracy * 100))
 print('Accuracy on adversarial test examples: {}%'.format(test_adv_accuracy * 100))
 
-# calculate number of net_succ
 val_net_succ_indices = [ind for ind in info['val'] if info['val'][ind]['net_succ']]
 val_net_succ_attack_succ_indices = [ind for ind in info['val'] if info['val'][ind]['net_succ'] and info['val'][ind]['attack_succ']]
 test_net_succ_indices = [ind for ind in info['test'] if info['test'][ind]['net_succ']]
@@ -102,12 +132,31 @@ val_attack_rate = len(val_net_succ_attack_succ_indices) / len(val_net_succ_indic
 test_attack_rate = len(test_net_succ_attack_succ_indices) / len(test_net_succ_indices)
 print('adversarial validation attack rate: {}\nadversarial test attack rate: {}'.format(val_attack_rate, test_attack_rate))
 
-i = 6
+wrong_flip_indices = [ind for ind in info['test'] if info['test'][ind]['net_succ'] and info['test'][ind]['attack_flipped'] and not info['test'][ind]['attack_succ']]
+right_flip_indices = [ind for ind in info['test'] if info['test'][ind]['net_succ'] and info['test'][ind]['attack_succ']]
+print('out of {} prediction flips, only {} are flips towards the adversarial label'.format(len(wrong_flip_indices) + len(right_flip_indices), len(right_flip_indices)))
+
+rev_flip_indices = [ind for ind in info['test'] if info['test'][ind]['net_succ'] and info['test'][ind]['attack_succ'] \
+                    and info['test'][ind]['rev_flip']]
+rev_succ_indices = [ind for ind in info['test'] if info['test'][ind]['net_succ'] and info['test'][ind]['attack_succ'] \
+                    and info['test'][ind]['rev_succ']]
+
+
+# convert adv to BRGB:
+X_val_adv  = convert_tensor_to_image(X_val_adv)
+X_test_adv = convert_tensor_to_image(X_test_adv)
+X_test_rev = convert_tensor_to_image(X_test_rev)
+
+i = 35
 plt.figure(1)
-plt.imshow(X_val[i])
+plt.imshow(X_test[i])
 plt.show()
 plt.figure(2)
-plt.imshow(X_val_adv[i])
+plt.imshow(X_test_adv[i])
 plt.show()
-print('class is {}, model predicted {}, and after adv noise: {}'
-    .format(classes[y_val[i]], classes[val_preds[i]], classes[val_adv_preds[i]]))
+plt.figure(3)
+plt.imshow(X_test_rev[i])
+plt.show()
+
+print('class is {}, model predicted {}, we wanted to attack to {}, and after adv noise: {}. After reverse: {}'
+    .format(classes[y_test[i]], classes[y_test_preds[i]], classes[y_test_adv[i]], classes[y_test_adv_preds[i]], classes[y_test_rev_preds[i]]))

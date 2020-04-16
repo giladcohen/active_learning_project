@@ -226,3 +226,14 @@ def get_test_loader(data_dir,
     )
 
     return data_loader
+
+def get_normalized_tensor(loader: torch.utils.data.DataLoader, batch_size=100):
+    """ Returning a normalized tensor"""
+    size = len(loader.dataset)
+    X = -1.0 * np.ones(shape=(size, 3, 32, 32), dtype=np.float32)
+    for batch_idx, (inputs, targets) in enumerate(loader):
+        b = batch_idx * batch_size
+        e = b + targets.shape[0]
+        X[b:e] = inputs.cpu().numpy()
+
+    return X
