@@ -4,6 +4,7 @@ import torch.backends.cudnn as cudnn
 import torch.optim as optim
 import torch.nn as nn
 from torchsummary import summary
+from tqdm import tqdm
 
 import numpy as np
 import json
@@ -28,8 +29,9 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robust
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack', default='fgsm', type=str, help='checkpoint dir')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use trageted attack')
-parser.add_argument('--rev', type=str, help='fgsm, pgd, deepfool')
+parser.add_argument('--rev', type=str, help='fgsm, pgd, deepfool, ensemble')
 parser.add_argument('--rev_dir', default='', type=str, help='reverse dir')
+parser.add_argument('--ensemble_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34', type=str, help='ensemble dir of many networks')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -140,12 +142,31 @@ elif args.rev == 'deepfool':
         nb_grads=len(classes),
         batch_size=batch_size
     )
+elif args.rev == 'ensemble':
+    print('Running ensemble defense. Loading all models')
+    checkpoint_dir_list = next(os.walk(args.ensemble_dir))[1]
+    checkpoint_dir_list.sort()
+    checkpoint_dir_list = checkpoint_dir_list[1:]  # ignoring the first (original) network
+    y_test_pred_mat = -1 * np.ones((test_size, len(checkpoint_dir_list)), dtype=np.int32)
+    for i, dir in tqdm(enumerate(checkpoint_dir_list)):
+        ckpt_file = os.path.join(args.ensemble_dir, dir, 'ckpt.pth')
+        global_state = torch.load(ckpt_file, map_location=torch.device(device))
+        net.load_state_dict(global_state['best_net'])
+        print('fetching predictions using ckpt file: {}'.format(ckpt_file))
+        y_test_pred_mat[:, i] = classifier.predict(X_test_adv, batch_size=batch_size).argmax(axis=1)
+    assert not (y_test_pred_mat == -1).any()
+
+    def majority_vote(x):
+        return np.bincount(x).argmax()
+
+    y_test_rev_preds = np.apply_along_axis(majority_vote, axis=1, arr=y_test_pred_mat)
 else:
     raise AssertionError('Unknown rev {}'.format(args.rev))
 
-X_test_rev = attack.generate(x=X_test_adv)
-y_test_rev_preds = classifier.predict(X_test_rev, batch_size=batch_size).argmax(axis=1)
-np.save(os.path.join(REV_DIR, 'X_test_rev.npy'), X_test_rev)
+if args.rev != 'ensemble':
+    X_test_rev = attack.generate(x=X_test_adv)
+    y_test_rev_preds = classifier.predict(X_test_rev, batch_size=batch_size).argmax(axis=1)
+    np.save(os.path.join(REV_DIR, 'X_test_rev.npy'), X_test_rev)
 np.save(os.path.join(REV_DIR, 'y_test_rev_preds.npy'), y_test_rev_preds)
 
 
