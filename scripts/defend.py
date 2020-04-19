@@ -21,7 +21,7 @@ from active_learning_project.utils import boolean_string
 
 import matplotlib.pyplot as plt
 
-from art.attacks import FastGradientMethod, ProjectedGradientDescent
+from art.attacks import FastGradientMethod, ProjectedGradientDescent, DeepFool
 from art.classifiers import PyTorchClassifier
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
@@ -131,6 +131,13 @@ elif args.rev == 'pgd':
         eps=0.01,
         eps_step=0.003,
         targeted=False,
+        batch_size=batch_size
+    )
+elif args.rev == 'deepfool':
+    attack = DeepFool(
+        classifier=classifier,
+        epsilon=1e-6,
+        nb_grads=len(classes),
         batch_size=batch_size
     )
 else:
