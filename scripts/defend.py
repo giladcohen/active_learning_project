@@ -44,9 +44,9 @@ ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack)
 if args.targeted:
     ATTACK_DIR = ATTACK_DIR + '_targeted'
 if args.rev_dir != '':
-    REV_DIR = os.path.join(ATTACK_DIR, args.rev_dir)
+    REV_DIR = os.path.join(ATTACK_DIR, 'rev', args.rev_dir)
 else:
-    REV_DIR = os.path.join(ATTACK_DIR, args.rev)
+    REV_DIR = os.path.join(ATTACK_DIR, 'rev', args.rev)
 os.makedirs(REV_DIR, exist_ok=True)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
