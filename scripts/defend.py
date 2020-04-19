@@ -129,7 +129,9 @@ elif args.rev == 'pgd':
         classifier=classifier,
         norm=np.inf,
         eps=0.01,
-        eps_step=0.003
+        eps_step=0.003,
+        targeted=False,
+        batch_size=batch_size
     )
 else:
     raise AssertionError('Unknown rev {}'.format(args.rev))
