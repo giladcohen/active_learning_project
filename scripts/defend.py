@@ -8,7 +8,7 @@ from torchsummary import summary
 import numpy as np
 import json
 import os
-
+import argparse
 import sys
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
@@ -17,29 +17,41 @@ from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, \
     get_loader_with_specific_inds, get_normalized_tensor
 from active_learning_project.utils import convert_tensor_to_image
-import matplotlib.pyplot as plt
-import pickle
+from active_learning_project.utils import boolean_string
 
-from art.attacks import FastGradientMethod
+import matplotlib.pyplot as plt
+
+from art.attacks import FastGradientMethod, ProjectedGradientDescent
 from art.classifiers import PyTorchClassifier
 
+parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
+parser.add_argument('--attack', default='fgsm', type=str, help='checkpoint dir')
+parser.add_argument('--targeted', default=True, type=boolean_string, help='use trageted attack')
+parser.add_argument('--rev', type=str, help='fgsm, pgd, deepfool')
+parser.add_argument('--rev_dir', default='', type=str, help='reverse dir')
 
-CHECKPOINT_DIR = '/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-with open(os.path.join(CHECKPOINT_DIR, 'commandline_args.txt'), 'r') as f:
+parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
+parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
+
+args = parser.parse_args()
+
+with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
-attack = 'fgsm'
-targeted = True
-CHECKPOINT_PATH = os.path.join(CHECKPOINT_DIR, 'ckpt.pth')
+CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 DATA_ROOT = '/data/dataset/cifar10'
-ATTACK_DIR = os.path.join(CHECKPOINT_DIR, attack)
-if targeted:
+ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack)
+if args.targeted:
     ATTACK_DIR = ATTACK_DIR + '_targeted'
-REV_DIR = os.path.join(ATTACK_DIR, 'rev')
+if args.rev_dir != '':
+    REV_DIR = os.path.join(ATTACK_DIR, args.rev_dir)
+else:
+    REV_DIR = os.path.join(ATTACK_DIR, args.rev)
 os.makedirs(REV_DIR, exist_ok=True)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-with open(os.path.join(CHECKPOINT_DIR, 'commandline_args.txt'), 'r') as f:
+with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
 global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
 train_inds = global_state['train_inds']
@@ -63,7 +75,7 @@ X_test           = get_normalized_tensor(testloader, batch_size)
 y_test           = testloader.dataset.targets
 
 X_test_adv       = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
-if targeted:
+if args.targeted:
     y_test_adv = np.load(os.path.join(ATTACK_DIR, 'y_test_adv.npy'))
 
 # Model
@@ -102,15 +114,25 @@ y_test_adv_preds = classifier.predict(X_test_adv, batch_size=batch_size).argmax(
 assert (y_test_adv_preds == np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'))).all()
 
 # reverse attack:
-attack = FastGradientMethod(
-    classifier=classifier,
-    norm=np.inf,
-    eps=0.01,
-    eps_step=0.003,
-    targeted=False,
-    num_random_init=0,
-    batch_size=batch_size
-)
+if args.rev == 'fgsm':
+    attack = FastGradientMethod(
+        classifier=classifier,
+        norm=np.inf,
+        eps=0.01,
+        eps_step=0.003,
+        targeted=False,
+        num_random_init=0,
+        batch_size=batch_size
+    )
+elif args.rev == 'pgd':
+    attack = ProjectedGradientDescent(
+        classifier=classifier,
+        norm=np.inf,
+        eps=0.01,
+        eps_step=0.003
+    )
+else:
+    raise AssertionError('Unknown rev {}'.format(args.rev))
 
 X_test_rev = attack.generate(x=X_test_adv)
 y_test_rev_preds = classifier.predict(X_test_rev, batch_size=batch_size).argmax(axis=1)

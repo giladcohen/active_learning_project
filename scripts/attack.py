@@ -24,7 +24,6 @@ from active_learning_project.utils import boolean_string, pytorch_evaluate
 from art.attacks import FastGradientMethod
 from art.classifiers import PyTorchClassifier
 from cleverhans.utils import random_targets, to_categorical
-from torchvision import transforms
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
@@ -195,55 +194,5 @@ if __name__ == "__main__":
     np.save(os.path.join(ATTACK_DIR, 'X_test_adv.npy'), X_test_adv)
     np.save(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'), y_test_adv_preds)
 
-    # calculate attack rate
-    # info = {}
-    # info['val'] = {}
-    # for i, set_ind in enumerate(val_inds):
-    #     info['val'][i] = {}
-    #     net_succ = y_val_preds[i] == y_val[i]
-    #     attack_flipped = y_val_preds[i] != y_val_adv_preds[i]
-    #     if args.targeted:
-    #         attack_succ = attack_flipped and y_val_adv_preds[i] == y_val_adv[i]
-    #     else:
-    #         attack_succ = attack_flipped
-    #     info['val'][i]['global_index'] = set_ind
-    #     info['val'][i]['net_succ'] = net_succ
-    #     info['val'][i]['attack_flipped'] = attack_flipped
-    #     info['val'][i]['attack_succ'] = attack_succ
-    # info['test'] = {}
-    # for i, set_ind in enumerate(test_inds):
-    #     info['test'][i] = {}
-    #     net_succ = y_test_preds[i] == y_test[i]
-    #     attack_flipped = y_test_preds[i] != y_test_adv_preds[i]
-    #     if args.targeted:
-    #         attack_succ = attack_flipped and y_test_adv_preds[i] == y_test_adv[i]
-    #     else:
-    #         attack_succ = attack_flipped
-    #     info['test'][i]['global_index'] = set_ind
-    #     info['test'][i]['net_succ'] = net_succ
-    #     info['test'][i]['attack_flipped'] = attack_flipped
-    #     info['test'][i]['attack_succ'] = attack_succ
-    #
-    # # calculate number of net_succ
-    # val_net_succ_indices = [ind for ind in info['val'] if info['val'][ind]['net_succ']]
-    # val_net_succ_attack_succ_indices = [ind for ind in info['val'] if info['val'][ind]['net_succ'] and info['val'][ind]['attack_succ']]
-    # test_net_succ_indices = [ind for ind in info['test'] if info['test'][ind]['net_succ']]
-    # test_net_succ_attack_succ_indices = [ind for ind in info['test'] if info['test'][ind]['net_succ'] and info['test'][ind]['attack_succ']]
-    # val_attack_rate = len(val_net_succ_attack_succ_indices) / len(val_net_succ_indices)
-    # test_attack_rate = len(test_net_succ_attack_succ_indices) / len(test_net_succ_indices)
-    # print('adversarial ({}) validation attack rate: {}\nadversarial ({}) test attack rate: {}'
-    #       .format(args.attack, val_attack_rate, args.attack, test_attack_rate))
-    #
-    # # save info
-    # info_file = os.path.join(ATTACK_DIR, 'info.pkl')
-    # if not os.path.isfile(info_file):
-    #     print('saving info as pickle to {}'.format(info_file))
-    #     with open(info_file, 'wb') as handle:
-    #         pickle.dump(info, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    # else:
-    #     print('loading info as pickle from {}'.format(info_file))
-    #     with open(info_file, 'rb') as handle:
-    #         info_old = pickle.load(handle)
-    #     assert info == info_old
 
 
