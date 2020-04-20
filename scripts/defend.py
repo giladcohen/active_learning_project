@@ -28,7 +28,7 @@ from art.classifiers import PyTorchClassifier
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack', default='fgsm', type=str, help='checkpoint dir')
-parser.add_argument('--targeted', default=True, type=boolean_string, help='use trageted attack')
+parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
 parser.add_argument('--rev', type=str, help='fgsm, pgd, deepfool, ensemble')
 parser.add_argument('--rev_dir', default='', type=str, help='reverse dir')
 parser.add_argument('--ensemble_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34', type=str, help='ensemble dir of many networks')
@@ -53,8 +53,6 @@ os.makedirs(REV_DIR, exist_ok=True)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
-    train_args = json.load(f)
 global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
 train_inds = global_state['train_inds']
 val_inds = global_state['val_inds']

@@ -3,28 +3,37 @@ import torch
 import numpy as np
 import json
 import os
+import argparse
+
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_loader_with_specific_inds
 from active_learning_project.utils import convert_tensor_to_image
+from active_learning_project.utils import boolean_string
+
 import matplotlib.pyplot as plt
 import pickle
 
-CHECKPOINT_DIR = '/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-CHECKPOINT_PATH = os.path.join(CHECKPOINT_DIR, 'ckpt.pth')
-DATA_ROOT = '/data/dataset/cifar10'
-with open(os.path.join(CHECKPOINT_DIR, 'commandline_args.txt'), 'r') as f:
+parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
+parser.add_argument('--attack', default='fgsm', type=str, help='checkpoint dir')
+parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
+parser.add_argument('--rev_dir', default='fgsm', type=str, help='reverse dir')
+
+parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
+parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
+
+args = parser.parse_args()
+
+with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
-attack = 'fgsm'
-targeted = True
-ATTACK_DIR = os.path.join(CHECKPOINT_DIR, attack)
-if targeted:
+CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
+DATA_ROOT = '/data/dataset/cifar10'
+ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack)
+if args.targeted:
     ATTACK_DIR = ATTACK_DIR + '_targeted'
-REV_DIR = os.path.join(ATTACK_DIR, 'rev')
-os.makedirs(REV_DIR, exist_ok=True)
+REV_DIR = os.path.join(ATTACK_DIR, 'rev', args.rev_dir)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-with open(os.path.join(CHECKPOINT_DIR, 'commandline_args.txt'), 'r') as f:
-    train_args = json.load(f)
 global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
 train_inds = global_state['train_inds']
 val_inds = global_state['val_inds']
@@ -32,7 +41,6 @@ test_inds = np.arange(10000).tolist()
 batch_size = 100
 
 # load data
-# Data
 print('==> Preparing data..')
 trainloader = get_loader_with_specific_inds(
     data_dir=DATA_ROOT,
@@ -74,10 +82,11 @@ y_test_preds     = np.load(os.path.join(ATTACK_DIR, 'y_test_preds.npy'))
 X_test_adv       = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
 y_test_adv_preds = np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'))
 
-X_test_rev       = np.load(os.path.join(REV_DIR   , 'X_test_rev.npy'))
+if 'ensemble' not in REV_DIR:
+    X_test_rev       = np.load(os.path.join(REV_DIR   , 'X_test_rev.npy'))
 y_test_rev_preds = np.load(os.path.join(REV_DIR, 'y_test_rev_preds.npy'))
 
-if targeted:
+if args.targeted:
     y_val_adv  = np.load(os.path.join(ATTACK_DIR, 'y_val_adv.npy'))
     y_test_adv = np.load(os.path.join(ATTACK_DIR, 'y_test_adv.npy'))
 
@@ -88,7 +97,7 @@ for i, set_ind in enumerate(val_inds):
     info['val'][i] = {}
     net_succ = y_val_preds[i] == y_val[i]
     attack_flipped = y_val_preds[i] != y_val_adv_preds[i]
-    if targeted:
+    if args.targeted:
         attack_succ = attack_flipped and y_val_adv_preds[i] == y_val_adv[i]
     else:
         attack_succ = attack_flipped
@@ -101,7 +110,7 @@ for i, set_ind in enumerate(test_inds):
     info['test'][i] = {}
     net_succ = y_test_preds[i] == y_test[i]
     attack_flipped = y_test_preds[i] != y_test_adv_preds[i]
-    if targeted:
+    if args.targeted:
         attack_succ = attack_flipped and y_test_adv_preds[i] == y_test_adv[i]
     else:
         attack_succ = attack_flipped
@@ -140,23 +149,30 @@ rev_flip_indices = [ind for ind in info['test'] if info['test'][ind]['net_succ']
                     and info['test'][ind]['rev_flip']]
 rev_succ_indices = [ind for ind in info['test'] if info['test'][ind]['net_succ'] and info['test'][ind]['attack_succ'] \
                     and info['test'][ind]['rev_succ']]
+print('out of {} successful attacks, we reverted {} samples. Successful number of reverted: {}'.format(len(right_flip_indices), len(rev_flip_indices), len(rev_succ_indices)))
+
+# calculating recall and precision:
+
+
 
 
 # convert adv to BRGB:
 X_val_adv  = convert_tensor_to_image(X_val_adv)
 X_test_adv = convert_tensor_to_image(X_test_adv)
-X_test_rev = convert_tensor_to_image(X_test_rev)
+if 'ensemble' not in REV_DIR:
+    X_test_rev = convert_tensor_to_image(X_test_rev)
 
-i = 35
+i = 6
 plt.figure(1)
 plt.imshow(X_test[i])
 plt.show()
 plt.figure(2)
 plt.imshow(X_test_adv[i])
 plt.show()
-plt.figure(3)
-plt.imshow(X_test_rev[i])
-plt.show()
+if 'ensemble' not in REV_DIR:
+    plt.figure(3)
+    plt.imshow(X_test_rev[i])
+    plt.show()
 
 print('class is {}, model predicted {}, we wanted to attack to {}, and after adv noise: {}. After reverse: {}'
     .format(classes[y_test[i]], classes[y_test_preds[i]], classes[y_test_adv[i]], classes[y_test_adv_preds[i]], classes[y_test_rev_preds[i]]))
