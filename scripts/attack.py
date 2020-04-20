@@ -21,7 +21,7 @@ from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
     get_loader_with_specific_inds
 from active_learning_project.utils import boolean_string, pytorch_evaluate
-from art.attacks import FastGradientMethod
+from art.attacks import FastGradientMethod, ProjectedGradientDescent, DeepFool
 from art.classifiers import PyTorchClassifier
 from cleverhans.utils import random_targets, to_categorical
 
@@ -169,6 +169,22 @@ if __name__ == "__main__":
             eps_step=0.003,
             targeted=args.targeted,
             num_random_init=0,
+            batch_size=batch_size
+        )
+    elif args.attack == 'pgd':
+        attack = ProjectedGradientDescent(
+            classifier=classifier,
+            norm=np.inf,
+            eps=0.01,
+            eps_step=0.003,
+            targeted=args.targeted,
+            batch_size=batch_size
+        )
+    elif args.attack == 'deepfool':
+        attack = DeepFool(
+            classifier=classifier,
+            epsilon=0.02,
+            nb_grads=len(classes),
             batch_size=batch_size
         )
     else:
