@@ -136,7 +136,7 @@ elif args.rev == 'pgd':
 elif args.rev == 'deepfool':
     attack = DeepFool(
         classifier=classifier,
-        epsilon=1e-6,
+        epsilon=0.02,
         nb_grads=len(classes),
         batch_size=batch_size
     )
