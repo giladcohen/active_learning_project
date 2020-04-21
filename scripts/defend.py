@@ -31,12 +31,16 @@ parser.add_argument('--attack', default='fgsm', type=str, help='checkpoint dir')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
 parser.add_argument('--rev', type=str, help='fgsm, pgd, deepfool, ensemble')
 parser.add_argument('--rev_dir', default='', type=str, help='reverse dir')
+parser.add_argument('--guru', default=False, type=boolean_string, help='use GT labels instead of untargeted defense')
 parser.add_argument('--ensemble_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34', type=str, help='ensemble dir of many networks')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 
 args = parser.parse_args()
+
+if args.rev not in ['fgsm', 'pgd'] or not args.targeted:
+    assert args.guru == False
 
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
@@ -115,26 +119,26 @@ assert (y_test_adv_preds == np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.n
 
 # reverse attack:
 if args.rev == 'fgsm':
-    attack = FastGradientMethod(
+    defense = FastGradientMethod(
         classifier=classifier,
         norm=np.inf,
         eps=0.01,
         eps_step=0.003,
-        targeted=False,
+        targeted=args.guru,
         num_random_init=0,
         batch_size=batch_size
     )
 elif args.rev == 'pgd':
-    attack = ProjectedGradientDescent(
+    defense = ProjectedGradientDescent(
         classifier=classifier,
         norm=np.inf,
         eps=0.01,
         eps_step=0.003,
-        targeted=False,
+        targeted=args.guru,
         batch_size=batch_size
     )
 elif args.rev == 'deepfool':
-    attack = DeepFool(
+    defense = DeepFool(
         classifier=classifier,
         epsilon=0.02,
         nb_grads=len(classes),
@@ -162,7 +166,11 @@ else:
     raise AssertionError('Unknown rev {}'.format(args.rev))
 
 if args.rev != 'ensemble':
-    X_test_rev = attack.generate(x=X_test_adv)
+    if args.guru:
+        y = y_test_adv
+    else:
+        y = None
+    X_test_rev = defense.generate(x=X_test_adv, y=y)
     y_test_rev_preds = classifier.predict(X_test_rev, batch_size=batch_size).argmax(axis=1)
     np.save(os.path.join(REV_DIR, 'X_test_rev.npy'), X_test_rev)
 np.save(os.path.join(REV_DIR, 'y_test_rev_preds.npy'), y_test_rev_preds)
