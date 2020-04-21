@@ -29,7 +29,7 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robust
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack', default='fgsm', type=str, help='checkpoint dir')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
-parser.add_argument('--rev', type=str, help='fgsm, pgd, deepfool, ensemble')
+parser.add_argument('--rev', default='fgsm', type=str, help='fgsm, pgd, deepfool, ensemble')
 parser.add_argument('--rev_dir', default='', type=str, help='reverse dir')
 parser.add_argument('--guru', default=False, type=boolean_string, help='use GT labels instead of untargeted defense')
 parser.add_argument('--ensemble_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34', type=str, help='ensemble dir of many networks')
@@ -76,7 +76,7 @@ classes = testloader.dataset.classes
 test_size  = len(testloader.dataset)
 
 X_test           = get_normalized_tensor(testloader, batch_size)
-y_test           = testloader.dataset.targets
+y_test           = np.asarray(testloader.dataset.targets)
 
 X_test_adv       = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
 if args.targeted:
@@ -167,7 +167,7 @@ else:
 
 if args.rev != 'ensemble':
     if args.guru:
-        y = y_test_adv
+        y = y_test
     else:
         y = None
     X_test_rev = defense.generate(x=X_test_adv, y=y)

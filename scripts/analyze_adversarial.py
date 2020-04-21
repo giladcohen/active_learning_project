@@ -16,7 +16,7 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robust
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack', default='fgsm', type=str, help='checkpoint dir')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
-parser.add_argument('--rev_dir', default='fgsm', type=str, help='reverse dir')
+parser.add_argument('--rev_dir', default='fgsm_guru', type=str, help='reverse dir')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -151,11 +151,6 @@ rev_succ_indices = [ind for ind in info['test'] if info['test'][ind]['net_succ']
                     and info['test'][ind]['rev_succ']]
 print('out of {} successful attacks, we reverted {} samples. Successful number of reverted: {}'.format(len(right_flip_indices), len(rev_flip_indices), len(rev_succ_indices)))
 
-# calculating recall and precision:
-
-
-
-
 # convert adv to BRGB:
 X_val_adv  = convert_tensor_to_image(X_val_adv)
 X_test_adv = convert_tensor_to_image(X_test_adv)
@@ -174,5 +169,10 @@ if 'ensemble' not in REV_DIR:
     plt.imshow(X_test_rev[i])
     plt.show()
 
-print('class is {}, model predicted {}, we wanted to attack to {}, and after adv noise: {}. After reverse: {}'
-    .format(classes[y_test[i]], classes[y_test_preds[i]], classes[y_test_adv[i]], classes[y_test_adv_preds[i]], classes[y_test_rev_preds[i]]))
+if args.targeted:
+    print('class is {}, model predicted {}, we wanted to attack to {}, and after adv noise: {}. After reverse: {}'
+        .format(classes[y_test[i]], classes[y_test_preds[i]], classes[y_test_adv[i]], classes[y_test_adv_preds[i]], classes[y_test_rev_preds[i]]))
+else:
+    print('class is {}, model predicted {}, and after adv noise: {}. After reverse: {}'
+        .format(classes[y_test[i]], classes[y_test_preds[i]], classes[y_test_adv_preds[i]], classes[y_test_rev_preds[i]]))
+
