@@ -225,4 +225,8 @@ def convert_tensor_to_image(X: np.ndarray):
     return X
 
 def majority_vote(x):
+    x = x[x >= 0]
+    if len(x) == 0:
+        return -1
     return np.bincount(x).argmax()
+
