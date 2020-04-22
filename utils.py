@@ -223,3 +223,6 @@ def convert_tensor_to_image(X: np.ndarray):
     X = X.astype(np.uint8)
     X = np.transpose(X, [0, 2, 3, 1])
     return X
+
+def majority_vote(x):
+    return np.bincount(x).argmax()

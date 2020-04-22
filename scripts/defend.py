@@ -18,7 +18,7 @@ from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, \
     get_loader_with_specific_inds, get_normalized_tensor
 from active_learning_project.utils import convert_tensor_to_image
-from active_learning_project.utils import boolean_string
+from active_learning_project.utils import boolean_string, majority_vote
 
 import matplotlib.pyplot as plt
 
@@ -29,9 +29,10 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robust
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack', default='fgsm', type=str, help='checkpoint dir')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
-parser.add_argument('--rev', default='fgsm', type=str, help='fgsm, pgd, deepfool, ensemble')
+parser.add_argument('--rev', default='pgd', type=str, help='fgsm, pgd, deepfool, none')
 parser.add_argument('--rev_dir', default='', type=str, help='reverse dir')
-parser.add_argument('--guru', default=False, type=boolean_string, help='use GT labels instead of untargeted defense')
+parser.add_argument('--guru', action='store_true', help='use guru labels')
+parser.add_argument('--ensemble', action='store_true', help='use ensemble')
 parser.add_argument('--ensemble_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34', type=str, help='ensemble dir of many networks')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -39,8 +40,18 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 
 args = parser.parse_args()
 
+# DEUBUG:
+args.checkpoint_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+args.attack = 'fgsm'
+args.targeted = True
+args.rev = 'fgsm'
+args.rev_dir = 'debug'
+args.guru = False
+args.ensemble = True
+args.ensemble_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34'
+
 if args.rev not in ['fgsm', 'pgd'] or not args.targeted:
-    assert args.guru == False
+    assert not args.guru
 
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
@@ -144,7 +155,23 @@ elif args.rev == 'deepfool':
         nb_grads=len(classes),
         batch_size=batch_size
     )
-elif args.rev == 'ensemble':
+elif args.rev == '':
+    assert args.ensemble
+    defense = None
+else:
+    raise AssertionError('Unknown rev {}'.format(args.rev))
+
+if args.guru:
+    y_targets = y_test
+else:
+    y_targets = None
+
+if not args.ensemble:
+    X_test_rev = defense.generate(x=X_test_adv, y=y_targets)
+    y_test_rev_preds = classifier.predict(X_test_rev, batch_size=batch_size).argmax(axis=1)
+    np.save(os.path.join(REV_DIR, 'X_test_rev.npy'), X_test_rev)
+    np.save(os.path.join(REV_DIR, 'y_test_rev_preds.npy'), y_test_rev_preds)
+else:  # use ensemble
     print('Running ensemble defense. Loading all models')
     checkpoint_dir_list = next(os.walk(args.ensemble_dir))[1]
     checkpoint_dir_list.sort()
@@ -155,24 +182,16 @@ elif args.rev == 'ensemble':
         global_state = torch.load(ckpt_file, map_location=torch.device(device))
         net.load_state_dict(global_state['best_net'])
         print('fetching predictions using ckpt file: {}'.format(ckpt_file))
-        y_test_pred_mat[:, i] = classifier.predict(X_test_adv, batch_size=batch_size).argmax(axis=1)
+        y_test_preds_tmp = classifier.predict(X_test_adv, batch_size=batch_size).argmax(axis=1)
+        if args.rev != '':
+            print('If a label is just like y_test_adv_preds, take the prediction label after an attack')
+            X_test_rev_tmp = defense.generate(x=X_test_adv, y=y_targets)
+            y_test_rev_preds = classifier.predict(X_test_rev_tmp, batch_size=batch_size).argmax(axis=1)
+        else:
+            # not using defense on the ensemble prediction
+            y_test_pred_mat[:, i] = y_test_preds_tmp
     assert not (y_test_pred_mat == -1).any()
 
-    def majority_vote(x):
-        return np.bincount(x).argmax()
-
     y_test_rev_preds = np.apply_along_axis(majority_vote, axis=1, arr=y_test_pred_mat)
-else:
-    raise AssertionError('Unknown rev {}'.format(args.rev))
-
-if args.rev != 'ensemble':
-    if args.guru:
-        y = y_test
-    else:
-        y = None
-    X_test_rev = defense.generate(x=X_test_adv, y=y)
-    y_test_rev_preds = classifier.predict(X_test_rev, batch_size=batch_size).argmax(axis=1)
-    np.save(os.path.join(REV_DIR, 'X_test_rev.npy'), X_test_rev)
-np.save(os.path.join(REV_DIR, 'y_test_rev_preds.npy'), y_test_rev_preds)
 
 
