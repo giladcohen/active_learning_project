@@ -21,7 +21,7 @@ from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
     get_loader_with_specific_inds
 from active_learning_project.utils import boolean_string, pytorch_evaluate
-from art.attacks import FastGradientMethod, ProjectedGradientDescent, DeepFool, SaliencyMapMethod
+from art.attacks import FastGradientMethod, ProjectedGradientDescent, DeepFool, SaliencyMapMethod, CarliniL2Method
 from art.classifiers import PyTorchClassifier
 from cleverhans.utils import random_targets, to_categorical
 
@@ -192,6 +192,14 @@ if __name__ == "__main__":
             classifier,
             theta=1.0,
             gamma=0.01,
+            batch_size=batch_size
+        )
+    elif args.attack == 'cw':
+        attack = CarliniL2Method(
+            classifier,
+            confidence=0.8,
+            targeted=args.targeted,
+            initial_const=0.1,
             batch_size=batch_size
         )
     else:
