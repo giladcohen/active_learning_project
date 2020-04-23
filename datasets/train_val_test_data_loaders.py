@@ -14,7 +14,7 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data.dataset import Subset
 
 
-def get_train_valid_loader(data_dir,
+def get_train_valid_loader(dataset,
                            batch_size,
                            augment,
                            rand_gen,
@@ -29,7 +29,7 @@ def get_train_valid_loader(data_dir,
     If using CUDA, num_workers should be set to 1 and pin_memory to True.
     Params
     ------
-    - data_dir: path directory to the train_dataset.
+    - dataset: name of the dataset.
     - batch_size: how many samples per batch to load.
     - augment: whether to apply the data augmentation scheme
       mentioned in the paper. Only applied on the train split.
@@ -48,10 +48,17 @@ def get_train_valid_loader(data_dir,
     error_msg = "[!] valid_size should be in the range [0, 1]."
     assert ((valid_size >= 0) and (valid_size <= 1)), error_msg
 
-    # normalize = transforms.Normalize(
-    #     mean=[0.4914, 0.4822, 0.4465],
-    #     std=[0.2023, 0.1994, 0.2010],
-    # )
+    if dataset == 'cifar10':
+        data_dir = '/data/dataset/cifar10'
+        database = datasets.CIFAR10
+    elif dataset == 'cifar100':
+        data_dir = '/data/dataset/cifar100'
+        database = datasets.CIFAR100
+    elif dataset == 'svhn':
+        data_dir = '/data/dataset/svhn'
+        database = datasets.SVHN
+    else:
+        raise AssertionError('dataset {} is not supported'.format(dataset))
 
     # define transforms
     valid_transform = transforms.Compose([
@@ -72,12 +79,12 @@ def get_train_valid_loader(data_dir,
         ])
 
     # load the dataset
-    train_dataset = datasets.CIFAR10(
+    train_dataset = database(
         root=data_dir, train=True,
         download=True, transform=train_transform,
     )
 
-    valid_dataset = datasets.CIFAR10(
+    valid_dataset = database(
         root=data_dir, train=True,
         download=True, transform=valid_transform,
     )

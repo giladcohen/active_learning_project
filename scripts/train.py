@@ -24,11 +24,12 @@ from active_learning_project.utils import remove_substr_from_keys
 from torchsummary import summary
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
+parser.add_argument('--dataset', default='cifar100', type=str, help='dataset: cifar10, cifar100, svhn')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
-parser.add_argument('--net', default='resnet101', type=str, help='network architecture')
-parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/train_220320', type=str, help='checkpoint dir')
+parser.add_argument('--net', default='resnet34', type=str, help='network architecture')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar100/debug', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='300', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.0001, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
@@ -44,7 +45,6 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 args = parser.parse_args()
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-DATA_ROOT = '/data/dataset/cifar10'
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 os.makedirs(args.checkpoint_dir, exist_ok=True)
 
@@ -59,7 +59,7 @@ test_writer  = SummaryWriter(os.path.join(args.checkpoint_dir, 'test'))
 print('==> Preparing data..')
 
 trainloader, valloader, train_inds, val_inds = get_train_valid_loader(
-    data_dir=DATA_ROOT,
+    dataset=args.dataset,
     batch_size=BATCH_SIZE,
     augment=True,
     rand_gen=rand_gen,
@@ -68,7 +68,7 @@ trainloader, valloader, train_inds, val_inds = get_train_valid_loader(
     pin_memory=device=='cuda'
 )
 testloader = get_test_loader(
-    data_dir=DATA_ROOT,
+    dataset=args.dataset,
     batch_size=BATCH_SIZE,
     num_workers=args.n_workers,
     pin_memory=device=='cuda'

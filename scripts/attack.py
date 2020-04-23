@@ -28,6 +28,7 @@ from cleverhans.utils import random_targets, to_categorical
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
+parser.add_argument('--dataset', default='cifar100', type=str, help='dataset: cifar10, cifar100, svhn')
 parser.add_argument('--attack', default='fgsm', type=str, help='attack: fgsm, jsma, cw, deepfool, ead, pgd')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use trageted attack')
 
