@@ -21,7 +21,8 @@ from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
     get_loader_with_specific_inds
 from active_learning_project.utils import boolean_string, pytorch_evaluate
-from art.attacks import FastGradientMethod, ProjectedGradientDescent, DeepFool, SaliencyMapMethod, CarliniL2Method
+from art.attacks import FastGradientMethod, ProjectedGradientDescent, DeepFool, SaliencyMapMethod, CarliniL2Method, \
+    ElasticNet
 from art.classifiers import PyTorchClassifier
 from cleverhans.utils import random_targets, to_categorical
 
@@ -183,6 +184,7 @@ if __name__ == "__main__":
     elif args.attack == 'deepfool':
         attack = DeepFool(
             classifier=classifier,
+            max_iter=50,
             epsilon=0.02,
             nb_grads=len(classes),
             batch_size=batch_size
@@ -201,6 +203,15 @@ if __name__ == "__main__":
             targeted=args.targeted,
             initial_const=0.1,
             batch_size=batch_size
+        )
+    elif args.attack == 'ead':
+        attack = ElasticNet(
+            classifier,
+            confidence=0.8,
+            targeted=args.targeted,
+            beta=0.01,  # EAD paper shows good results for L1
+            batch_size=batch_size,
+            decision_rule='L1'
         )
     else:
         err_str = 'Attack {} is not supported'.format(args.attack)
