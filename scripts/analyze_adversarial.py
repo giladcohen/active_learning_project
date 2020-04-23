@@ -16,7 +16,7 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robust
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack', default='fgsm', type=str, help='checkpoint dir')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
-parser.add_argument('--rev_dir', default='pgd_guru', type=str, help='reverse dir')
+parser.add_argument('--rev_dir', default='smart_ensemble_fgsm', type=str, help='reverse dir')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -114,14 +114,22 @@ for i, set_ind in enumerate(test_inds):
         attack_succ = attack_flipped and y_test_adv_preds[i] == y_test_adv[i]
     else:
         attack_succ = attack_flipped
-    rev_flip = y_test_rev_preds[i] != y_test_adv_preds[i]
+    rev_known = y_test_rev_preds[i] != -1
+    rev_flip = rev_known and y_test_rev_preds[i] != y_test_adv_preds[i]
     rev_succ = rev_flip and y_test_rev_preds[i] == y_test[i]
     info['test'][i]['global_index'] = set_ind
     info['test'][i]['net_succ'] = net_succ
     info['test'][i]['attack_flipped'] = attack_flipped
     info['test'][i]['attack_succ'] = attack_succ
+    info['test'][i]['rev_known'] = rev_known
     info['test'][i]['rev_flip'] = rev_flip
     info['test'][i]['rev_succ'] = rev_succ
+
+f_inds = [ind for ind in info['test'] if info['test'][ind]['net_succ'] and info['test'][ind]['attack_succ']]
+
+# assert that if net_succ and attack_succ then rev_known is always True
+filtered_rev_known = [info['test'][ind]['rev_known'] for ind in f_inds]
+assert np.array(filtered_rev_known).all(), 'We expect that if net_succ and attack_succ then the rev label will be known'
 
 val_acc = np.sum(y_val_preds == y_val) / val_size
 test_acc = np.sum(y_test_preds == y_test) / test_size
@@ -151,28 +159,29 @@ rev_succ_indices = [ind for ind in info['test'] if info['test'][ind]['net_succ']
                     and info['test'][ind]['rev_succ']]
 print('out of {} successful attacks, we reverted {} samples. Successful number of reverted: {}'.format(len(right_flip_indices), len(rev_flip_indices), len(rev_succ_indices)))
 
+# DEBUG
 # convert adv to BRGB:
-X_val_adv  = convert_tensor_to_image(X_val_adv)
-X_test_adv = convert_tensor_to_image(X_test_adv)
-if 'ensemble' not in REV_DIR:
-    X_test_rev = convert_tensor_to_image(X_test_rev)
-
-i = 6
-plt.figure(1)
-plt.imshow(X_test[i])
-plt.show()
-plt.figure(2)
-plt.imshow(X_test_adv[i])
-plt.show()
-if 'ensemble' not in REV_DIR:
-    plt.figure(3)
-    plt.imshow(X_test_rev[i])
-    plt.show()
-
-if args.targeted:
-    print('class is {}, model predicted {}, we wanted to attack to {}, and after adv noise: {}. After reverse: {}'
-        .format(classes[y_test[i]], classes[y_test_preds[i]], classes[y_test_adv[i]], classes[y_test_adv_preds[i]], classes[y_test_rev_preds[i]]))
-else:
-    print('class is {}, model predicted {}, and after adv noise: {}. After reverse: {}'
-        .format(classes[y_test[i]], classes[y_test_preds[i]], classes[y_test_adv_preds[i]], classes[y_test_rev_preds[i]]))
+# X_val_adv  = convert_tensor_to_image(X_val_adv)
+# X_test_adv = convert_tensor_to_image(X_test_adv)
+# if 'ensemble' not in REV_DIR:
+#     X_test_rev = convert_tensor_to_image(X_test_rev)
+#
+# i = 6
+# plt.figure(1)
+# plt.imshow(X_test[i])
+# plt.show()
+# plt.figure(2)
+# plt.imshow(X_test_adv[i])
+# plt.show()
+# if 'ensemble' not in REV_DIR:
+#     plt.figure(3)
+#     plt.imshow(X_test_rev[i])
+#     plt.show()
+#
+# if args.targeted:
+#     print('class is {}, model predicted {}, we wanted to attack to {}, and after adv noise: {}. After reverse: {}'
+#         .format(classes[y_test[i]], classes[y_test_preds[i]], classes[y_test_adv[i]], classes[y_test_adv_preds[i]], classes[y_test_rev_preds[i]]))
+# else:
+#     print('class is {}, model predicted {}, and after adv noise: {}. After reverse: {}'
+#         .format(classes[y_test[i]], classes[y_test_preds[i]], classes[y_test_adv_preds[i]], classes[y_test_rev_preds[i]]))
 

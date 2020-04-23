@@ -21,13 +21,13 @@ from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
     get_loader_with_specific_inds
 from active_learning_project.utils import boolean_string, pytorch_evaluate
-from art.attacks import FastGradientMethod, ProjectedGradientDescent, DeepFool
+from art.attacks import FastGradientMethod, ProjectedGradientDescent, DeepFool, SaliencyMapMethod
 from art.classifiers import PyTorchClassifier
 from cleverhans.utils import random_targets, to_categorical
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
-parser.add_argument('--attack', default='fgsm', type=str, help='checkpoint dir')
+parser.add_argument('--attack', default='fgsm', type=str, help='attack: fgsm, jsma, cw, deepfool, ead, pgd')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use trageted attack')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -185,6 +185,13 @@ if __name__ == "__main__":
             classifier=classifier,
             epsilon=0.02,
             nb_grads=len(classes),
+            batch_size=batch_size
+        )
+    elif args.attack == 'jsma':
+        attack = SaliencyMapMethod(
+            classifier,
+            theta=1.0,
+            gamma=0.01,
             batch_size=batch_size
         )
     else:
