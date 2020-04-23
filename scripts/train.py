@@ -84,9 +84,9 @@ print('==> Building model..')
 if args.net == 'jaku':
     net = JakubovitzNet(num_classes=len(classes))
 elif args.net == 'resnet34':
-    net = ResNet34()
+    net = ResNet34(num_classes=len(classes))
 elif args.net == 'resnet101':
-    net = ResNet101()
+    net = ResNet101(num_classes=len(classes))
 else:
     raise AssertionError("network {} is unknown".format(args.net))
 
