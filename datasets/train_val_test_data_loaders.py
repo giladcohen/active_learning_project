@@ -12,6 +12,7 @@ from torchvision import transforms
 from torch.utils.data.sampler import SubsetRandomSampler, SequentialSampler
 from sklearn.model_selection import train_test_split
 from torch.utils.data.dataset import Subset
+from active_learning_project.datasets.my_svhn import MySVHN
 import matplotlib.pyplot as plt
 
 def dataset_factory(dataset):
@@ -23,7 +24,7 @@ def dataset_factory(dataset):
         database = datasets.CIFAR100
     elif dataset == 'svhn':
         data_dir = '/data/dataset/svhn'
-        database = datasets.SVHN
+        database = MySVHN
     else:
         raise AssertionError('dataset {} is not supported'.format(dataset))
 

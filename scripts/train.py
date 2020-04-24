@@ -24,12 +24,12 @@ from active_learning_project.utils import remove_substr_from_keys
 from torchsummary import summary
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
-parser.add_argument('--dataset', default='cifar100', type=str, help='dataset: cifar10, cifar100, svhn')
+parser.add_argument('--dataset', default='svhn', type=str, help='dataset: cifar10, cifar100, svhn')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--net', default='resnet34', type=str, help='network architecture')
-parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar100/debug', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/svhn/debug', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='300', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.0001, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
