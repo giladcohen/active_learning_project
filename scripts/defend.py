@@ -43,12 +43,12 @@ args = parser.parse_args()
 
 # DEBUG:
 # args.checkpoint_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-# args.attack = 'fgsm'
+# args.attack = 'cw'
 # args.targeted = True
 # args.rev = 'fgsm'
 # args.rev_dir = 'debug'
 # args.guru = False
-# args.ensemble = True
+# args.ensemble = False
 # args.ensemble_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34'
 
 if args.rev not in ['fgsm', 'pgd', 'jsma', 'cw', 'ead'] or not args.targeted:
@@ -71,7 +71,7 @@ batch_size = 100
 # Data
 print('==> Preparing data..')
 testloader = get_test_loader(
-    dataset=args.dataset,
+    dataset=train_args['dataset'],
     batch_size=batch_size,
     num_workers=1,
     pin_memory=True

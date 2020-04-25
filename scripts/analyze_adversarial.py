@@ -40,7 +40,7 @@ global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
 train_inds = np.asarray(global_state['train_inds'])
 val_inds = np.asarray(global_state['val_inds'])
 trainloader = get_loader_with_specific_inds(
-    dataset=args.dataset,
+    dataset=train_args['dataset'],
     batch_size=batch_size,
     is_training=False,
     indices=train_inds,
@@ -48,7 +48,7 @@ trainloader = get_loader_with_specific_inds(
     pin_memory=True
 )
 valloader = get_loader_with_specific_inds(
-    dataset=args.dataset,
+    dataset=train_args['dataset'],
     batch_size=batch_size,
     is_training=False,
     indices=val_inds,
@@ -56,7 +56,7 @@ valloader = get_loader_with_specific_inds(
     pin_memory=True
 )
 testloader = get_test_loader(
-    dataset=args.dataset,
+    dataset=train_args['dataset'],
     batch_size=batch_size,
     num_workers=1,
     pin_memory=True

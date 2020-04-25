@@ -28,7 +28,6 @@ from cleverhans.utils import random_targets, to_categorical
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
-parser.add_argument('--dataset', default='cifar100', type=str, help='dataset: cifar10, cifar100, svhn')
 parser.add_argument('--attack', default='fgsm', type=str, help='attack: fgsm, jsma, cw, deepfool, ead, pgd')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use trageted attack')
 
@@ -53,7 +52,7 @@ global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
 train_inds = np.asarray(global_state['train_inds'])
 val_inds = np.asarray(global_state['val_inds'])
 trainloader = get_loader_with_specific_inds(
-    dataset=args.dataset,
+    dataset=train_args['dataset'],
     batch_size=batch_size,
     is_training=False,
     indices=train_inds,
@@ -61,7 +60,7 @@ trainloader = get_loader_with_specific_inds(
     pin_memory=True
 )
 valloader = get_loader_with_specific_inds(
-    dataset=args.dataset,
+    dataset=train_args['dataset'],
     batch_size=batch_size,
     is_training=False,
     indices=val_inds,
@@ -69,7 +68,7 @@ valloader = get_loader_with_specific_inds(
     pin_memory=True
 )
 testloader = get_test_loader(
-    dataset=args.dataset,
+    dataset=train_args['dataset'],
     batch_size=batch_size,
     num_workers=1,
     pin_memory=True
