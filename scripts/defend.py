@@ -168,7 +168,7 @@ elif args.rev == 'jsma':
     defense = SaliencyMapMethod(
         classifier,
         theta=1.0,
-        gamma=0.01,
+        gamma=0.001,
         batch_size=batch_size
     )
 elif args.rev == 'cw':
@@ -218,9 +218,9 @@ else:  # use ensemble
         net.load_state_dict(global_state['best_net'])
         print('fetching predictions using ckpt file: {}'.format(ckpt_file))
         y_test_preds_tmp = classifier.predict(X_test_adv, batch_size=batch_size).argmax(axis=1)
+        y_test_pred_mat_orig[:, i] = y_test_preds_tmp.copy()  # debug
 
         if args.rev != '':
-            y_test_pred_mat_orig[:, i] = y_test_preds_tmp.copy()  # debug
             acc_all = np.mean(y_test_preds_tmp == y_test_adv_preds)
             acc_filtered = np.mean(y_test_preds_tmp[f_inds] == y_test_adv_preds[f_inds])
             print('accuracy of net prediction to the adversarial predictions: all samples: {:.2f}%. filtered samples: {:.2f}%'

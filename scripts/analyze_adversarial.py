@@ -14,9 +14,9 @@ import pickle
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
-parser.add_argument('--attack', default='fgsm', type=str, help='checkpoint dir')
+parser.add_argument('--attack', default='jsma', type=str, help='checkpoint dir')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
-parser.add_argument('--rev_dir', default='smart_ensemble_fgsm', type=str, help='reverse dir')
+parser.add_argument('--rev_dir', default='ensemble', type=str, help='reverse dir')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -166,17 +166,17 @@ print('out of {} successful attacks, we reverted {} samples. Successful number o
 # convert adv to BRGB:
 X_val_adv  = convert_tensor_to_image(X_val_adv)
 X_test_adv = convert_tensor_to_image(X_test_adv)
-if ensemble:
+if not ensemble:
     X_test_rev = convert_tensor_to_image(X_test_rev)
 
-i = 9999
+i = 40
 plt.figure(1)
 plt.imshow(X_test[i])
 plt.show()
 plt.figure(2)
 plt.imshow(X_test_adv[i])
 plt.show()
-if ensemble:
+if not ensemble:
     plt.figure(3)
     plt.imshow(X_test_rev[i])
     plt.show()
@@ -185,7 +185,7 @@ strr = 'class is {}({}), model predicted {}({}), '.format(classes[y_test[i]], y_
 if args.targeted:
     strr += 'we wanted to attack to {}({}), '.format(classes[y_test_adv[i]], y_test_adv[i])
 strr += 'and after adv noise: {}({}).\n'.format(classes[y_test_adv_preds[i]], y_test_adv_preds[i])
-strr += 'After reverse: {}({})'.format(classes[y_test_rev_preds[i]], y_test_rev_preds[i])
+strr += 'After reverse: {}({})\n'.format(classes[y_test_rev_preds[i]], y_test_rev_preds[i])
 if ensemble:
     strr += 'original ensemble predictions: {}\n'.format(y_test_pred_mat_orig[i])
     strr += 'reverted ensemble predictions: {}\n'.format(y_test_pred_mat[i])
