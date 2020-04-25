@@ -28,12 +28,27 @@ def dataset_factory(dataset):
     else:
         raise AssertionError('dataset {} is not supported'.format(dataset))
 
-    return data_dir, database
+    if 'cifar' in dataset:
+        train_transform = transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+        ])
+    else:
+        train_transform = transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.ToTensor(),
+        ])
+
+    test_transform = transforms.Compose([
+        transforms.ToTensor(),
+    ])
+
+    return data_dir, database, train_transform, test_transform
 
 
 def get_train_valid_loader(dataset,
                            batch_size,
-                           augment,
                            rand_gen,
                            valid_size=0.1,
                            shuffle=True,
@@ -65,25 +80,7 @@ def get_train_valid_loader(dataset,
     error_msg = "[!] valid_size should be in the range [0, 1]."
     assert ((valid_size >= 0) and (valid_size <= 1)), error_msg
 
-    data_dir, database = dataset_factory(dataset)
-
-    # define transforms
-    valid_transform = transforms.Compose([
-            transforms.ToTensor(),
-            # normalize,
-    ])
-    if augment:
-        train_transform = transforms.Compose([
-            transforms.RandomCrop(32, padding=4),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            # normalize,
-        ])
-    else:
-        train_transform = transforms.Compose([
-            transforms.ToTensor(),
-            # normalize,
-        ])
+    data_dir, database, train_transform, test_transform = dataset_factory(dataset)
 
     # load the dataset
     train_dataset = database(
@@ -93,7 +90,7 @@ def get_train_valid_loader(dataset,
 
     valid_dataset = database(
         root=data_dir, train=True,
-        download=True, transform=valid_transform,
+        download=True, transform=test_transform,
     )
 
     num_train_val = len(train_dataset)
@@ -122,7 +119,7 @@ def get_train_valid_loader(dataset,
 
     return train_loader, valid_loader, train_idx, val_idx
 
-def get_loader_with_specific_inds(data_dir,
+def get_loader_with_specific_inds(dataset,
                                   batch_size,
                                   is_training,
                                   indices,
@@ -131,27 +128,15 @@ def get_loader_with_specific_inds(data_dir,
     """
     Same like get_train_valid_loader but with exact indices for training and validation
     """
-    # normalize = transforms.Normalize(
-    #     mean=[0.4914, 0.4822, 0.4465],
-    #     std=[0.2023, 0.1994, 0.2010],
-    # )
+    data_dir, database, train_transform, test_transform = dataset_factory(dataset)
 
-    # define transforms
     if is_training:
-        transform = transforms.Compose([
-            transforms.RandomCrop(32, padding=4),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            # normalize,
-        ])
+        transform = train_transform
     else:
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            # normalize,
-        ])
+        transform = test_transform
 
     # load the dataset
-    dataset = datasets.CIFAR10(
+    dataset = database(
         root=data_dir, train=True,
         download=True, transform=transform,
     )
@@ -164,28 +149,19 @@ def get_loader_with_specific_inds(data_dir,
     )
     return loader
 
-def get_all_data_loader(data_dir,
+def get_all_data_loader(dataset,
                    batch_size,
                    num_workers=4,
                    pin_memory=False):
     """
     Same like get_train_valid_loader but with exact indices for training and validation
     """
-    # normalize = transforms.Normalize(
-    #     mean=[0.4914, 0.4822, 0.4465],
-    #     std=[0.2023, 0.1994, 0.2010],
-    # )
-
-    # define transforms
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        # normalize,
-    ])
+    data_dir, database, train_transform, test_transform = dataset_factory(dataset)
 
     # load the dataset
-    dataset = datasets.CIFAR10(
+    dataset = database(
         root=data_dir, train=True,
-        download=True, transform=transform,
+        download=True, transform=test_transform,
     )
 
     loader = torch.utils.data.DataLoader(
@@ -215,21 +191,15 @@ def get_test_loader(dataset,
     - data_loader: test set iterator.
     """
 
-    data_dir, database = dataset_factory(dataset)
+    data_dir, database, train_transform, test_transform = dataset_factory(dataset)
 
-    # define transform
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        # normalize,
-    ])
-
-    test_dataset = database(
+    dataset = database(
         root=data_dir, train=False,
-        download=True, transform=transform,
+        download=True, transform=test_transform,
     )
 
     data_loader = torch.utils.data.DataLoader(
-        test_dataset, batch_size=batch_size, shuffle=False,
+        dataset, batch_size=batch_size, shuffle=False,
         num_workers=num_workers, pin_memory=pin_memory,
     )
 

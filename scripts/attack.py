@@ -19,7 +19,7 @@ sys.path.insert(0, "./adversarial_robustness_toolbox")
 
 from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
-    get_loader_with_specific_inds
+    get_loader_with_specific_inds, get_normalized_tensor
 from active_learning_project.utils import boolean_string, pytorch_evaluate
 from art.attacks import FastGradientMethod, ProjectedGradientDescent, DeepFool, SaliencyMapMethod, CarliniL2Method, \
     ElasticNet
@@ -38,25 +38,22 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 args = parser.parse_args()
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-DATA_ROOT = '/data/dataset/cifar10'
+with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
+    train_args = json.load(f)
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack)
 if args.targeted:
     ATTACK_DIR = ATTACK_DIR + '_targeted'
 os.makedirs(ATTACK_DIR, exist_ok=True)
-
-with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
-    train_args = json.load(f)
-global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
-train_inds = global_state['train_inds']
-val_inds = global_state['val_inds']
-test_inds = np.arange(10000).tolist()
 batch_size = 100
 
 # Data
 print('==> Preparing data..')
+global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
+train_inds = np.asarray(global_state['train_inds'])
+val_inds = np.asarray(global_state['val_inds'])
 trainloader = get_loader_with_specific_inds(
-    data_dir=DATA_ROOT,
+    dataset=args.dataset,
     batch_size=batch_size,
     is_training=False,
     indices=train_inds,
@@ -64,7 +61,7 @@ trainloader = get_loader_with_specific_inds(
     pin_memory=True
 )
 valloader = get_loader_with_specific_inds(
-    data_dir=DATA_ROOT,
+    dataset=args.dataset,
     batch_size=batch_size,
     is_training=False,
     indices=val_inds,
@@ -72,7 +69,7 @@ valloader = get_loader_with_specific_inds(
     pin_memory=True
 )
 testloader = get_test_loader(
-    data_dir=DATA_ROOT,
+    dataset=args.dataset,
     batch_size=batch_size,
     num_workers=1,
     pin_memory=True
@@ -82,13 +79,14 @@ classes = trainloader.dataset.classes
 train_size = len(trainloader.dataset)
 val_size   = len(valloader.dataset)
 test_size  = len(testloader.dataset)
+test_inds  = np.arange(test_size)
 
 # Model
 print('==> Building model..')
 if train_args['net'] == 'resnet34':
-    net = ResNet34()
+    net = ResNet34(num_classes=len(classes))
 elif train_args['net'] == 'resnet101':
-    net = ResNet101()
+    net = ResNet101(num_classes=len(classes))
 else:
     raise AssertionError("network {} is unknown".format(train_args['net']))
 net = net.to(device)
@@ -107,27 +105,17 @@ optimizer = optim.SGD(
     weight_decay=0.0,  # train_args['wd'],
     nesterov=train_args['mom'] > 0)
 
-
 if __name__ == "__main__":
-    X_val = -1.0 * np.ones(shape=(val_size, 3, 32, 32), dtype=np.float32)
+
+    X_val  = get_normalized_tensor(valloader, batch_size)
     y_val = valloader.dataset.targets
 
-    X_test = -1.0 * np.ones(shape=(test_size, 3, 32, 32), dtype=np.float32)
+    X_test = get_normalized_tensor(testloader, batch_size)
     y_test = testloader.dataset.targets
 
     net.eval()
     classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
                                    optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=10)
-
-    for batch_idx, (inputs, targets) in enumerate(valloader):
-        b = batch_idx * batch_size
-        e = b + targets.shape[0]
-        X_val[b:e] = inputs.cpu().numpy()
-
-    for batch_idx, (inputs, targets) in enumerate(testloader):
-        b = batch_idx * batch_size
-        e = b + targets.shape[0]
-        X_test[b:e] = inputs.cpu().numpy()
 
     y_val_preds = classifier.predict(X_val, batch_size=batch_size)
     y_val_preds = y_val_preds.argmax(axis=1)
@@ -236,6 +224,3 @@ if __name__ == "__main__":
     np.save(os.path.join(ATTACK_DIR, 'y_val_adv_preds.npy'), y_val_adv_preds)
     np.save(os.path.join(ATTACK_DIR, 'X_test_adv.npy'), X_test_adv)
     np.save(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'), y_test_adv_preds)
-
-
-

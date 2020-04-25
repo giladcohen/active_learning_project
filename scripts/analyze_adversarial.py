@@ -23,6 +23,7 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 
 args = parser.parse_args()
 
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
@@ -31,19 +32,15 @@ ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack)
 if args.targeted:
     ATTACK_DIR = ATTACK_DIR + '_targeted'
 REV_DIR = os.path.join(ATTACK_DIR, 'rev', args.rev_dir)
-
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
-train_inds = global_state['train_inds']
-val_inds = global_state['val_inds']
-test_inds = np.arange(10000).tolist()
 batch_size = 100
 
 # load data
 print('==> Preparing data..')
+global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
+train_inds = np.asarray(global_state['train_inds'])
+val_inds = np.asarray(global_state['val_inds'])
 trainloader = get_loader_with_specific_inds(
-    data_dir=DATA_ROOT,
+    dataset=args.dataset,
     batch_size=batch_size,
     is_training=False,
     indices=train_inds,
@@ -51,7 +48,7 @@ trainloader = get_loader_with_specific_inds(
     pin_memory=True
 )
 valloader = get_loader_with_specific_inds(
-    data_dir=DATA_ROOT,
+    dataset=args.dataset,
     batch_size=batch_size,
     is_training=False,
     indices=val_inds,
@@ -59,31 +56,37 @@ valloader = get_loader_with_specific_inds(
     pin_memory=True
 )
 testloader = get_test_loader(
-    data_dir=DATA_ROOT,
+    dataset=args.dataset,
     batch_size=batch_size,
     num_workers=1,
     pin_memory=True
 )
 
-classes = trainloader.dataset.classes
+classes = testloader.dataset.classes
 train_size = len(trainloader.dataset)
 val_size   = len(valloader.dataset)
 test_size  = len(testloader.dataset)
+test_inds  = np.arange(test_size)
 
 X_val            = valloader.dataset.data
-y_val            = valloader.dataset.targets
+y_val            = np.asarray(valloader.dataset.targets)
 y_val_preds      = np.load(os.path.join(ATTACK_DIR, 'y_val_preds.npy'))
 X_val_adv        = np.load(os.path.join(ATTACK_DIR, 'X_val_adv.npy'))
 y_val_adv_preds  = np.load(os.path.join(ATTACK_DIR, 'y_val_adv_preds.npy'))
 
 X_test           = testloader.dataset.data
-y_test           = testloader.dataset.targets
+y_test           = np.asarray(testloader.dataset.targets)
 y_test_preds     = np.load(os.path.join(ATTACK_DIR, 'y_test_preds.npy'))
 X_test_adv       = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
 y_test_adv_preds = np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'))
 
-if 'ensemble' not in REV_DIR:
-    X_test_rev       = np.load(os.path.join(REV_DIR   , 'X_test_rev.npy'))
+ensemble = 'ensemble' in args.rev_dir
+
+if ensemble:
+    y_test_pred_mat_orig = np.load(os.path.join(REV_DIR, 'y_test_pred_mat_orig.npy'))
+    y_test_pred_mat = np.load(os.path.join(REV_DIR, 'y_test_pred_mat.npy'))
+else:
+    X_test_rev = np.load(os.path.join(REV_DIR, 'X_test_rev.npy'))
 y_test_rev_preds = np.load(os.path.join(REV_DIR, 'y_test_rev_preds.npy'))
 
 if args.targeted:
@@ -161,27 +164,32 @@ print('out of {} successful attacks, we reverted {} samples. Successful number o
 
 # DEBUG
 # convert adv to BRGB:
-# X_val_adv  = convert_tensor_to_image(X_val_adv)
-# X_test_adv = convert_tensor_to_image(X_test_adv)
-# if 'ensemble' not in REV_DIR:
-#     X_test_rev = convert_tensor_to_image(X_test_rev)
-#
-# i = 6
-# plt.figure(1)
-# plt.imshow(X_test[i])
-# plt.show()
-# plt.figure(2)
-# plt.imshow(X_test_adv[i])
-# plt.show()
-# if 'ensemble' not in REV_DIR:
-#     plt.figure(3)
-#     plt.imshow(X_test_rev[i])
-#     plt.show()
-#
-# if args.targeted:
-#     print('class is {}, model predicted {}, we wanted to attack to {}, and after adv noise: {}. After reverse: {}'
-#         .format(classes[y_test[i]], classes[y_test_preds[i]], classes[y_test_adv[i]], classes[y_test_adv_preds[i]], classes[y_test_rev_preds[i]]))
-# else:
-#     print('class is {}, model predicted {}, and after adv noise: {}. After reverse: {}'
-#         .format(classes[y_test[i]], classes[y_test_preds[i]], classes[y_test_adv_preds[i]], classes[y_test_rev_preds[i]]))
+X_val_adv  = convert_tensor_to_image(X_val_adv)
+X_test_adv = convert_tensor_to_image(X_test_adv)
+if ensemble:
+    X_test_rev = convert_tensor_to_image(X_test_rev)
+
+i = 9999
+plt.figure(1)
+plt.imshow(X_test[i])
+plt.show()
+plt.figure(2)
+plt.imshow(X_test_adv[i])
+plt.show()
+if ensemble:
+    plt.figure(3)
+    plt.imshow(X_test_rev[i])
+    plt.show()
+
+strr = 'class is {}({}), model predicted {}({}), '.format(classes[y_test[i]], y_test[i], classes[y_test_preds[i]], y_test_preds[i])
+if args.targeted:
+    strr += 'we wanted to attack to {}({}), '.format(classes[y_test_adv[i]], y_test_adv[i])
+strr += 'and after adv noise: {}({}).\n'.format(classes[y_test_adv_preds[i]], y_test_adv_preds[i])
+strr += 'After reverse: {}({})'.format(classes[y_test_rev_preds[i]], y_test_rev_preds[i])
+if ensemble:
+    strr += 'original ensemble predictions: {}\n'.format(y_test_pred_mat_orig[i])
+    strr += 'reverted ensemble predictions: {}\n'.format(y_test_pred_mat[i])
+print(strr)
+
+
 

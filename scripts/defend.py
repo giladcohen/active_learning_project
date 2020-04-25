@@ -22,7 +22,8 @@ from active_learning_project.utils import boolean_string, majority_vote
 
 import matplotlib.pyplot as plt
 
-from art.attacks import FastGradientMethod, ProjectedGradientDescent, DeepFool
+from art.attacks import FastGradientMethod, ProjectedGradientDescent, DeepFool, SaliencyMapMethod, CarliniL2Method, \
+    ElasticNet
 from art.classifiers import PyTorchClassifier
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
@@ -50,13 +51,13 @@ args = parser.parse_args()
 # args.ensemble = True
 # args.ensemble_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34'
 
-if args.rev not in ['fgsm', 'pgd'] or not args.targeted:
+if args.rev not in ['fgsm', 'pgd', 'jsma', 'cw', 'ead'] or not args.targeted:
     assert not args.guru
 
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
-DATA_ROOT = '/data/dataset/cifar10'
 ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack)
 if args.targeted:
     ATTACK_DIR = ATTACK_DIR + '_targeted'
@@ -65,26 +66,23 @@ if args.rev_dir != '':
 else:
     REV_DIR = os.path.join(ATTACK_DIR, 'rev', args.rev)
 os.makedirs(REV_DIR, exist_ok=True)
-
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
-train_inds = global_state['train_inds']
-val_inds = global_state['val_inds']
-test_inds = np.arange(10000).tolist()
 batch_size = 100
 
 # Data
 print('==> Preparing data..')
 testloader = get_test_loader(
-    data_dir=DATA_ROOT,
+    dataset=args.dataset,
     batch_size=batch_size,
     num_workers=1,
     pin_memory=True
 )
 
+global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
+train_inds = np.asarray(global_state['train_inds'])
+val_inds = np.asarray(global_state['val_inds'])
 classes = testloader.dataset.classes
 test_size  = len(testloader.dataset)
+test_inds  = np.arange(test_size)
 
 X_test           = get_normalized_tensor(testloader, batch_size)
 y_test           = np.asarray(testloader.dataset.targets)
@@ -96,9 +94,9 @@ if args.targeted:
 # Model
 print('==> Building model..')
 if train_args['net'] == 'resnet34':
-    net = ResNet34()
+    net = ResNet34(num_classes=len(classes))
 elif train_args['net'] == 'resnet101':
-    net = ResNet101()
+    net = ResNet101(num_classes=len(classes))
 else:
     raise AssertionError("network {} is unknown".format(train_args['net']))
 net = net.to(device)
@@ -165,6 +163,30 @@ elif args.rev == 'deepfool':
         epsilon=0.02,
         nb_grads=len(classes),
         batch_size=batch_size
+    )
+elif args.rev == 'jsma':
+    defense = SaliencyMapMethod(
+        classifier,
+        theta=1.0,
+        gamma=0.01,
+        batch_size=batch_size
+    )
+elif args.rev == 'cw':
+    defense = CarliniL2Method(
+        classifier,
+        confidence=0.8,
+        targeted=args.guru,
+        initial_const=0.1,
+        batch_size=batch_size
+    )
+elif args.rev == 'ead':
+    defense = ElasticNet(
+        classifier,
+        confidence=0.8,
+        targeted=args.guru,
+        beta=0.01,  # EAD paper shows good results for L1
+        batch_size=batch_size,
+        decision_rule='L1'
     )
 elif args.rev == '':
     assert args.ensemble
@@ -248,8 +270,4 @@ else:  # use ensemble
 # strr += 'original ensemble predictions: {}\n'.format(y_test_pred_mat_orig[i])
 # strr += 'reverted ensemble predictions: {}\n'.format(y_test_pred_mat[i])
 # print(strr)
-
-
-# y_test_rev_preds = np.apply_along_axis(majority_vote, axis=1, arr=y_test_pred_mat)
-
 

@@ -18,7 +18,6 @@ sys.path.insert(0, "./adversarial_robustness_toolbox")
 
 
 from active_learning_project.models.resnet import ResNet34, ResNet101
-from active_learning_project.models.jakubovitznet import JakubovitzNet
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader
 from active_learning_project.utils import remove_substr_from_keys
 from torchsummary import summary
@@ -47,8 +46,7 @@ args = parser.parse_args()
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 os.makedirs(args.checkpoint_dir, exist_ok=True)
-
-BATCH_SIZE = 100
+batch_size = 100
 
 rand_gen = np.random.RandomState(int(time.time()))
 train_writer = SummaryWriter(os.path.join(args.checkpoint_dir, 'train'))
@@ -60,8 +58,7 @@ print('==> Preparing data..')
 
 trainloader, valloader, train_inds, val_inds = get_train_valid_loader(
     dataset=args.dataset,
-    batch_size=BATCH_SIZE,
-    augment=True,
+    batch_size=batch_size,
     rand_gen=rand_gen,
     valid_size=args.val_size,
     num_workers=args.n_workers,
@@ -69,7 +66,7 @@ trainloader, valloader, train_inds, val_inds = get_train_valid_loader(
 )
 testloader = get_test_loader(
     dataset=args.dataset,
-    batch_size=BATCH_SIZE,
+    batch_size=batch_size,
     num_workers=args.n_workers,
     pin_memory=device=='cuda'
 )
@@ -81,9 +78,7 @@ test_size  = len(testloader.dataset)
 
 # Model
 print('==> Building model..')
-if args.net == 'jaku':
-    net = JakubovitzNet(num_classes=len(classes))
-elif args.net == 'resnet34':
+if args.net == 'resnet34':
     net = ResNet34(num_classes=len(classes))
 elif args.net == 'resnet101':
     net = ResNet101(num_classes=len(classes))
