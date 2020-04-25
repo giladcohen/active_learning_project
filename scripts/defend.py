@@ -118,7 +118,7 @@ optimizer = optim.SGD(
 # get and assert preds:
 net.eval()
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
-                               optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=10)
+                               optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 
 y_test_preds = classifier.predict(X_test, batch_size=batch_size).argmax(axis=1)
 assert (y_test_preds == np.load(os.path.join(ATTACK_DIR, 'y_test_preds.npy'))).all()

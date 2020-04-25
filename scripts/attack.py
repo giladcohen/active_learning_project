@@ -114,7 +114,7 @@ if __name__ == "__main__":
 
     net.eval()
     classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
-                                   optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=10)
+                                   optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 
     y_val_preds = classifier.predict(X_val, batch_size=batch_size)
     y_val_preds = y_val_preds.argmax(axis=1)

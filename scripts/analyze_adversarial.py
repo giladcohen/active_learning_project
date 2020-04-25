@@ -169,7 +169,7 @@ X_test_adv = convert_tensor_to_image(X_test_adv)
 if not ensemble:
     X_test_rev = convert_tensor_to_image(X_test_rev)
 
-i = 40
+i = 50
 plt.figure(1)
 plt.imshow(X_test[i])
 plt.show()
