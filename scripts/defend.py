@@ -34,7 +34,7 @@ parser.add_argument('--rev', default='pgd', type=str, help='fgsm, pgd, deepfool,
 parser.add_argument('--rev_dir', default='', type=str, help='reverse dir')
 parser.add_argument('--guru', action='store_true', help='use guru labels')
 parser.add_argument('--ensemble', action='store_true', help='use ensemble')
-parser.add_argument('--ensemble_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34', type=str, help='ensemble dir of many networks')
+parser.add_argument('--ensemble_dir', default='', type=str, help='ensemble dir of many networks')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -66,6 +66,11 @@ if args.rev_dir != '':
 else:
     REV_DIR = os.path.join(ATTACK_DIR, 'rev', args.rev)
 os.makedirs(REV_DIR, exist_ok=True)
+if args.ensemble_dir != '':
+    ENSEMBLE_DIR = args.ensemble_dir
+else:
+    ENSEMBLE_DIR = os.path.dirname(args.checkpoint_dir)
+
 batch_size = 100
 
 # Data
@@ -206,14 +211,14 @@ if not args.ensemble:
     np.save(os.path.join(REV_DIR, 'y_test_rev_preds.npy'), y_test_rev_preds)
 else:  # use ensemble
     print('Running ensemble defense. Loading all models')
-    checkpoint_dir_list = next(os.walk(args.ensemble_dir))[1]
+    checkpoint_dir_list = next(os.walk(ENSEMBLE_DIR))[1]
     checkpoint_dir_list.sort()
     checkpoint_dir_list = checkpoint_dir_list[1:]  # ignoring the first (original) network
     y_test_pred_mat = np.empty((test_size, len(checkpoint_dir_list)), dtype=np.int32)
     y_test_pred_mat_orig = np.empty_like(y_test_pred_mat)  # for debug
 
     for i, dir in tqdm(enumerate(checkpoint_dir_list)):
-        ckpt_file = os.path.join(args.ensemble_dir, dir, 'ckpt.pth')
+        ckpt_file = os.path.join(ENSEMBLE_DIR, dir, 'ckpt.pth')
         global_state = torch.load(ckpt_file, map_location=torch.device(device))
         net.load_state_dict(global_state['best_net'])
         print('fetching predictions using ckpt file: {}'.format(ckpt_file))
