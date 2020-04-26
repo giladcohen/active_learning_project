@@ -30,6 +30,7 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robust
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack', default='fgsm', type=str, help='attack: fgsm, jsma, cw, deepfool, ead, pgd')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use trageted attack')
+parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -40,9 +41,12 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
-ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack)
-if args.targeted:
-    ATTACK_DIR = ATTACK_DIR + '_targeted'
+if args.attack_dir != '':
+    ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
+else:
+    ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack)
+    if args.targeted:
+        ATTACK_DIR = ATTACK_DIR + '_targeted'
 os.makedirs(ATTACK_DIR, exist_ok=True)
 batch_size = 100
 
