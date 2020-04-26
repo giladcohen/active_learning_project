@@ -151,7 +151,7 @@ if args.rev == 'fgsm':
     defense = FastGradientMethod(
         classifier=classifier,
         norm=np.inf,
-        eps=0.01,
+        eps=0.07,
         eps_step=0.003,
         targeted=args.guru,
         num_random_init=0,
@@ -161,7 +161,7 @@ elif args.rev == 'pgd':
     defense = ProjectedGradientDescent(
         classifier=classifier,
         norm=np.inf,
-        eps=0.01,
+        eps=0.07,
         eps_step=0.003,
         targeted=args.guru,
         batch_size=batch_size

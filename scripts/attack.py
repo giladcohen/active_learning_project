@@ -158,7 +158,7 @@ if __name__ == "__main__":
         attack = FastGradientMethod(
             classifier=classifier,
             norm=np.inf,
-            eps=0.01,
+            eps=0.07,
             eps_step=0.003,
             targeted=args.targeted,
             num_random_init=0,
@@ -168,7 +168,7 @@ if __name__ == "__main__":
         attack = ProjectedGradientDescent(
             classifier=classifier,
             norm=np.inf,
-            eps=0.01,
+            eps=0.07,
             eps_step=0.003,
             targeted=args.targeted,
             batch_size=batch_size
