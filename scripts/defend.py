@@ -168,7 +168,7 @@ elif args.rev == 'jsma':
     defense = SaliencyMapMethod(
         classifier,
         theta=1.0,
-        gamma=0.001,
+        gamma=0.01,
         batch_size=batch_size
     )
 elif args.rev == 'cw':

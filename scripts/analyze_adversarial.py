@@ -27,7 +27,6 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
-DATA_ROOT = '/data/dataset/cifar10'
 ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack)
 if args.targeted:
     ATTACK_DIR = ATTACK_DIR + '_targeted'
@@ -169,7 +168,7 @@ X_test_adv = convert_tensor_to_image(X_test_adv)
 if not ensemble:
     X_test_rev = convert_tensor_to_image(X_test_rev)
 
-i = 50
+i = 60
 plt.figure(1)
 plt.imshow(X_test[i])
 plt.show()
@@ -190,6 +189,12 @@ if ensemble:
     strr += 'original ensemble predictions: {}\n'.format(y_test_pred_mat_orig[i])
     strr += 'reverted ensemble predictions: {}\n'.format(y_test_pred_mat[i])
 print(strr)
+
+for i in np.arange(50, 60):
+    plt.figure(2)
+    plt.imshow(X_test_adv[i])
+    plt.show()
+
 
 
 

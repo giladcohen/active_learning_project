@@ -181,7 +181,7 @@ if __name__ == "__main__":
         attack = SaliencyMapMethod(
             classifier,
             theta=1.0,
-            gamma=0.001,
+            gamma=0.01,
             batch_size=batch_size
         )
     elif args.attack == 'cw':
