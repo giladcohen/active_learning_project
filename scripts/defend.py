@@ -205,8 +205,9 @@ else:
 
 dump_args = args.__dict__.copy()
 if defense is not None:
+    dump_args['defense_params'] = {}
     for param in defense.attack_params:
-        dump_args[param] = defense.__dict__[param]
+        dump_args['defense_params'][param] = defense.__dict__[param]
 with open(os.path.join(REV_DIR, 'defense_args.txt'), 'w') as f:
     json.dump(dump_args, f, indent=2)
 
