@@ -40,6 +40,7 @@ args = parser.parse_args()
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
+
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 if args.attack_dir != '':
     ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
@@ -211,8 +212,10 @@ if __name__ == "__main__":
         raise AssertionError(err_str)
 
     dump_args = args.__dict__.copy()
+    dump_args['attack'] = {}
     for param in attack.attack_params:
-        dump_args[param] = attack.__dict__[param]
+        dump_args['attack'][param] = attack.__dict__[param]
+    dump_args.update(dump_args['attack'])
     with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'w') as f:
         json.dump(dump_args, f, indent=2)
 
