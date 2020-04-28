@@ -204,8 +204,9 @@ else:
     raise AssertionError('Unknown rev {}'.format(args.rev))
 
 dump_args = args.__dict__.copy()
-for param in defense.attack_params:
-    dump_args[param] = defense.__dict__[param]
+if defense is not None:
+    for param in defense.attack_params:
+        dump_args[param] = defense.__dict__[param]
 with open(os.path.join(REV_DIR, 'defense_args.txt'), 'w') as f:
     json.dump(dump_args, f, indent=2)
 
