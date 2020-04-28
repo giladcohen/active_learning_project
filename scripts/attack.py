@@ -95,7 +95,7 @@ else:
     raise AssertionError("network {} is unknown".format(train_args['net']))
 net = net.to(device)
 
-summary(net, (3, 32, 32))
+# summary(net, (3, 32, 32))
 if device == 'cuda':
     # net = torch.nn.DataParallel(net)
     cudnn.benchmark = True

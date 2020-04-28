@@ -58,6 +58,7 @@ if args.rev not in ['fgsm', 'pgd', 'jsma', 'cw', 'ead'] or not args.targeted:
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
+
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 if args.attack_dir != '':
     ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
@@ -110,7 +111,7 @@ else:
     raise AssertionError("network {} is unknown".format(train_args['net']))
 net = net.to(device)
 
-summary(net, (3, 32, 32))
+# summary(net, (3, 32, 32))
 if device == 'cuda':
     # net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
