@@ -158,7 +158,7 @@ if __name__ == "__main__":
         attack = FastGradientMethod(
             classifier=classifier,
             norm=np.inf,
-            eps=0.07,
+            eps=0.01,
             eps_step=0.003,
             targeted=args.targeted,
             num_random_init=0,
@@ -168,7 +168,7 @@ if __name__ == "__main__":
         attack = ProjectedGradientDescent(
             classifier=classifier,
             norm=np.inf,
-            eps=0.07,
+            eps=0.01,
             eps_step=0.003,
             targeted=args.targeted,
             batch_size=batch_size
@@ -209,6 +209,12 @@ if __name__ == "__main__":
         err_str = 'Attack {} is not supported'.format(args.attack)
         print(err_str)
         raise AssertionError(err_str)
+
+    dump_args = args.__dict__.copy()
+    for param in attack.attack_params:
+        dump_args[param] = attack.__dict__[param]
+    with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'w') as f:
+        json.dump(dump_args, f, indent=2)
 
     X_val_adv = attack.generate(x=X_val, y=y_val_targets)
     val_adv_logits = classifier.predict(X_val_adv, batch_size=batch_size)

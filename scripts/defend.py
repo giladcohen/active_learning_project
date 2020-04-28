@@ -151,7 +151,7 @@ if args.rev == 'fgsm':
     defense = FastGradientMethod(
         classifier=classifier,
         norm=np.inf,
-        eps=0.07,
+        eps=0.01,
         eps_step=0.003,
         targeted=args.guru,
         num_random_init=0,
@@ -161,7 +161,7 @@ elif args.rev == 'pgd':
     defense = ProjectedGradientDescent(
         classifier=classifier,
         norm=np.inf,
-        eps=0.07,
+        eps=0.01,
         eps_step=0.003,
         targeted=args.guru,
         batch_size=batch_size
@@ -202,6 +202,12 @@ elif args.rev == '':
     defense = None
 else:
     raise AssertionError('Unknown rev {}'.format(args.rev))
+
+dump_args = args.__dict__.copy()
+for param in defense.attack_params:
+    dump_args[param] = defense.__dict__[param]
+with open(os.path.join(REV_DIR, 'defense_args.txt'), 'w') as f:
+    json.dump(dump_args, f, indent=2)
 
 if args.guru:
     y_targets = y_test
