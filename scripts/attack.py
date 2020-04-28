@@ -215,7 +215,6 @@ if __name__ == "__main__":
     dump_args['attack'] = {}
     for param in attack.attack_params:
         dump_args['attack'][param] = attack.__dict__[param]
-    dump_args.update(dump_args['attack'])
     with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'w') as f:
         json.dump(dump_args, f, indent=2)
 
