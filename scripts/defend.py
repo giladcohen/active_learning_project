@@ -52,7 +52,7 @@ args = parser.parse_args()
 # args.ensemble = False
 # args.ensemble_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34'
 
-if args.rev not in ['fgsm', 'pgd', 'jsma', 'cw', 'ead'] or not args.targeted:
+if args.rev not in ['fgsm', 'pgd', 'jsma', 'cw', 'ead']:
     assert not args.guru
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
