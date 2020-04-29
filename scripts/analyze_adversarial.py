@@ -9,15 +9,16 @@ from active_learning_project.datasets.train_val_test_data_loaders import get_tes
 from active_learning_project.utils import convert_tensor_to_image
 from active_learning_project.utils import boolean_string
 
+import matplotlib
 import matplotlib.pyplot as plt
 import pickle
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
-parser.add_argument('--attack', default='fgsm', type=str, help='checkpoint dir')
+parser.add_argument('--attack', default='pgd', type=str, help='checkpoint dir')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
-parser.add_argument('--attack_dir', default='fgsm_targeted', type=str, help='attack directory')
-parser.add_argument('--rev_dir', default='ensemble', type=str, help='reverse dir')
+parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
+parser.add_argument('--rev_dir', default='guru_ensemble_pgd', type=str, help='reverse dir')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -134,8 +135,22 @@ for i, set_ind in enumerate(test_inds):
 f_inds = [ind for ind in info['test'] if info['test'][ind]['net_succ'] and info['test'][ind]['attack_succ']]
 
 # assert that if net_succ and attack_succ then rev_known is always True
-filtered_rev_known = [info['test'][ind]['rev_known'] for ind in f_inds]
-assert np.array(filtered_rev_known).all(), 'We expect that if net_succ and attack_succ then the rev label will be known'
+# filtered_rev_known = [info['test'][ind]['rev_known'] for ind in f_inds]
+# assert np.array(filtered_rev_known).all(), 'We expect that if net_succ and attack_succ then the rev label will be known'
+num_unknown = 0
+for i in f_inds:
+    if not info['test'][i]['rev_known']:
+        strr = 'We expect that if net_succ and attack_succ then the rev label will be known, but we got for i={}:\n'.format(i)
+        strr += 'class is {}({}), model predicted {}({}), '.format(classes[y_test[i]], y_test[i], classes[y_test_preds[i]], y_test_preds[i])
+        if args.targeted:
+            strr += 'we wanted to attack to {}({}), '.format(classes[y_test_adv[i]], y_test_adv[i])
+        strr += 'and after adv noise: {}({}).\n'.format(classes[y_test_adv_preds[i]], y_test_adv_preds[i])
+        strr += 'After reverse: {}({})\n'.format(classes[y_test_rev_preds[i]], y_test_rev_preds[i])
+        if ensemble:
+            strr += 'original ensemble predictions: {}\n'.format(y_test_pred_mat_orig[i])
+            strr += 'reverted ensemble predictions: {}\n'.format(y_test_pred_mat[i])
+        print(strr)
+        num_unknown += 1
 
 val_acc = np.sum(y_val_preds == y_val) / val_size
 test_acc = np.sum(y_test_preds == y_test) / test_size
@@ -163,7 +178,8 @@ rev_flip_indices = [ind for ind in info['test'] if info['test'][ind]['net_succ']
                     and info['test'][ind]['rev_flip']]
 rev_succ_indices = [ind for ind in info['test'] if info['test'][ind]['net_succ'] and info['test'][ind]['attack_succ'] \
                     and info['test'][ind]['rev_succ']]
-print('out of {} successful attacks, we reverted {} samples. Successful number of reverted: {}'.format(len(right_flip_indices), len(rev_flip_indices), len(rev_succ_indices)))
+print('out of {} successful attacks, we reverted {} samples. Successful number of reverted: {}, #unknown: {}'
+      .format(len(right_flip_indices), len(rev_flip_indices), len(rev_succ_indices), num_unknown))
 
 # DEBUG
 # convert adv to BRGB:
@@ -172,18 +188,25 @@ X_test_adv = convert_tensor_to_image(X_test_adv)
 if not ensemble:
     X_test_rev = convert_tensor_to_image(X_test_rev)
 
-i = 70
-plt.figure(1)
-plt.imshow(X_test[i])
+N = 5
+ROWS = 3 if not ensemble else 2
+inds = np.random.choice(f_inds, N)
+fig = plt.figure(figsize=(N, ROWS))
+for i in range(N):
+    fig.add_subplot(ROWS, N, i+1)
+    plt.imshow(X_test[inds[i]])
+    plt.axis('off')
+    fig.add_subplot(ROWS, N, i + N + 1)
+    plt.imshow(X_test_adv[inds[i]])
+    plt.axis('off')
+    if not ensemble:
+        fig.add_subplot(ROWS, N, i + 2*N + 1)
+        plt.imshow(X_test_rev[inds[i]])
+        plt.axis('off')
+plt.tight_layout()
 plt.show()
-plt.figure(2)
-plt.imshow(X_test_adv[i])
-plt.show()
-if not ensemble:
-    plt.figure(3)
-    plt.imshow(X_test_rev[i])
-    plt.show()
 
+i = inds[0]
 strr = 'class is {}({}), model predicted {}({}), '.format(classes[y_test[i]], y_test[i], classes[y_test_preds[i]], y_test_preds[i])
 if args.targeted:
     strr += 'we wanted to attack to {}({}), '.format(classes[y_test_adv[i]], y_test_adv[i])
