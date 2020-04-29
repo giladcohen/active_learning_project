@@ -30,6 +30,7 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robust
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack', default='fgsm', type=str, help='checkpoint dir')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
+parser.add_argument('--minimal', action='store_true', help='use FGSM minimal attack')
 parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
 parser.add_argument('--rev', default='pgd', type=str, help='fgsm, pgd, deepfool, none')
 parser.add_argument('--rev_dir', default='', type=str, help='reverse dir')
@@ -54,6 +55,8 @@ args = parser.parse_args()
 
 if args.rev not in ['fgsm', 'pgd', 'jsma', 'cw', 'ead']:
     assert not args.guru
+if args.minimal:
+    assert args.rev == 'fgsm'
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
@@ -153,10 +156,11 @@ if args.rev == 'fgsm':
         classifier=classifier,
         norm=np.inf,
         eps=0.01,
-        eps_step=0.003,
+        eps_step=0.001,
         targeted=args.guru,
         num_random_init=0,
-        batch_size=batch_size
+        batch_size=batch_size,
+        minimal=args.minimal
     )
 elif args.rev == 'pgd':
     defense = ProjectedGradientDescent(
