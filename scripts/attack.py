@@ -160,7 +160,7 @@ if __name__ == "__main__":
             classifier=classifier,
             norm=np.inf,
             eps=0.01,
-            eps_step=0.003,
+            eps_step=0.001,
             targeted=args.targeted,
             num_random_init=0,
             batch_size=batch_size

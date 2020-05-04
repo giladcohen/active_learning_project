@@ -47,10 +47,11 @@ args = parser.parse_args()
 # args.checkpoint_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
 # args.attack = 'cw'
 # args.targeted = True
+# args.minimal = True
 # args.rev = 'fgsm'
 # args.rev_dir = 'debug'
 # args.guru = False
-# args.ensemble = False
+# args.ensemble = True
 # args.ensemble_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34'
 
 if args.rev not in ['fgsm', 'pgd', 'jsma', 'cw', 'ead']:
@@ -139,16 +140,31 @@ assert (y_test_preds == np.load(os.path.join(ATTACK_DIR, 'y_test_preds.npy'))).a
 y_test_adv_preds = classifier.predict(X_test_adv, batch_size=batch_size).argmax(axis=1)
 assert (y_test_adv_preds == np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'))).all()
 
-# what are the samples we care about? net_succ and attack_succ only
-f_inds = []
+# what are the samples we care about? net_succ (not attack_succ. it is irrelevant)
+f1_inds = []  # net_succ
+f2_inds = []  # net_succ AND attack_flip
+f3_inds = []  # net_succ AND attack_flip AND attack_succ
+
 for i in range(test_size):
-    collect = (y_test_preds[i] == y_test[i]) and \
-              (y_test_preds[i] != y_test_adv_preds[i])
+    f1 = y_test_preds[i] == y_test[i]
+    f2 = f1 and y_test_preds[i] != y_test_adv_preds[i]
     if args.targeted:
-        collect = collect and y_test_adv_preds[i] == y_test_adv[i]
-    if collect:
-        f_inds.append(i)
-f_inds = np.asarray(f_inds)
+        f3 = f2 and y_test_adv_preds[i] == y_test_adv[i]
+    else:
+        f3 = f2
+    if f1:
+        f1_inds.append(i)
+    if f2:
+        f2_inds.append(i)
+    if f3:
+        f3_inds.append(i)
+
+f1_inds = np.asarray(f1_inds)
+f2_inds = np.asarray(f2_inds)
+f3_inds = np.asarray(f3_inds)
+
+print("Number of test samples: {}. #net_succ: {}. #net_succ_attack_flip: {}. # net_succ_attack_succ: {}"
+      .format(test_size, len(f1_inds), len(f2_inds), len(f3_inds)))
 
 # reverse attack:
 if args.rev == 'fgsm':
@@ -221,75 +237,41 @@ if args.guru:
 else:
     y_targets = None
 
-if not args.ensemble:
+if defense:  # if rev is not empty
     X_test_rev = defense.generate(x=X_test_adv, y=y_targets)
     y_test_rev_preds = classifier.predict(X_test_rev, batch_size=batch_size).argmax(axis=1)
     np.save(os.path.join(REV_DIR, 'X_test_rev.npy'), X_test_rev)
     np.save(os.path.join(REV_DIR, 'y_test_rev_preds.npy'), y_test_rev_preds)
-else:  # use ensemble
+
+if args.ensemble:
     print('Running ensemble defense. Loading all models')
     checkpoint_dir_list = next(os.walk(ENSEMBLE_DIR))[1]
     checkpoint_dir_list.sort()
     checkpoint_dir_list = checkpoint_dir_list[1:]  # ignoring the first (original) network
-    y_test_pred_mat = np.empty((test_size, len(checkpoint_dir_list)), dtype=np.int32)
-    y_test_pred_mat_orig = np.empty_like(y_test_pred_mat)  # for debug
+    y_test_net_pred_mat = np.empty((test_size, len(checkpoint_dir_list)), dtype=np.int32)  # (N, #nets)
+    if defense:
+        X_test_rev_mat = np.empty((X_test_rev.shape[0], len(checkpoint_dir_list)) + X_test_rev.shape[1:], dtype=np.float32)
+        y_test_rev_pred_mat = np.empty_like(y_test_net_pred_mat, dtype=np.int32)  # (N, #nets)
 
     for i, dir in tqdm(enumerate(checkpoint_dir_list)):
         ckpt_file = os.path.join(ENSEMBLE_DIR, dir, 'ckpt.pth')
         global_state = torch.load(ckpt_file, map_location=torch.device(device))
         net.load_state_dict(global_state['best_net'])
         print('fetching predictions using ckpt file: {}'.format(ckpt_file))
-        y_test_preds_tmp = classifier.predict(X_test_adv, batch_size=batch_size).argmax(axis=1)
-        y_test_pred_mat_orig[:, i] = y_test_preds_tmp.copy()  # debug
+        y_test_net_pred_mat[:, i] = classifier.predict(X_test_adv, batch_size=batch_size).argmax(axis=1)
 
-        if args.rev != '':
-            acc_all = np.mean(y_test_preds_tmp == y_test_adv_preds)
-            acc_filtered = np.mean(y_test_preds_tmp[f_inds] == y_test_adv_preds[f_inds])
-            print('accuracy of net prediction to the adversarial predictions: all samples: {:.2f}%. filtered samples: {:.2f}%'
-                  .format(acc_all * 100, acc_filtered * 100))
+        prob_all = np.mean(y_test_net_pred_mat[:, i] == y_test_adv_preds)
+        prob_f1 = np.mean(y_test_net_pred_mat[:, i][f1_inds] == y_test_adv_preds[f1_inds])
+        prob_f2 = np.mean(y_test_net_pred_mat[:, i][f2_inds] == y_test_adv_preds[f2_inds])
+        prob_f3 = np.mean(y_test_net_pred_mat[:, i][f3_inds] == y_test_adv_preds[f3_inds])
+        print('Probability of net prediction to match the adversarial prediction: all samples: {:.2f}%. f1 samples: {:.2f}%, f2 samples: {:.2f}%, f3 samples: {:.2f}%'
+              .format(prob_all * 100, prob_f1 * 100, prob_f2 * 100, prob_f3 * 100))
 
-            #If a label is just like y_test_adv_preds, take the prediction label after an attack (if it is different)')
-            X_test_rev_tmp = defense.generate(x=X_test_adv, y=y_targets)
-            y_test_rev_preds = classifier.predict(X_test_rev_tmp, batch_size=batch_size).argmax(axis=1)
+        if defense:
+            X_test_rev_mat[:, i] = defense.generate(x=X_test_adv, y=y_targets)
+            y_test_rev_pred_mat[:, i] = classifier.predict(X_test_rev_mat[:, i], batch_size=batch_size).argmax(axis=1)
 
-            # the below counts are relevant only for net_succ and attack_succ only
-            rev_succ_switch_cnt = 0
-            rev_fail_switch_cnt = 0
-            nan_switch_cnt = 0
-            for k in range(test_size):
-                # collect only for net_succ and attack_succ
-                collect = k in f_inds
-
-                if y_test_preds_tmp[k] == y_test_adv_preds[k]:  # if we have the same prediction as the adversarial prediction
-                    if y_test_preds_tmp[k] != y_test_rev_preds[k]:  # if the rev defense label switched the adv label
-                        y_test_preds_tmp[k] = y_test_rev_preds[k]
-                        if collect:
-                            if y_test_rev_preds[k] == y_test[k]:  # if rev label match the GT
-                                rev_succ_switch_cnt += 1
-                            else:
-                                rev_fail_switch_cnt += 1
-                    else:  # if the rev defense label didn't manage to switch the the adv label
-                        y_test_preds_tmp[k] = -1
-                        if collect:
-                            nan_switch_cnt += 1
-
-            print('For filtered samples: overall switched: {}. correct: {}, incorrect: {}, unknown: {}'
-                  .format(rev_succ_switch_cnt + rev_fail_switch_cnt + nan_switch_cnt, rev_succ_switch_cnt, rev_fail_switch_cnt, nan_switch_cnt))
-
-        y_test_pred_mat[:, i] = y_test_preds_tmp
-
-    y_test_rev_preds = np.apply_along_axis(majority_vote, axis=1, arr=y_test_pred_mat)
-    np.save(os.path.join(REV_DIR, 'y_test_rev_preds.npy'), y_test_rev_preds)
-    np.save(os.path.join(REV_DIR, 'y_test_pred_mat_orig.npy'), y_test_pred_mat_orig)
-    np.save(os.path.join(REV_DIR, 'y_test_pred_mat.npy'), y_test_pred_mat)
-
-# DEBUG:
-# i = 9999
-# strr = 'class is {}({}), model predicted {}({}), '.format(classes[y_test[i]], y_test[i], classes[y_test_preds[i]], y_test_preds[i])
-# if args.targeted:
-#     strr += 'we wanted to attack to {}({}), '.format(classes[y_test_adv[i]], y_test_adv[i])
-# strr += 'and after adv noise: {}({}).\n'.format(classes[y_test_adv_preds[i]], y_test_adv_preds[i])
-# strr += 'original ensemble predictions: {}\n'.format(y_test_pred_mat_orig[i])
-# strr += 'reverted ensemble predictions: {}\n'.format(y_test_pred_mat[i])
-# print(strr)
-
+    np.save(os.path.join(REV_DIR, 'y_test_net_pred_mat.npy'), y_test_net_pred_mat)
+    if defense:
+        np.save(os.path.join(REV_DIR, 'X_test_rev_mat.npy'), X_test_rev_mat)
+        np.save(os.path.join(REV_DIR, 'y_test_rev_pred_mat.npy'), y_test_rev_pred_mat)
