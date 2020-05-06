@@ -37,6 +37,7 @@ parser.add_argument('--rev_dir', default='', type=str, help='reverse dir')
 parser.add_argument('--guru', action='store_true', help='use guru labels')
 parser.add_argument('--ensemble', action='store_true', help='use ensemble')
 parser.add_argument('--ensemble_dir', default='', type=str, help='ensemble dir of many networks')
+parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -80,7 +81,7 @@ if args.ensemble_dir != '':
 else:
     ENSEMBLE_DIR = os.path.dirname(args.checkpoint_dir)
 
-batch_size = 100
+batch_size = args.batch_size
 
 # Data
 print('==> Preparing data..')

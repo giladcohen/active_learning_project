@@ -19,6 +19,7 @@ parser.add_argument('--attack', default='pgd', type=str, help='checkpoint dir')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
 parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
 parser.add_argument('--rev_dir', default='guru_ensemble_pgd', type=str, help='reverse dir')
+parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -36,7 +37,7 @@ else:
     if args.targeted:
         ATTACK_DIR = ATTACK_DIR + '_targeted'
 REV_DIR = os.path.join(ATTACK_DIR, 'rev', args.rev_dir)
-batch_size = 100
+batch_size = args.batch_size
 
 # load data
 print('==> Preparing data..')

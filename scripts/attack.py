@@ -31,6 +31,7 @@ parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness
 parser.add_argument('--attack', default='fgsm', type=str, help='attack: fgsm, jsma, cw, deepfool, ead, pgd')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use trageted attack')
 parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
+parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -49,7 +50,7 @@ else:
     if args.targeted:
         ATTACK_DIR = ATTACK_DIR + '_targeted'
 os.makedirs(ATTACK_DIR, exist_ok=True)
-batch_size = 100
+batch_size = args.batch_size
 
 # Data
 print('==> Preparing data..')

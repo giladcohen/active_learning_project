@@ -37,6 +37,7 @@ parser.add_argument('--cooldown', default=0, type=int, help='LR cooldown')
 parser.add_argument('--val_size', default=0.05, type=float, help='Fraction of validation size')
 parser.add_argument('--n_workers', default=1, type=int, help='Data loading threads')
 parser.add_argument('--metric', default='accuracy', type=str, help='metric to optimize. accuracy or sparsity')
+parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -46,7 +47,7 @@ args = parser.parse_args()
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 os.makedirs(args.checkpoint_dir, exist_ok=True)
-batch_size = 100
+batch_size = args.batch_size
 
 rand_gen = np.random.RandomState(int(time.time()))
 train_writer = SummaryWriter(os.path.join(args.checkpoint_dir, 'train'))
