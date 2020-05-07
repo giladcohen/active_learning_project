@@ -4,13 +4,14 @@ import torch.backends.cudnn as cudnn
 import torch.optim as optim
 import torch.nn as nn
 from torchsummary import summary
-from tqdm import tqdm
 
+from tqdm import tqdm
 import numpy as np
 import json
 import os
 import argparse
 import sys
+from datetime import datetime
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 
@@ -30,9 +31,9 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robust
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack', default='fgsm', type=str, help='checkpoint dir')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
-parser.add_argument('--minimal', action='store_true', help='use FGSM minimal attack')
 parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
 parser.add_argument('--rev', default='pgd', type=str, help='fgsm, pgd, deepfool, none')
+parser.add_argument('--minimal', action='store_true', help='use FGSM minimal attack')
 parser.add_argument('--rev_dir', default='', type=str, help='reverse dir')
 parser.add_argument('--guru', action='store_true', help='use guru labels')
 parser.add_argument('--ensemble', action='store_true', help='use ensemble')
@@ -45,15 +46,15 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 args = parser.parse_args()
 
 # DEBUG:
-# args.checkpoint_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-# args.attack = 'cw'
-# args.targeted = True
-# args.minimal = True
-# args.rev = 'fgsm'
-# args.rev_dir = 'debug'
-# args.guru = False
-# args.ensemble = True
-# args.ensemble_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34'
+args.checkpoint_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+args.attack = 'cw'
+args.targeted = True
+args.rev = 'fgsm'
+args.minimal = False
+args.rev_dir = 'fgsm'
+args.guru = False
+args.ensemble = True
+args.ensemble_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34'
 
 if args.rev not in ['fgsm', 'pgd', 'jsma', 'cw', 'ead']:
     assert not args.guru
@@ -80,6 +81,9 @@ if args.ensemble_dir != '':
     ENSEMBLE_DIR = args.ensemble_dir
 else:
     ENSEMBLE_DIR = os.path.dirname(args.checkpoint_dir)
+
+ENSEMBLE_DIR_DUMP = os.path.join(ATTACK_DIR, 'ensemble')
+os.makedirs(ENSEMBLE_DIR_DUMP, exist_ok=True)
 
 batch_size = args.batch_size
 
@@ -135,11 +139,15 @@ net.eval()
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
                                optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 
-y_test_preds = classifier.predict(X_test, batch_size=batch_size).argmax(axis=1)
+y_test_logits = classifier.predict(X_test, batch_size=batch_size)
+y_test_preds = y_test_logits.argmax(axis=1)
 assert (y_test_preds == np.load(os.path.join(ATTACK_DIR, 'y_test_preds.npy'))).all()
+np.save(os.path.join(ATTACK_DIR, 'y_test_logits.npy'), y_test_logits)
 
-y_test_adv_preds = classifier.predict(X_test_adv, batch_size=batch_size).argmax(axis=1)
+y_test_adv_logits = classifier.predict(X_test_adv, batch_size=batch_size)
+y_test_adv_preds = y_test_adv_logits.argmax(axis=1)
 assert (y_test_adv_preds == np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'))).all()
+np.save(os.path.join(ATTACK_DIR, 'y_test_adv_logits.npy'), y_test_adv_logits)
 
 # what are the samples we care about? net_succ (not attack_succ. it is irrelevant)
 f1_inds = []  # net_succ
@@ -239,9 +247,18 @@ else:
     y_targets = None
 
 if defense:  # if rev is not empty
-    X_test_rev = defense.generate(x=X_test_adv, y=y_targets)
-    y_test_rev_preds = classifier.predict(X_test_rev, batch_size=batch_size).argmax(axis=1)
-    np.save(os.path.join(REV_DIR, 'X_test_rev.npy'), X_test_rev)
+    # if necessary, generate the rev image
+    if not os.path.exists(os.path.join(REV_DIR, 'X_test_rev.npy')):
+        print('main rev images were not calculated before. Generating...')
+        X_test_rev = defense.generate(x=X_test_adv, y=y_targets)
+        np.save(os.path.join(REV_DIR, 'X_test_rev.npy'), X_test_rev)
+    else:
+        print('main rev images were already calculated before. Loading...')
+        X_test_rev = np.load(os.path.join(REV_DIR, 'X_test_rev.npy'))
+
+    y_test_rev_logits = classifier.predict(X_test_rev, batch_size=batch_size)
+    y_test_rev_preds = y_test_rev_logits.argmax(axis=1)
+    np.save(os.path.join(REV_DIR, 'y_test_rev_logits.npy'), y_test_rev_logits)
     np.save(os.path.join(REV_DIR, 'y_test_rev_preds.npy'), y_test_rev_preds)
 
 if args.ensemble:
@@ -249,17 +266,30 @@ if args.ensemble:
     checkpoint_dir_list = next(os.walk(ENSEMBLE_DIR))[1]
     checkpoint_dir_list.sort()
     checkpoint_dir_list = checkpoint_dir_list[1:]  # ignoring the first (original) network
+
+    # calculated all the time, even without rev:
+    y_test_net_logits_mat = np.empty((test_size, len(checkpoint_dir_list), len(classes)), dtype=np.float32)  # (N, #nets, #classes)
     y_test_net_pred_mat = np.empty((test_size, len(checkpoint_dir_list)), dtype=np.int32)  # (N, #nets)
-    if defense:
-        X_test_rev_mat = np.empty((X_test_rev.shape[0], len(checkpoint_dir_list)) + X_test_rev.shape[1:], dtype=np.float32)
+
+    if defense:  # calculated only for rev:
+        rev_exist = os.path.exists(os.path.join(REV_DIR, 'X_test_rev_mat.npy'))
+        if not rev_exist:  # will be calculated. Very time consuming
+            print('ensemble rev images were not calculated before. Initializing mat...')
+            X_test_rev_mat = np.empty((test_size, len(checkpoint_dir_list)) + X_test_rev.shape[1:], dtype=np.float32)
+        else:
+            print('ensemble rev images were already calculated before. Loading...')
+            X_test_rev_mat = np.load(os.path.join(REV_DIR, 'X_test_rev_mat.npy'))
+        y_test_rev_logits_mat = np.empty_like(y_test_net_logits_mat, dtype=np.float32)  # (N, #nets, #classes)
         y_test_rev_pred_mat = np.empty_like(y_test_net_pred_mat, dtype=np.int32)  # (N, #nets)
 
     for i, dir in tqdm(enumerate(checkpoint_dir_list)):
         ckpt_file = os.path.join(ENSEMBLE_DIR, dir, 'ckpt.pth')
         global_state = torch.load(ckpt_file, map_location=torch.device(device))
         net.load_state_dict(global_state['best_net'])
-        print('fetching predictions using ckpt file: {}'.format(ckpt_file))
-        y_test_net_pred_mat[:, i] = classifier.predict(X_test_adv, batch_size=batch_size).argmax(axis=1)
+        print('{}: fetching predictions using ckpt file: {}'.format(datetime.now().strftime("%H:%M:%S"), ckpt_file))
+
+        y_test_net_logits_mat[:, i] = classifier.predict(X_test_adv, batch_size=batch_size)
+        y_test_net_pred_mat[:, i] = y_test_net_logits_mat[:, i].argmax(axis=1)
 
         prob_all = np.mean(y_test_net_pred_mat[:, i] == y_test_adv_preds)
         prob_f1 = np.mean(y_test_net_pred_mat[:, i][f1_inds] == y_test_adv_preds[f1_inds])
@@ -269,10 +299,17 @@ if args.ensemble:
               .format(prob_all * 100, prob_f1 * 100, prob_f2 * 100, prob_f3 * 100))
 
         if defense:
-            X_test_rev_mat[:, i] = defense.generate(x=X_test_adv, y=y_targets)
-            y_test_rev_pred_mat[:, i] = classifier.predict(X_test_rev_mat[:, i], batch_size=batch_size).argmax(axis=1)
+            if not rev_exist:
+                print('Generating rev images for network {}'.format(dir))
+                X_test_rev_mat[:, i] = defense.generate(x=X_test_adv, y=y_targets)
 
-    np.save(os.path.join(REV_DIR, 'y_test_net_pred_mat.npy'), y_test_net_pred_mat)
+            y_test_rev_logits_mat[:, i] = classifier.predict(X_test_rev_mat[:, i], batch_size=batch_size)
+            y_test_rev_pred_mat[:, i] = y_test_rev_logits_mat[:, i].argmax(axis=1)
+
+    np.save(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_net_logits_mat.npy'), y_test_net_logits_mat)
+    np.save(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_net_pred_mat.npy'), y_test_net_pred_mat)
     if defense:
-        np.save(os.path.join(REV_DIR, 'X_test_rev_mat.npy'), X_test_rev_mat)
+        if not rev_exist:
+            np.save(os.path.join(REV_DIR, 'X_test_rev_mat.npy'), X_test_rev_mat)
+        np.save(os.path.join(REV_DIR, 'y_test_rev_logits_mat.npy'), y_test_rev_logits_mat)
         np.save(os.path.join(REV_DIR, 'y_test_rev_pred_mat.npy'), y_test_rev_pred_mat)
