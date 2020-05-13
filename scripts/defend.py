@@ -247,19 +247,32 @@ else:
     y_targets = None
 
 if defense:  # if rev is not empty
-    # if necessary, generate the rev image
+    # if necessary, generate the rev images
     if not os.path.exists(os.path.join(REV_DIR, 'X_test_rev.npy')):
-        print('main rev images were not calculated before. Generating...')
-        X_test_rev = defense.generate(x=X_test_adv, y=y_targets)
+        print('main normal rev images were not calculated before. Generating...')
+        X_test_rev = defense.generate(x=X_test, y=y_targets)
         np.save(os.path.join(REV_DIR, 'X_test_rev.npy'), X_test_rev)
     else:
-        print('main rev images were already calculated before. Loading...')
+        print('main normal rev images were already calculated before. Loading...')
         X_test_rev = np.load(os.path.join(REV_DIR, 'X_test_rev.npy'))
+
+    if not os.path.exists(os.path.join(REV_DIR, 'X_test_adv_rev.npy')):
+        print('main adv rev images were not calculated before. Generating...')
+        X_test_adv_rev = defense.generate(x=X_test_adv, y=y_targets)
+        np.save(os.path.join(REV_DIR, 'X_test_adv_rev.npy'), X_test_adv_rev)
+    else:
+        print('main adv rev images were already calculated before. Loading...')
+        X_test_adv_rev = np.load(os.path.join(REV_DIR, 'X_test_adv_rev.npy'))
 
     y_test_rev_logits = classifier.predict(X_test_rev, batch_size=batch_size)
     y_test_rev_preds = y_test_rev_logits.argmax(axis=1)
     np.save(os.path.join(REV_DIR, 'y_test_rev_logits.npy'), y_test_rev_logits)
     np.save(os.path.join(REV_DIR, 'y_test_rev_preds.npy'), y_test_rev_preds)
+
+    y_test_adv_rev_logits = classifier.predict(X_test_adv_rev, batch_size=batch_size)
+    y_test_adv_rev_preds = y_test_adv_rev_logits.argmax(axis=1)
+    np.save(os.path.join(REV_DIR, 'y_test_adv_rev_logits.npy'), y_test_adv_rev_logits)
+    np.save(os.path.join(REV_DIR, 'y_test_adv_rev_preds.npy'), y_test_adv_rev_preds)
 
 if args.ensemble:
     print('Running ensemble defense. Loading all models')
@@ -267,20 +280,37 @@ if args.ensemble:
     checkpoint_dir_list.sort()
     checkpoint_dir_list = checkpoint_dir_list[1:]  # ignoring the first (original) network
 
-    # calculated all the time, even without rev:
+    # calculated all the time, even without rev. For normal:
     y_test_net_logits_mat = np.empty((test_size, len(checkpoint_dir_list), len(classes)), dtype=np.float32)  # (N, #nets, #classes)
-    y_test_net_pred_mat = np.empty((test_size, len(checkpoint_dir_list)), dtype=np.int32)  # (N, #nets)
+    y_test_net_preds_mat = np.empty((test_size, len(checkpoint_dir_list)), dtype=np.int32)  # (N, #nets)
+
+    # and for adv:
+    y_test_adv_net_logits_mat = np.empty_like(y_test_net_logits_mat)  # (N, #nets, #classes)
+    y_test_adv_net_preds_mat = np.empty_like(y_test_net_preds_mat)  # (N, #nets)
 
     if defense:  # calculated only for rev:
-        rev_exist = os.path.exists(os.path.join(REV_DIR, 'X_test_rev_mat.npy'))
-        if not rev_exist:  # will be calculated. Very time consuming
-            print('ensemble rev images were not calculated before. Initializing mat...')
-            X_test_rev_mat = np.empty((test_size, len(checkpoint_dir_list)) + X_test_rev.shape[1:], dtype=np.float32)
+        normal_rev_exist = os.path.exists(os.path.join(REV_DIR, 'X_test_rev_mat.npy'))
+        adv_rev_exist    = os.path.exists(os.path.join(REV_DIR, 'X_test_adv_rev_mat.npy'))
+
+        if not normal_rev_exist:  # will be calculated. Very time consuming
+            print('ensemble normal rev images were not calculated before. Initializing mat...')
+            X_test_rev_mat = np.empty((test_size, len(checkpoint_dir_list)) + X_test.shape[1:], dtype=np.float32)
         else:
-            print('ensemble rev images were already calculated before. Loading...')
+            print('ensemble normal rev images were already calculated before. Loading...')
             X_test_rev_mat = np.load(os.path.join(REV_DIR, 'X_test_rev_mat.npy'))
-        y_test_rev_logits_mat = np.empty_like(y_test_net_logits_mat, dtype=np.float32)  # (N, #nets, #classes)
-        y_test_rev_pred_mat = np.empty_like(y_test_net_pred_mat, dtype=np.int32)  # (N, #nets)
+
+        if not adv_rev_exist:  # will be calculated. Very time consuming
+            print('ensemble adv rev images were not calculated before. Initializing mat...')
+            X_test_adv_rev_mat = np.empty_like(X_test_rev_mat)
+        else:
+            print('ensemble adv rev images were already calculated before. Loading...')
+            X_test_adv_rev_mat = np.load(os.path.join(REV_DIR, 'X_test_adv_rev_mat.npy'))
+
+        y_test_net_rev_logits_mat = np.empty_like(y_test_net_logits_mat)  # (N, #nets, #classes)
+        y_test_net_rev_preds_mat = np.empty_like(y_test_net_preds_mat)  # (N, #nets)
+
+        y_test_adv_net_rev_logits_mat = np.empty_like(y_test_net_rev_logits_mat)  # (N, #nets, #classes)
+        y_test_adv_net_rev_preds_mat = np.empty_like(y_test_net_rev_preds_mat)  # (N, #nets)
 
     for i, dir in tqdm(enumerate(checkpoint_dir_list)):
         ckpt_file = os.path.join(ENSEMBLE_DIR, dir, 'ckpt.pth')
@@ -288,28 +318,62 @@ if args.ensemble:
         net.load_state_dict(global_state['best_net'])
         print('{}: fetching predictions using ckpt file: {}'.format(datetime.now().strftime("%H:%M:%S"), ckpt_file))
 
-        y_test_net_logits_mat[:, i] = classifier.predict(X_test_adv, batch_size=batch_size)
-        y_test_net_pred_mat[:, i] = y_test_net_logits_mat[:, i].argmax(axis=1)
+        y_test_net_logits_mat[:, i] = classifier.predict(X_test, batch_size=batch_size)
+        y_test_net_preds_mat[:, i] = y_test_net_logits_mat[:, i].argmax(axis=1)
 
-        prob_all = np.mean(y_test_net_pred_mat[:, i] == y_test_adv_preds)
-        prob_f1 = np.mean(y_test_net_pred_mat[:, i][f1_inds] == y_test_adv_preds[f1_inds])
-        prob_f2 = np.mean(y_test_net_pred_mat[:, i][f2_inds] == y_test_adv_preds[f2_inds])
-        prob_f3 = np.mean(y_test_net_pred_mat[:, i][f3_inds] == y_test_adv_preds[f3_inds])
-        print('Probability of net prediction to match the adversarial prediction: all samples: {:.2f}%. f1 samples: {:.2f}%, f2 samples: {:.2f}%, f3 samples: {:.2f}%'
+        y_test_adv_net_logits_mat[:, i] = classifier.predict(X_test_adv, batch_size=batch_size)
+        y_test_adv_net_preds_mat[:, i] = y_test_adv_net_logits_mat[:, i].argmax(axis=1)
+
+        # probability for same prediction for normal images:
+        prob_all = np.mean(y_test_net_preds_mat[:, i] == y_test_preds)
+        prob_f1 = np.mean(y_test_net_preds_mat[:, i][f1_inds] == y_test_preds[f1_inds])
+        prob_f2 = np.mean(y_test_net_preds_mat[:, i][f2_inds] == y_test_preds[f2_inds])
+        prob_f3 = np.mean(y_test_net_preds_mat[:, i][f3_inds] == y_test_preds[f3_inds])
+        print('Probability of normal net prediction to match the normal prediction: all samples: {:.2f}%. f1 samples: {:.2f}%, f2 samples: {:.2f}%, f3 samples: {:.2f}%'
+              .format(prob_all * 100, prob_f1 * 100, prob_f2 * 100, prob_f3 * 100))
+
+        # probability for same prediction for adv images:
+        prob_all = np.mean(y_test_adv_net_preds_mat[:, i] == y_test_adv_preds)
+        prob_f1 = np.mean(y_test_adv_net_preds_mat[:, i][f1_inds] == y_test_adv_preds[f1_inds])
+        prob_f2 = np.mean(y_test_adv_net_preds_mat[:, i][f2_inds] == y_test_adv_preds[f2_inds])
+        prob_f3 = np.mean(y_test_adv_net_preds_mat[:, i][f3_inds] == y_test_adv_preds[f3_inds])
+        print('Probability of adv net prediction to match the adv prediction: all samples: {:.2f}%. f1 samples: {:.2f}%, f2 samples: {:.2f}%, f3 samples: {:.2f}%'
               .format(prob_all * 100, prob_f1 * 100, prob_f2 * 100, prob_f3 * 100))
 
         if defense:
-            if not rev_exist:
-                print('Generating rev images for network {}'.format(dir))
-                X_test_rev_mat[:, i] = defense.generate(x=X_test_adv, y=y_targets)
+            if not normal_rev_exist:
+                print('Generating normal rev images for network {}'.format(dir))
+                X_test_rev_mat[:, i] = defense.generate(x=X_test, y=y_targets)
 
-            y_test_rev_logits_mat[:, i] = classifier.predict(X_test_rev_mat[:, i], batch_size=batch_size)
-            y_test_rev_pred_mat[:, i] = y_test_rev_logits_mat[:, i].argmax(axis=1)
+            if not adv_rev_exist:
+                print('Generating adv rev images for network {}'.format(dir))
+                X_test_adv_rev_mat[:, i] = defense.generate(x=X_test_adv, y=y_targets)
+
+            # normal preds for net rev:
+            y_test_net_rev_logits_mat[:, i] = classifier.predict(X_test_rev_mat[:, i], batch_size=batch_size)
+            y_test_net_rev_preds_mat[:, i] = y_test_net_rev_logits_mat[:, i].argmax(axis=1)
+
+            # adv preds for net rev:
+            y_test_adv_net_rev_logits_mat[:, i] = classifier.predict(X_test_adv_rev_mat[:, i], batch_size=batch_size)
+            y_test_adv_net_rev_preds_mat[:, i] = y_test_adv_net_rev_logits_mat[:, i].argmax(axis=1)
 
     np.save(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_net_logits_mat.npy'), y_test_net_logits_mat)
-    np.save(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_net_pred_mat.npy'), y_test_net_pred_mat)
+    np.save(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_net_preds_mat.npy'), y_test_net_preds_mat)
+    np.save(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_adv_net_logits_mat.npy'), y_test_adv_net_logits_mat)
+    np.save(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_adv_net_preds_mat.npy'), y_test_adv_net_preds_mat)
+
     if defense:
-        if not rev_exist:
+        if not normal_rev_exist:
             np.save(os.path.join(REV_DIR, 'X_test_rev_mat.npy'), X_test_rev_mat)
-        np.save(os.path.join(REV_DIR, 'y_test_rev_logits_mat.npy'), y_test_rev_logits_mat)
-        np.save(os.path.join(REV_DIR, 'y_test_rev_pred_mat.npy'), y_test_rev_pred_mat)
+        if not adv_rev_exist:
+            np.save(os.path.join(REV_DIR, 'X_test_adv_rev_mat.npy'), X_test_adv_rev_mat)
+
+        # dumping normal preds for net rev
+        np.save(os.path.join(REV_DIR, 'y_test_net_rev_logits_mat.npy'), y_test_net_rev_logits_mat)
+        np.save(os.path.join(REV_DIR, 'y_test_net_rev_preds_mat.npy'), y_test_net_rev_preds_mat)
+
+        # dumping adv preds for net rev
+        np.save(os.path.join(REV_DIR, 'y_test_adv_net_rev_logits_mat.npy'), y_test_adv_net_rev_logits_mat)
+        np.save(os.path.join(REV_DIR, 'y_test_adv_net_rev_preds_mat.npy'), y_test_adv_net_rev_preds_mat)
+
+print('done')
