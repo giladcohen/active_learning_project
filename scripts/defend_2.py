@@ -29,11 +29,13 @@ parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness
 parser.add_argument('--attack', default='cw', type=str, help='checkpoint dir')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
 parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
-parser.add_argument('--rev_dir', default='deepfool', type=str, help='reverse dir')
+parser.add_argument('--rev_dir', default='fgsm', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--method', default='ensemble', type=str, help='method of defense: ensemble, svm')
+parser.add_argument('--method', default='svm', type=str, help='method of defense: ensemble, svm')
+parser.add_argument('--pool', default='ensemble', type=str, help='networks pool: main, ensemble, all')
 parser.add_argument('--train_on', default='adv', type=str, help='normal, adv, all')
 parser.add_argument('--test_on', default='adv', type=str, help='normal, adv')
+parser.add_argument('--temperature', default=4, type=float, help='normal, adv')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -58,6 +60,8 @@ else:
 ENSEMBLE_DIR_DUMP = os.path.join(ATTACK_DIR, 'ensemble')
 
 batch_size = args.batch_size
+T = args.temperature  # Temperature for softmax
+rand_gen = np.random.RandomState(seed=12345)
 
 # Data
 print('==> Preparing data..')
@@ -139,43 +143,125 @@ f3_inds = np.asarray(f3_inds)
 print("Number of test samples: {}. #net_succ: {}. #net_succ_attack_flip: {}. # net_succ_attack_succ: {}"
       .format(test_size, len(f1_inds), len(f2_inds), len(f3_inds)))
 
-# Selecting train and test subsets
-rand_gen = np.random.RandomState(seed=12345)
-tot = len(f1_inds)
-n_train = int(0.5 * tot)
-n_test = tot - n_train
-f1_train = rand_gen.choice(f1_inds, n_train, replace=False)
-f1_train.sort()
-f1_test = np.asarray([ind for ind in f1_inds if ind not in f1_train])
+# load all calculated features:
+load_main     = args.pool in ['main', 'all']
+load_ensemble = args.pool in ['ensemble', 'all']
+train_normal  = args.train_on in ['normal', 'all']
+train_adv     = args.train_on in ['adv', 'all']
 
-# collect features:
-T = 0.05
-y_main_logits     = np.load(os.path.join(ATTACK_DIR, 'y_test_adv_logits.npy'))
-y_net_logits      = np.load(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_net_logits_mat.npy'))
-y_main_rev_logits = np.load(os.path.join(REV_DIR, 'y_test_rev_logits.npy'))
-y_net_rev_logits  = np.load(os.path.join(REV_DIR, 'y_test_rev_logits_mat.npy'))
+# main
+y_main_logits         = np.load(os.path.join(ATTACK_DIR, 'y_test_logits.npy'))
+y_adv_main_logits     = np.load(os.path.join(ATTACK_DIR, 'y_test_adv_logits.npy'))
+# ensemble
+y_net_logits          = np.load(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_net_logits_mat.npy'))
+y_adv_net_logits      = np.load(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_adv_net_logits_mat.npy'))
+# main rev
+y_main_rev_logits     = np.load(os.path.join(REV_DIR, 'y_test_rev_logits.npy'))
+y_adv_main_rev_logits = np.load(os.path.join(REV_DIR, 'y_test_adv_rev_logits.npy'))
+# ensemble rev
+y_net_rev_logits      = np.load(os.path.join(REV_DIR, 'y_test_net_rev_logits_mat.npy'))
+y_adv_net_rev_logits  = np.load(os.path.join(REV_DIR, 'y_test_adv_net_rev_logits_mat.npy'))
 
-# apply temperature softmax to everything:
-y_main_preds      = softmax(T * y_main_logits, axis=1)      # (N, #class)
-y_net_preds       = softmax(T * y_net_logits, axis=2)       # (N, 9, #class)
-y_main_rev_preds  = softmax(T * y_main_rev_logits, axis=1)  # (N, #class)
-y_net_rev_preds   = softmax(T * y_net_rev_logits, axis=2)   # (N, 9, #class)
-
-# construct features
-x1 = np.expand_dims(y_main_logits, 1)
-x2 = np.expand_dims(y_main_rev_preds, 1)
-input_features = np.concatenate((x1, y_net_preds, x2, y_net_rev_preds), axis=1)
-input_features = input_features.reshape((test_size, -1))
-
-train_inputs = input_features[f1_train]
-train_labels = y_test[f1_train]
-test_inputs  = input_features[f1_test]
-test_labels  = y_test[f1_test]
+# calculating preds:
+# main
+y_main_preds          = softmax((1/T) * y_main_logits, axis=1)          # (N, #class)
+y_adv_main_preds      = softmax((1/T) * y_adv_main_logits, axis=1)      # (N, #class)
+# ensemble
+y_net_preds           = softmax((1/T) * y_net_logits, axis=2)           # (N, 9, #class)
+y_adv_net_preds       = softmax((1/T) * y_adv_net_logits, axis=2)       # (N, 9, #class)
+# main rev
+y_main_rev_preds      = softmax((1/T) * y_main_rev_logits, axis=1)      # (N, #class)
+y_adv_main_rev_preds  = softmax((1/T) * y_adv_main_rev_logits, axis=1)  # (N, #class)
+# ensemble_rev
+y_net_rev_preds       = softmax((1/T) * y_net_rev_logits, axis=2)       # (N, 9, #class)
+y_adv_net_rev_preds   = softmax((1/T) * y_adv_net_rev_logits, axis=2)   # (N, 9, #class)
 
 
-clf = LinearSVC(penalty='l2', loss='hinge', verbose=1, random_state=rand_gen, max_iter=100000)
-clf.fit(train_inputs, train_labels)
-y_preds = clf.predict(test_inputs)
-accuracy = np.mean(y_preds == test_labels)
-print('accuracy = {}'.format(accuracy))
+def add_feature(x, x1):
+    """Adding feature x1 to x"""
+    if x is None:
+        x = x1
+    else:
+        x = np.concatenate((x, x1), axis=1)
+    return x
+
+
+if args.method == 'ensemble':
+    print('Analyzing ensemble robustness on {} images'.format(args.test_on))
+    # collect relevant features:
+    preds = None
+    if args.test_on == 'normal':
+        if load_main:
+            preds = add_feature(preds, np.expand_dims(y_main_preds, 1))
+        if load_ensemble:
+            preds = add_feature(preds, y_net_preds)
+    else:
+        if load_main:
+            preds = add_feature(preds, np.expand_dims(y_adv_main_preds, 1))
+        if load_ensemble:
+            preds = add_feature(preds, y_adv_net_preds)
+
+    preds = preds.argmax(axis=2)
+    defense_preds = np.apply_along_axis(majority_vote, axis=1, arr=preds)
+
+    acc_all = np.mean(defense_preds == y_test)
+    acc_f1 = np.mean(defense_preds[f1_inds] == y_test[f1_inds])
+    acc_f2 = np.mean(defense_preds[f2_inds] == y_test[f2_inds])
+    acc_f3 = np.mean(defense_preds[f3_inds] == y_test[f3_inds])
+    print('Accuracy for method={}, train_on={}, test_on={}, pool={}: all samples: {:.2f}%. f1 samples: {:.2f}%, f2 samples: {:.2f}%, f3 samples: {:.2f}%'
+          .format(args.method, args.train_on, args.test_on, args.pool, acc_all * 100, acc_f1 * 100, acc_f2 * 100, acc_f3 * 100))
+
+
+elif args.method == 'svm':
+    print('Analyzing SVM robustness on {} images'.format(args.test_on))
+    normal_features = None
+    if train_normal:
+        if load_main:
+            normal_features = add_feature(normal_features, np.expand_dims(y_main_preds, 1))
+            normal_features = add_feature(normal_features, np.expand_dims(y_main_rev_preds, 1))
+        if load_ensemble:
+            normal_features = add_feature(normal_features, y_net_preds)
+            normal_features = add_feature(normal_features, y_net_rev_preds)
+        normal_features = normal_features.reshape((test_size, -1))
+
+    adv_features = None
+    if train_adv:
+        if load_main:
+            adv_features = add_feature(adv_features, np.expand_dims(y_adv_main_preds, 1))
+            adv_features = add_feature(adv_features, np.expand_dims(y_adv_main_rev_preds, 1))
+        if load_ensemble:
+            adv_features = add_feature(adv_features, y_adv_net_preds)
+            adv_features = add_feature(adv_features, y_adv_net_rev_preds)
+        adv_features = adv_features.reshape((test_size, -1))
+
+    # Selecting train and test subsets
+    tot = len(f1_inds)
+    n_train = int(0.5 * tot)
+    n_test = tot - n_train
+    f1_train = rand_gen.choice(f1_inds, n_train, replace=False)
+    f1_train.sort()
+    f1_test = np.asarray([ind for ind in f1_inds if ind not in f1_train])
+
+    if train_normal and train_adv:
+        input_features = np.concatenate((normal_features[f1_train], adv_features[f1_train]))
+        input_labels = np.concatenate((y_test[f1_train], y_test[f1_train]))
+    elif train_normal:
+        input_features = normal_features[f1_train]
+        input_labels = y_test[f1_train]
+    else:
+        input_features = adv_features[f1_train]
+        input_labels = y_test[f1_train]
+
+    if args.test_on == 'normal':
+        test_features = normal_features[f1_test]
+    else:
+        test_features = adv_features[f1_test]
+    test_labels = y_test[f1_test]
+
+    clf = LinearSVC(penalty='l2', loss='hinge', verbose=1, random_state=rand_gen, max_iter=100000)
+    clf.fit(input_features, input_labels)
+    defense_preds = clf.predict(test_features)
+    acc_f1 = np.mean(defense_preds == test_labels)
+    print('Accuracy for method={}, train_on={}, test_on={}, pool={}, T={}: f1 samples: {:.2f}%'
+          .format(args.method, args.train_on, args.test_on, args.pool, T, acc_f1 * 100))
 
