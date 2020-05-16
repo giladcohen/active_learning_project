@@ -286,26 +286,44 @@ elif 'svm' in args.method:
 
         normal_features = None
         net_preds = None
+        net_preds_rev = None
         if load_main:
-            net_preds = add_feature(net_preds, np.expand_dims(y_main_preds, 1))
+            net_preds     = add_feature(net_preds    , np.expand_dims(y_main_preds, 1))
+            net_preds_rev = add_feature(net_preds_rev, np.expand_dims(y_main_rev_preds, 1))
         if load_ensemble:
-            net_preds = add_feature(net_preds, y_net_preds)
-        net_means = np.mean(net_preds, axis=1)
-        net_std   = np.std(net_preds, axis=1)
+            net_preds     = add_feature(net_preds, y_net_preds)
+            net_preds_rev = add_feature(net_preds_rev, y_net_rev_preds)
+
+        net_means     = np.mean(net_preds, axis=1)
+        net_means_rev = np.mean(net_preds_rev, axis=1)
+        net_std       = np.std(net_preds, axis=1)
+        net_std_rev   = np.std(net_preds_rev, axis=1)
+
         normal_features = add_feature(normal_features, np.expand_dims(net_means, 1))
+        normal_features = add_feature(normal_features, np.expand_dims(net_means_rev, 1))
         normal_features = add_feature(normal_features, np.expand_dims(net_std, 1))
+        normal_features = add_feature(normal_features, np.expand_dims(net_std_rev, 1))
         normal_features = normal_features.reshape((test_size, -1))
 
         adv_features = None
         net_preds = None
+        net_preds_rev = None
         if load_main:
-            net_preds = add_feature(net_preds, np.expand_dims(y_adv_main_preds, 1))
+            net_preds     = add_feature(net_preds    , np.expand_dims(y_adv_main_preds, 1))
+            net_preds_rev = add_feature(net_preds_rev, np.expand_dims(y_adv_main_rev_preds, 1))
         if load_ensemble:
-            net_preds = add_feature(net_preds, y_adv_net_preds)
-        net_means = np.mean(net_preds, axis=1)
-        net_std   = np.std(net_preds, axis=1)
+            net_preds     = add_feature(net_preds, y_adv_net_preds)
+            net_preds_rev = add_feature(net_preds_rev, y_adv_net_rev_preds)
+
+        net_means     = np.mean(net_preds, axis=1)
+        net_means_rev = np.mean(net_preds_rev, axis=1)
+        net_std       = np.std(net_preds, axis=1)
+        net_std_rev   = np.std(net_preds_rev, axis=1)
+
         adv_features = add_feature(adv_features, np.expand_dims(net_means, 1))
+        adv_features = add_feature(adv_features, np.expand_dims(net_means_rev, 1))
         adv_features = add_feature(adv_features, np.expand_dims(net_std, 1))
+        adv_features = add_feature(adv_features, np.expand_dims(net_std_rev, 1))
         adv_features = adv_features.reshape((test_size, -1))
 
     # common code for all SVM methods:
