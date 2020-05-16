@@ -29,13 +29,15 @@ parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness
 parser.add_argument('--attack', default='cw', type=str, help='checkpoint dir')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
 parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
-parser.add_argument('--rev_dir', default='fgsm', type=str, help='reverse dir')
+parser.add_argument('--rev_dir', default='fgsm_minimal', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--method', default='svm', type=str, help='method of defense: ensemble, svm')
-parser.add_argument('--pool', default='ensemble', type=str, help='networks pool: main, ensemble, all')
+parser.add_argument('--method', default='all_stats_svm', type=str, help='method of defense: ensemble, svm')
+parser.add_argument('--pool', default='all', type=str, help='networks pool: main, ensemble, all')
 parser.add_argument('--train_on', default='adv', type=str, help='normal, adv, all')
 parser.add_argument('--test_on', default='adv', type=str, help='normal, adv')
 parser.add_argument('--temperature', default=4, type=float, help='normal, adv')
+parser.add_argument('--pca_dims', default=-1, type=int, help='if not -1, apply PCA to svm with dims')
+
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -118,6 +120,7 @@ classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
                                optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 
 # what are the samples we care about? net_succ (not attack_succ. it is irrelevant)
+f0_inds = []  # net_fail
 f1_inds = []  # net_succ
 f2_inds = []  # net_succ AND attack_flip
 f3_inds = []  # net_succ AND attack_flip AND attack_succ
@@ -131,17 +134,34 @@ for i in range(test_size):
         f3 = f2
     if f1:
         f1_inds.append(i)
+    else:
+        f0_inds.append(i)
     if f2:
         f2_inds.append(i)
     if f3:
         f3_inds.append(i)
 
+f0_inds = np.asarray(f0_inds)
 f1_inds = np.asarray(f1_inds)
 f2_inds = np.asarray(f2_inds)
 f3_inds = np.asarray(f3_inds)
 
-print("Number of test samples: {}. #net_succ: {}. #net_succ_attack_flip: {}. # net_succ_attack_succ: {}"
+print("Number of test samples: {}. #net_succ: {}. #net_succ_attack_flip: {}. #net_succ_attack_succ: {}"
       .format(test_size, len(f1_inds), len(f2_inds), len(f3_inds)))
+
+# Selecting train and test subsets - to make fair comparison with SVM and ensemble
+tot = len(f1_inds)
+n_train = int(0.5 * tot)
+n_test = tot - n_train
+f1_train = rand_gen.choice(f1_inds, n_train, replace=False)
+f1_train.sort()
+f1_test  = np.asarray([ind for ind in f1_inds if ind not in f1_train])
+
+f2_train = np.asarray([ind for ind in f2_inds if ind in f1_train])
+f2_test  = np.asarray([ind for ind in f2_inds if ind not in f1_train])
+
+f3_train = np.asarray([ind for ind in f3_inds if ind in f1_train])
+f3_test  = np.asarray([ind for ind in f3_inds if ind not in f1_train])
 
 # load all calculated features:
 load_main     = args.pool in ['main', 'all']
@@ -204,18 +224,11 @@ if args.method == 'ensemble':
     preds = preds.argmax(axis=2)
     defense_preds = np.apply_along_axis(majority_vote, axis=1, arr=preds)
 
-    acc_all = np.mean(defense_preds == y_test)
-    acc_f1 = np.mean(defense_preds[f1_inds] == y_test[f1_inds])
-    acc_f2 = np.mean(defense_preds[f2_inds] == y_test[f2_inds])
-    acc_f3 = np.mean(defense_preds[f3_inds] == y_test[f3_inds])
-    print('Accuracy for method={}, train_on={}, test_on={}, pool={}: all samples: {:.2f}%. f1 samples: {:.2f}%, f2 samples: {:.2f}%, f3 samples: {:.2f}%'
-          .format(args.method, args.train_on, args.test_on, args.pool, acc_all * 100, acc_f1 * 100, acc_f2 * 100, acc_f3 * 100))
+elif 'svm' in args.method:
+    if args.method == 'svm':
+        print('Analyzing SVM robustness on {} images'.format(args.test_on))
+        normal_features = None
 
-
-elif args.method == 'svm':
-    print('Analyzing SVM robustness on {} images'.format(args.test_on))
-    normal_features = None
-    if train_normal:
         if load_main:
             normal_features = add_feature(normal_features, np.expand_dims(y_main_preds, 1))
             normal_features = add_feature(normal_features, np.expand_dims(y_main_rev_preds, 1))
@@ -224,8 +237,7 @@ elif args.method == 'svm':
             normal_features = add_feature(normal_features, y_net_rev_preds)
         normal_features = normal_features.reshape((test_size, -1))
 
-    adv_features = None
-    if train_adv:
+        adv_features = None
         if load_main:
             adv_features = add_feature(adv_features, np.expand_dims(y_adv_main_preds, 1))
             adv_features = add_feature(adv_features, np.expand_dims(y_adv_main_rev_preds, 1))
@@ -234,14 +246,69 @@ elif args.method == 'svm':
             adv_features = add_feature(adv_features, y_adv_net_rev_preds)
         adv_features = adv_features.reshape((test_size, -1))
 
-    # Selecting train and test subsets
-    tot = len(f1_inds)
-    n_train = int(0.5 * tot)
-    n_test = tot - n_train
-    f1_train = rand_gen.choice(f1_inds, n_train, replace=False)
-    f1_train.sort()
-    f1_test = np.asarray([ind for ind in f1_inds if ind not in f1_train])
+    elif args.method == 'stats_svm':
+        print('Analyzing stats SVM robustness on {} images'.format(args.test_on))
+        assert load_main and load_ensemble
 
+        normal_features = None
+        normal_features = add_feature(normal_features, np.expand_dims(y_main_preds, 1))
+        normal_features = add_feature(normal_features, np.expand_dims(y_main_rev_preds, 1))
+
+        net_means     = np.mean(y_net_preds, axis=1)
+        net_means_rev = np.mean(y_net_rev_preds, axis=1)
+        net_std       = np.std(y_net_preds, axis=1)
+        net_std_rev   = np.std(y_net_rev_preds, axis=1)
+
+        normal_features = add_feature(normal_features, np.expand_dims(net_means, 1))
+        normal_features = add_feature(normal_features, np.expand_dims(net_means_rev, 1))
+        normal_features = add_feature(normal_features, np.expand_dims(net_std, 1))
+        normal_features = add_feature(normal_features, np.expand_dims(net_std_rev, 1))
+        normal_features = normal_features.reshape((test_size, -1))
+
+        adv_features = None
+        adv_features = add_feature(adv_features, np.expand_dims(y_adv_main_preds, 1))
+        adv_features = add_feature(adv_features, np.expand_dims(y_adv_main_rev_preds, 1))
+
+        net_means     = np.mean(y_adv_net_preds, axis=1)
+        net_means_rev = np.mean(y_adv_net_rev_preds, axis=1)
+        net_std       = np.std(y_adv_net_preds, axis=1)
+        net_std_rev   = np.std(y_adv_net_rev_preds, axis=1)
+
+        adv_features = add_feature(adv_features, np.expand_dims(net_means, 1))
+        adv_features = add_feature(adv_features, np.expand_dims(net_means_rev, 1))
+        adv_features = add_feature(adv_features, np.expand_dims(net_std, 1))
+        adv_features = add_feature(adv_features, np.expand_dims(net_std_rev, 1))
+        adv_features = adv_features.reshape((test_size, -1))
+
+    elif args.method == 'all_stats_svm':
+        print('Analyzing all stats SVM robustness on {} images'.format(args.test_on))
+        assert load_ensemble  # can be without main
+
+        normal_features = None
+        net_preds = None
+        if load_main:
+            net_preds = add_feature(net_preds, np.expand_dims(y_main_preds, 1))
+        if load_ensemble:
+            net_preds = add_feature(net_preds, y_net_preds)
+        net_means = np.mean(net_preds, axis=1)
+        net_std   = np.std(net_preds, axis=1)
+        normal_features = add_feature(normal_features, np.expand_dims(net_means, 1))
+        normal_features = add_feature(normal_features, np.expand_dims(net_std, 1))
+        normal_features = normal_features.reshape((test_size, -1))
+
+        adv_features = None
+        net_preds = None
+        if load_main:
+            net_preds = add_feature(net_preds, np.expand_dims(y_adv_main_preds, 1))
+        if load_ensemble:
+            net_preds = add_feature(net_preds, y_adv_net_preds)
+        net_means = np.mean(net_preds, axis=1)
+        net_std   = np.std(net_preds, axis=1)
+        adv_features = add_feature(adv_features, np.expand_dims(net_means, 1))
+        adv_features = add_feature(adv_features, np.expand_dims(net_std, 1))
+        adv_features = adv_features.reshape((test_size, -1))
+
+    # common code for all SVM methods:
     if train_normal and train_adv:
         input_features = np.concatenate((normal_features[f1_train], adv_features[f1_train]))
         input_labels = np.concatenate((y_test[f1_train], y_test[f1_train]))
@@ -253,15 +320,52 @@ elif args.method == 'svm':
         input_labels = y_test[f1_train]
 
     if args.test_on == 'normal':
-        test_features = normal_features[f1_test]
+        test_features = normal_features
     else:
-        test_features = adv_features[f1_test]
-    test_labels = y_test[f1_test]
+        test_features = adv_features
+
+    if args.pca_dims != -1:
+        pca = PCA(n_components=args.pca_dims, random_state=rand_gen)
+        pca.fit(input_features)
+        input_features = pca.transform(input_features)
+        test_features  = pca.transform(test_features)
 
     clf = LinearSVC(penalty='l2', loss='hinge', verbose=1, random_state=rand_gen, max_iter=100000)
     clf.fit(input_features, input_labels)
     defense_preds = clf.predict(test_features)
-    acc_f1 = np.mean(defense_preds == test_labels)
-    print('Accuracy for method={}, train_on={}, test_on={}, pool={}, T={}: f1 samples: {:.2f}%'
-          .format(args.method, args.train_on, args.test_on, args.pool, T, acc_f1 * 100))
+
+acc_all = np.mean(defense_preds == y_test)
+acc_f1 = np.mean(defense_preds[f1_test] == y_test[f1_test])
+acc_f2 = np.mean(defense_preds[f2_test] == y_test[f2_test])
+acc_f3 = np.mean(defense_preds[f3_test] == y_test[f3_test])
+print('Accuracy for method={}, train_on={}, test_on={}, pool={}: all samples: {:.2f}%. f1 samples: {:.2f}%, f2 samples: {:.2f}%, f3 samples: {:.2f}%'
+      .format(args.method, args.train_on, args.test_on, args.pool, acc_all * 100, acc_f1 * 100, acc_f2 * 100, acc_f3 * 100))
+
+# Distinguish scenarios:
+# 1) same_correct  : y_new == y_old, correct label. BLUE.
+# 2) same_incorrect: y_new == y_old, incorrect label. BLACK
+# 3) flip_correct  : y_new != y_old, correct. GREEN
+# 4) flip_incorrect: y_new != y_old, incorrect. RED
+# same_correct   = np.logical_and(defense_preds == y_test_adv_preds, defense_preds == y_test)
+# same_incorrect = np.logical_and(defense_preds == y_test_adv_preds, defense_preds != y_test)
+# flip_correct   = np.logical_and(defense_preds != y_test_adv_preds, defense_preds == y_test)
+# flip_incorrect = np.logical_and(defense_preds != y_test_adv_preds, defense_preds != y_test)
+#
+# # filter only indices inside f1_inds
+# same_correct[f0_inds]   = False
+# same_incorrect[f0_inds] = False
+# flip_correct[f0_inds]   = False
+# flip_incorrect[f0_inds] = False
+#
+# # Fitting PCA
+# pca = PCA(n_components=2, random_state=rand_gen)
+# pca_test_features_embeddings = pca.fit_transform(test_features)
+# plt.close('all')
+# plt.figure(figsize=(5,5))
+# plt.scatter(pca_test_features_embeddings[same_correct, 0]  , pca_test_features_embeddings[same_correct, 1]  , s=1, c='blue' , label='same_correct')
+# plt.scatter(pca_test_features_embeddings[same_incorrect, 0], pca_test_features_embeddings[same_incorrect, 1], s=1, c='black', label='same_incorrect')
+# plt.scatter(pca_test_features_embeddings[flip_correct, 0]  , pca_test_features_embeddings[flip_correct, 1]  , s=1, c='green', label='flip_correct')
+# plt.scatter(pca_test_features_embeddings[flip_incorrect, 0], pca_test_features_embeddings[flip_incorrect, 1], s=1, c='red'  , label='flip_incorrect')
+# plt.legend()
+# plt.savefig('/home/gilad/plots/pca.png')
 
