@@ -1,4 +1,3 @@
-'''Train CIFAR10 with PyTorch.'''
 import torch
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
@@ -31,13 +30,12 @@ parser.add_argument('--targeted', default=True, type=boolean_string, help='use t
 parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
 parser.add_argument('--rev_dir', default='fgsm_minimal', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--method', default='all_stats_svm', type=str, help='method of defense: ensemble, svm')
+parser.add_argument('--method', default='cross_inference_svm', type=str, help='method of defense: ensemble, svm')
 parser.add_argument('--pool', default='all', type=str, help='networks pool: main, ensemble, all')
 parser.add_argument('--train_on', default='adv', type=str, help='normal, adv, all')
 parser.add_argument('--test_on', default='adv', type=str, help='normal, adv')
-parser.add_argument('--temperature', default=4, type=float, help='normal, adv')
-parser.add_argument('--pca_dims', default=-1, type=int, help='if not -1, apply PCA to svm with dims')
-
+parser.add_argument('--temperature', default=9, type=float, help='normal, adv')
+parser.add_argument('--pca_dims', default=10, type=int, help='if not -1, apply PCA to svm with dims')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -59,6 +57,7 @@ if args.rev_dir != '':
     REV_DIR = os.path.join(ATTACK_DIR, 'rev', args.rev_dir)
 else:
     REV_DIR = os.path.join(ATTACK_DIR, 'rev', args.rev)
+ENSEMBLE_DIR = os.path.dirname(args.checkpoint_dir)
 ENSEMBLE_DIR_DUMP = os.path.join(ATTACK_DIR, 'ensemble')
 
 batch_size = args.batch_size
@@ -196,6 +195,44 @@ y_adv_main_rev_preds  = softmax((1/T) * y_adv_main_rev_logits, axis=1)  # (N, #c
 y_net_rev_preds       = softmax((1/T) * y_net_rev_logits, axis=2)       # (N, 9, #class)
 y_adv_net_rev_preds   = softmax((1/T) * y_adv_net_rev_logits, axis=2)   # (N, 9, #class)
 
+if not os.path.exists(os.path.join(REV_DIR, 'y_test_adv_cross_rev_logits.npy')):
+    X_test_rev         = np.load(os.path.join(REV_DIR, 'X_test_rev.npy'))
+    X_test_rev_mat     = np.load(os.path.join(REV_DIR, 'X_test_rev_mat.npy'))
+    X_test_adv_rev     = np.load(os.path.join(REV_DIR, 'X_test_adv_rev.npy'))
+    X_test_adv_rev_mat = np.load(os.path.join(REV_DIR, 'X_test_adv_rev_mat.npy'))
+
+    X_test_rev_all     = np.concatenate((np.expand_dims(X_test_rev, axis=1), X_test_rev_mat), axis=1)  # (N, 10, 3, 32, 32)
+    X_test_adv_rev_all = np.concatenate((np.expand_dims(X_test_adv_rev, axis=1), X_test_adv_rev_mat), axis=1)  # (N, 10, 3, 32, 32)
+    del X_test_rev, X_test_rev_mat, X_test_adv_rev, X_test_adv_rev_mat
+
+    print('generating cross predictions for {} using ensemble in {}'.format(REV_DIR, ENSEMBLE_DIR))
+    checkpoint_dir_list = next(os.walk(ENSEMBLE_DIR))[1]
+    checkpoint_dir_list.sort()
+
+    y_cross_rev_logits     = np.empty((test_size, len(checkpoint_dir_list), len(checkpoint_dir_list), len(classes)), dtype=np.float32)
+    y_adv_cross_rev_logits = np.empty_like(y_cross_rev_logits)
+
+    for j, dir in enumerate(checkpoint_dir_list):  # for network j
+        ckpt_file = os.path.join(ENSEMBLE_DIR, dir, 'ckpt.pth')
+        global_state = torch.load(ckpt_file, map_location=torch.device(device))
+        net.load_state_dict(global_state['best_net'])
+        for i in range(X_test_rev_all.shape[1]):  # for image created from network i
+            y_cross_rev_logits[:, i, j]     = classifier.predict(X_test_rev_all[:, i], batch_size=batch_size)
+            y_adv_cross_rev_logits[:, i, j] = classifier.predict(X_test_adv_rev_all[:, i], batch_size=batch_size)
+
+    np.save(os.path.join(REV_DIR, 'y_test_cross_rev_logits.npy'), y_cross_rev_logits)
+    np.save(os.path.join(REV_DIR, 'y_test_adv_cross_rev_logits.npy'), y_adv_cross_rev_logits)
+else:
+    y_cross_rev_logits     = np.load(os.path.join(REV_DIR, 'y_test_cross_rev_logits.npy'))
+    y_adv_cross_rev_logits = np.load(os.path.join(REV_DIR, 'y_test_adv_cross_rev_logits.npy'))
+
+y_cross_logits     = np.concatenate((np.expand_dims(y_main_logits, axis=1), y_net_logits), axis=1)  # (N, 10, #class)
+y_adv_cross_logits = np.concatenate((np.expand_dims(y_adv_main_logits, axis=1), y_adv_net_logits), axis=1)  # (N, 10, #class)
+
+y_cross_preds         = softmax((1/T) * y_cross_logits, axis=2)          # (N, 10, #cls)
+y_adv_cross_preds     = softmax((1/T) * y_adv_cross_logits, axis=2)      # (N, 10, #cls)
+y_cross_rev_preds     = softmax((1/T) * y_cross_rev_logits, axis=3)      # (N, 10, 10, #cls)
+y_adv_cross_rev_preds = softmax((1/T) * y_adv_cross_rev_logits, axis=3)  # (N, 10, 10, #cls)
 
 def add_feature(x, x1):
     """Adding feature x1 to x"""
@@ -221,6 +258,24 @@ if args.method == 'ensemble':
         if load_ensemble:
             preds = add_feature(preds, y_adv_net_preds)
 
+    preds = preds.argmax(axis=2)
+    defense_preds = np.apply_along_axis(majority_vote, axis=1, arr=preds)
+
+elif args.method == 'smart_ensemble':
+    assert load_main and load_ensemble
+
+    normal_features = None
+    normal_features = add_feature(normal_features, y_cross_preds)
+    normal_features = add_feature(normal_features, y_cross_rev_preds.reshape((test_size, -1, len(classes))))
+
+    adv_features = None
+    adv_features = add_feature(adv_features, y_adv_cross_preds)
+    adv_features = add_feature(adv_features, y_adv_cross_rev_preds.reshape((test_size, -1, len(classes))))
+
+    if args.test_on == 'normal':
+        preds = normal_features
+    else:
+        preds = adv_features
     preds = preds.argmax(axis=2)
     defense_preds = np.apply_along_axis(majority_vote, axis=1, arr=preds)
 
@@ -278,6 +333,19 @@ elif 'svm' in args.method:
         adv_features = add_feature(adv_features, np.expand_dims(net_means_rev, 1))
         adv_features = add_feature(adv_features, np.expand_dims(net_std, 1))
         adv_features = add_feature(adv_features, np.expand_dims(net_std_rev, 1))
+        adv_features = adv_features.reshape((test_size, -1))
+
+    elif args.method == 'cross_inference_svm':
+        assert load_main and load_ensemble
+
+        normal_features = None
+        normal_features = add_feature(normal_features, y_cross_preds)
+        normal_features = add_feature(normal_features, y_cross_rev_preds.reshape((test_size, -1, len(classes))))
+        normal_features = normal_features.reshape((test_size, -1))
+
+        adv_features = None
+        adv_features = add_feature(adv_features, y_adv_cross_preds)
+        adv_features = add_feature(adv_features, y_adv_cross_rev_preds.reshape((test_size, -1, len(classes))))
         adv_features = adv_features.reshape((test_size, -1))
 
     elif args.method == 'all_stats_svm':
@@ -356,8 +424,8 @@ acc_all = np.mean(defense_preds == y_test)
 acc_f1 = np.mean(defense_preds[f1_test] == y_test[f1_test])
 acc_f2 = np.mean(defense_preds[f2_test] == y_test[f2_test])
 acc_f3 = np.mean(defense_preds[f3_test] == y_test[f3_test])
-print('Accuracy for method={}, train_on={}, test_on={}, pool={}: all samples: {:.2f}%. f1 samples: {:.2f}%, f2 samples: {:.2f}%, f3 samples: {:.2f}%'
-      .format(args.method, args.train_on, args.test_on, args.pool, acc_all * 100, acc_f1 * 100, acc_f2 * 100, acc_f3 * 100))
+print('Accuracy for method={}, train_on={}, test_on={}, pool={}, T={}, PCA_DIMS={}: all samples: {:.2f}%. f1 samples: {:.2f}%, f2 samples: {:.2f}%, f3 samples: {:.2f}%'
+      .format(args.method, args.train_on, args.test_on, args.pool, T, args.pca_dims, acc_all * 100, acc_f1 * 100, acc_f2 * 100, acc_f3 * 100))
 
 # Distinguish scenarios:
 # 1) same_correct  : y_new == y_old, correct label. BLUE.
@@ -387,3 +455,11 @@ print('Accuracy for method={}, train_on={}, test_on={}, pool={}: all samples: {:
 # plt.legend()
 # plt.savefig('/home/gilad/plots/pca.png')
 
+# print best T
+# T_vec = np.arange(1, 24)
+# f1_acc = [86.85, 87.29, 87.76, 88.03, 88.48, 88.46, 88.61, 88.56, 88.65, 88.59, 88.48, 88.44, 88.37,
+#           88.31, 88.31, 88.27, 88.29, 88.20, 88.14, 88.06, 88.06, 87.99, 87.95]
+# plt.plot(T_vec, f1_acc)
+# plt.xlabel('Temperature')
+# plt.ylabel('f1 accuracy')
+# plt.savefig('/home/gilad/plots/f1_acc_vs_T_cross_inference.png')
