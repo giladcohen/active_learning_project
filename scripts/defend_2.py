@@ -30,12 +30,12 @@ parser.add_argument('--targeted', default=True, type=boolean_string, help='use t
 parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
 parser.add_argument('--rev_dir', default='fgsm_minimal', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--method', default='cross_inference_svm', type=str, help='method of defense: ensemble, svm')
+parser.add_argument('--method', default='cross_inference_svm_v2', type=str, help='method of defense: ensemble, svm')
 parser.add_argument('--pool', default='all', type=str, help='networks pool: main, ensemble, all')
 parser.add_argument('--train_on', default='adv', type=str, help='normal, adv, all')
 parser.add_argument('--test_on', default='adv', type=str, help='normal, adv')
-parser.add_argument('--temperature', default=9, type=float, help='normal, adv')
-parser.add_argument('--pca_dims', default=10, type=int, help='if not -1, apply PCA to svm with dims')
+parser.add_argument('--temperature', default=4, type=float, help='normal, adv')
+parser.add_argument('--pca_dims', default=50, type=int, help='if not -1, apply PCA to svm with dims')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -346,6 +346,42 @@ elif 'svm' in args.method:
         adv_features = None
         adv_features = add_feature(adv_features, y_adv_cross_preds)
         adv_features = add_feature(adv_features, y_adv_cross_rev_preds.reshape((test_size, -1, len(classes))))
+        adv_features = adv_features.reshape((test_size, -1))
+
+    elif args.method == 'cross_inference_svm_v2':
+        assert load_main and load_ensemble
+        normal_features = None
+        normal_features = add_feature(normal_features, np.expand_dims(y_cross_preds[:, 0], axis=1))  # just the reg main
+        normal_features = add_feature(normal_features, np.expand_dims(y_cross_rev_preds[:, 0, 0], axis=1))  # just the rev main
+
+        preds_main_on_rev = y_cross_preds[:, 1:]
+        main_mean = np.mean(preds_main_on_rev, axis=1)     # (10k x #cls)
+        main_std  = np.std(preds_main_on_rev, axis=1)      # (10k x #cls)
+        preds_rev_on_rev = y_cross_rev_preds[:, 1:, 1:]
+        rev_mean = np.mean(preds_rev_on_rev, axis=(1, 2))  # (10k x #cls)
+        rev_std  = np.std(preds_rev_on_rev, axis=(1, 2))   # (10k x #cls)
+
+        normal_features = add_feature(normal_features, np.expand_dims(main_mean, axis=1))
+        normal_features = add_feature(normal_features, np.expand_dims(main_std, axis=1))
+        normal_features = add_feature(normal_features, np.expand_dims(rev_mean, axis=1))
+        normal_features = add_feature(normal_features, np.expand_dims(rev_std, axis=1))
+        normal_features = normal_features.reshape((test_size, -1))
+
+        adv_features = None
+        adv_features = add_feature(adv_features, np.expand_dims(y_adv_cross_preds[:, 0], axis=1))  # just the reg main
+        adv_features = add_feature(adv_features, np.expand_dims(y_adv_cross_rev_preds[:, 0, 0], axis=1))  # just the rev main
+
+        preds_main_on_rev = y_adv_cross_preds[:, 1:]
+        main_mean = np.mean(preds_main_on_rev, axis=1)     # (10k x #cls)
+        main_std  = np.std(preds_main_on_rev, axis=1)      # (10k x #cls)
+        preds_rev_on_rev = y_adv_cross_rev_preds[:, 1:, 1:]
+        rev_mean = np.mean(preds_rev_on_rev, axis=(1, 2))  # (10k x #cls)
+        rev_std  = np.std(preds_rev_on_rev, axis=(1, 2))   # (10k x #cls)
+
+        adv_features = add_feature(adv_features, np.expand_dims(main_mean, axis=1))
+        adv_features = add_feature(adv_features, np.expand_dims(main_std, axis=1))
+        adv_features = add_feature(adv_features, np.expand_dims(rev_mean, axis=1))
+        adv_features = add_feature(adv_features, np.expand_dims(rev_std, axis=1))
         adv_features = adv_features.reshape((test_size, -1))
 
     elif args.method == 'all_stats_svm':
