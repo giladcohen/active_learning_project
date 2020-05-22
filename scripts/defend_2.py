@@ -452,7 +452,7 @@ elif 'svm' in args.method:
         input_features = pca.transform(input_features)
         test_features  = pca.transform(test_features)
 
-    clf = LinearSVC(penalty='l2', loss='hinge', verbose=1, random_state=rand_gen, max_iter=10000)
+    clf = LinearSVC(penalty='l2', loss='hinge', verbose=1, random_state=rand_gen, max_iter=1000)
     clf.fit(input_features, input_labels)
     defense_preds = clf.predict(test_features)
 
