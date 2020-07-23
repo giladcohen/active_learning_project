@@ -21,8 +21,12 @@ from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
     get_loader_with_specific_inds, get_normalized_tensor
 from active_learning_project.utils import boolean_string, pytorch_evaluate
-from art.attacks import FastGradientMethod, ProjectedGradientDescent, DeepFool, SaliencyMapMethod, CarliniL2Method, \
-    ElasticNet
+from art.attacks.evasion.fast_gradient import FastGradientMethod
+from art.attacks.evasion.projected_gradient_descent.projected_gradient_descent import ProjectedGradientDescent
+from art.attacks.evasion.deepfool import DeepFool
+from art.attacks.evasion.saliency_map import SaliencyMapMethod
+from art.attacks.evasion.carlini import CarliniL2Method
+from art.attacks.evasion.elastic_net import ElasticNet
 from art.classifiers import PyTorchClassifier
 from cleverhans.utils import random_targets, to_categorical
 
@@ -30,7 +34,7 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robust
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack', default='fgsm', type=str, help='attack: fgsm, jsma, cw, deepfool, ead, pgd')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use trageted attack')
-parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
+parser.add_argument('--attack_dir', default='debug', type=str, help='attack directory')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -158,7 +162,7 @@ if __name__ == "__main__":
 
     if args.attack == 'fgsm':
         attack = FastGradientMethod(
-            classifier=classifier,
+            estimator=classifier,
             norm=np.inf,
             eps=0.01,
             eps_step=0.001,
@@ -168,7 +172,7 @@ if __name__ == "__main__":
         )
     elif args.attack == 'pgd':
         attack = ProjectedGradientDescent(
-            classifier=classifier,
+            estimator=classifier,
             norm=np.inf,
             eps=0.01,
             eps_step=0.003,
@@ -177,7 +181,7 @@ if __name__ == "__main__":
         )
     elif args.attack == 'deepfool':
         attack = DeepFool(
-            classifier=classifier,
+            estimator=classifier,
             max_iter=50,
             epsilon=0.02,
             nb_grads=len(classes),
@@ -185,14 +189,14 @@ if __name__ == "__main__":
         )
     elif args.attack == 'jsma':
         attack = SaliencyMapMethod(
-            classifier,
+            classifier=classifier,
             theta=1.0,
             gamma=0.01,
             batch_size=batch_size
         )
     elif args.attack == 'cw':
         attack = CarliniL2Method(
-            classifier,
+            classifier=classifier,
             confidence=0.8,
             targeted=args.targeted,
             initial_const=0.1,
@@ -200,7 +204,7 @@ if __name__ == "__main__":
         )
     elif args.attack == 'ead':
         attack = ElasticNet(
-            classifier,
+            classifier=classifier,
             confidence=0.8,
             targeted=args.targeted,
             beta=0.01,  # EAD paper shows good results for L1

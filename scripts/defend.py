@@ -23,16 +23,20 @@ from active_learning_project.utils import boolean_string, majority_vote
 
 import matplotlib.pyplot as plt
 
-from art.attacks import FastGradientMethod, ProjectedGradientDescent, DeepFool, SaliencyMapMethod, CarliniL2Method, \
-    ElasticNet
+from art.attacks.evasion.fast_gradient import FastGradientMethod
+from art.attacks.evasion.projected_gradient_descent.projected_gradient_descent import ProjectedGradientDescent
+from art.attacks.evasion.deepfool import DeepFool
+from art.attacks.evasion.saliency_map import SaliencyMapMethod
+from art.attacks.evasion.carlini import CarliniL2Method
+from art.attacks.evasion.elastic_net import ElasticNet
 from art.classifiers import PyTorchClassifier
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack', default='fgsm', type=str, help='checkpoint dir')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
-parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
-parser.add_argument('--rev', default='pgd', type=str, help='fgsm, pgd, deepfool, none')
+parser.add_argument('--attack_dir', default='debug', type=str, help='attack directory')
+parser.add_argument('--rev', default='fgsm', type=str, help='fgsm, pgd, deepfool, none')
 parser.add_argument('--minimal', action='store_true', help='use FGSM minimal attack')
 parser.add_argument('--rev_dir', default='', type=str, help='reverse dir')
 parser.add_argument('--guru', action='store_true', help='use guru labels')
