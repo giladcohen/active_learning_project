@@ -1,4 +1,7 @@
-'''Train CIFAR10 with PyTorch.'''
+'''Train CIFAR-10/100/SVHN with PyTorch.
+Adversarial training, based on:
+https://openreview.net/forum?id=BJx040EFvH
+'''
 import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
