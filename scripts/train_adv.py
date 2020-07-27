@@ -18,7 +18,8 @@ from torch.utils.tensorboard import SummaryWriter
 import sys
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
-sys.path.insert(1, "./FreeAdversarialTraining")
+sys.path.insert(0, "./FreeAdversarialTraining")
+sys.path.insert(0, "./FreeAdversarialTraining/lib")
 from utils import *
 
 from active_learning_project.models.resnet import ResNet34, ResNet101
