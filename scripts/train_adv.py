@@ -12,7 +12,6 @@ import torchvision.datasets as datasets
 from torch.autograd import Variable
 import math
 import numpy as np
-from validation import validate, validate_pgd
 from torchsummary import summary
 from torch.utils.tensorboard import SummaryWriter
 import sys
