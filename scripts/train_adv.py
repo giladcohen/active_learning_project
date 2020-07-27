@@ -12,7 +12,6 @@ import torchvision.datasets as datasets
 from torch.autograd import Variable
 import math
 import numpy as np
-from utils import *
 from validation import validate, validate_pgd
 from torchsummary import summary
 from torch.utils.tensorboard import SummaryWriter
@@ -20,6 +19,7 @@ import sys
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 sys.path.insert(1, "./FreeAdversarialTraining")
+from utils import *
 
 from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader
