@@ -16,12 +16,15 @@ from utils import *
 from validation import validate, validate_pgd
 from torchsummary import summary
 from torch.utils.tensorboard import SummaryWriter
+import sys
+sys.path.insert(0, ".")
+sys.path.insert(0, "./adversarial_robustness_toolbox")
+sys.path.insert(1, "./FreeAdversarialTraining")
 
 from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader
-from FreeAdversarialTraining import init_paths
 
-DATA_DIR = '/Users/giladcohen/data/dataset/cifar10'
+DATA_DIR = '/Users/giladcohen/data/dataset/cifar10/try1_270720'
 RESUME = False
 EVALUATE = False
 PRETRAINED = False
