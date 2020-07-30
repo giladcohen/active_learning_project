@@ -25,12 +25,12 @@ from utils import *
 from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader
 
-DATA_DIR = '/Users/giladcohen/data/dataset/cifar10/try2_300720'
+DATA_DIR = '/Users/giladcohen/data/dataset/cifar10/try3_300720'
 RESUME = False
 EVALUATE = False
 PRETRAINED = False
 OUTPUT_DIR = '/Users/giladcohen/logs/debug'
-TRAIN_EPOCHES = 8
+TRAIN_EPOCHES = 32
 ADV_N_REPEATS = 4
 FGSM_STEP = 4.0
 MAX_COLOR_VALUE = 255.0
