@@ -25,7 +25,7 @@ from utils import *
 from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader
 
-DATA_DIR = '/Users/giladcohen/data/dataset/cifar10/try1_270720'
+DATA_DIR = '/Users/giladcohen/data/dataset/cifar10/try2_300720'
 RESUME = False
 EVALUATE = False
 PRETRAINED = False
