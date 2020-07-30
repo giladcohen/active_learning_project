@@ -13,6 +13,7 @@ from torch.autograd import Variable
 import math
 import numpy as np
 from torchsummary import summary
+from torchsummary import summary
 from torch.utils.tensorboard import SummaryWriter
 import sys
 sys.path.insert(0, ".")
@@ -29,7 +30,7 @@ RESUME = False
 EVALUATE = False
 PRETRAINED = False
 OUTPUT_DIR = '/Users/giladcohen/logs/debug'
-TRAIN_EPOCHES = 300
+TRAIN_EPOCHES = 8
 ADV_N_REPEATS = 4
 FGSM_STEP = 4.0
 MAX_COLOR_VALUE = 255.0
@@ -140,7 +141,7 @@ def train(train_loader, net, criterion, optimizer, epoch):
             output = net(in1)['logits']
             loss = criterion(output, target)
 
-            accu = accuracy(output, target, topk=(1, 5))[0]
+            accu = accuracy(output, target)[0]
             losses.update(loss.item(), input.size(0))
             acc.update(accu[0], input.size(0))
 
@@ -195,7 +196,7 @@ def validate(val_loader, net, criterion, logger):
             loss = criterion(output, target)
 
             # measure accuracy and record loss
-            accu = accuracy(output, target, topk=(1, 5))[0]
+            accu = accuracy(output, target)[0]
             losses.update(loss.item(), input.size(0))
             acc.update(accu[0], input.size(0))
 
@@ -299,7 +300,7 @@ for epoch in range(START_EPOCH, TRAIN_EPOCHES):
             'best_acc': best_acc,
             'optimizer' : optimizer.state_dict(),
         }, is_best, OUTPUT_DIR)
-        lr_scheduler.step(metrics=best_acc)
+        lr_scheduler.step(metrics=best_acc, epoch=epoch)
 
 # Automatically perform PGD Attacks at the end of training
 logger.info(pad_str(' Performing PGD Attacks '))

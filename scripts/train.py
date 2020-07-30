@@ -210,7 +210,7 @@ def train():
           .format(epoch + 1, val_loss, val_acc, args.metric, best_metric))
 
     # updating learning rate if we see no improvement
-    lr_scheduler.step(metrics=metric)
+    lr_scheduler.step(metrics=metric, epoch=epoch)
 
 def test():
     global global_state
