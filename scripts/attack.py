@@ -219,7 +219,8 @@ if __name__ == "__main__":
     dump_args = args.__dict__.copy()
     dump_args['attack_params'] = {}
     for param in attack.attack_params:
-        dump_args['attack_params'][param] = attack.__dict__[param]
+        if param in attack.__dict__.keys():
+            dump_args['attack_params'][param] = attack.__dict__[param]
     with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'w') as f:
         json.dump(dump_args, f, indent=2)
 
