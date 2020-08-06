@@ -181,7 +181,7 @@ if __name__ == "__main__":
         )
     elif args.attack == 'deepfool':
         attack = DeepFool(
-            estimator=classifier,
+            classifier=classifier,
             max_iter=50,
             epsilon=0.02,
             nb_grads=len(classes),
