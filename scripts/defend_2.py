@@ -174,12 +174,9 @@ y_adv_main_logits     = np.load(os.path.join(ATTACK_DIR, 'y_test_adv_logits.npy'
 # ensemble
 y_net_logits          = np.load(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_net_logits_mat.npy'))
 y_adv_net_logits      = np.load(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_adv_net_logits_mat.npy'))
-# main rev
-y_main_rev_logits     = np.load(os.path.join(REV_DIR, 'y_test_rev_logits.npy'))
-y_adv_main_rev_logits = np.load(os.path.join(REV_DIR, 'y_test_adv_rev_logits.npy'))
-# ensemble rev
-y_net_rev_logits      = np.load(os.path.join(REV_DIR, 'y_test_net_rev_logits_mat.npy'))
-y_adv_net_rev_logits  = np.load(os.path.join(REV_DIR, 'y_test_adv_net_rev_logits_mat.npy'))
+# cross
+y_cross_logits     = np.concatenate((np.expand_dims(y_main_logits, axis=1), y_net_logits), axis=1)          # (N, 10, #class)
+y_adv_cross_logits = np.concatenate((np.expand_dims(y_adv_main_logits, axis=1), y_adv_net_logits), axis=1)  # (N, 10, #class)
 
 # calculating preds:
 # main
@@ -188,51 +185,59 @@ y_adv_main_preds      = softmax((1/T) * y_adv_main_logits, axis=1)      # (N, #c
 # ensemble
 y_net_preds           = softmax((1/T) * y_net_logits, axis=2)           # (N, 9, #class)
 y_adv_net_preds       = softmax((1/T) * y_adv_net_logits, axis=2)       # (N, 9, #class)
-# main rev
-y_main_rev_preds      = softmax((1/T) * y_main_rev_logits, axis=1)      # (N, #class)
-y_adv_main_rev_preds  = softmax((1/T) * y_adv_main_rev_logits, axis=1)  # (N, #class)
-# ensemble_rev
-y_net_rev_preds       = softmax((1/T) * y_net_rev_logits, axis=2)       # (N, 9, #class)
-y_adv_net_rev_preds   = softmax((1/T) * y_adv_net_rev_logits, axis=2)   # (N, 9, #class)
-
-if not os.path.exists(os.path.join(REV_DIR, 'y_test_adv_cross_rev_logits.npy')):
-    X_test_rev         = np.load(os.path.join(REV_DIR, 'X_test_rev.npy'))
-    X_test_rev_mat     = np.load(os.path.join(REV_DIR, 'X_test_rev_mat.npy'))
-    X_test_adv_rev     = np.load(os.path.join(REV_DIR, 'X_test_adv_rev.npy'))
-    X_test_adv_rev_mat = np.load(os.path.join(REV_DIR, 'X_test_adv_rev_mat.npy'))
-
-    X_test_rev_all     = np.concatenate((np.expand_dims(X_test_rev, axis=1), X_test_rev_mat), axis=1)  # (N, 10, 3, 32, 32)
-    X_test_adv_rev_all = np.concatenate((np.expand_dims(X_test_adv_rev, axis=1), X_test_adv_rev_mat), axis=1)  # (N, 10, 3, 32, 32)
-    del X_test_rev, X_test_rev_mat, X_test_adv_rev, X_test_adv_rev_mat
-
-    print('generating cross predictions for {} using ensemble in {}'.format(REV_DIR, ENSEMBLE_DIR))
-    checkpoint_dir_list = next(os.walk(ENSEMBLE_DIR))[1]
-    checkpoint_dir_list.sort()
-
-    y_cross_rev_logits     = np.empty((test_size, len(checkpoint_dir_list), len(checkpoint_dir_list), len(classes)), dtype=np.float32)
-    y_adv_cross_rev_logits = np.empty_like(y_cross_rev_logits)
-
-    for j, dir in enumerate(checkpoint_dir_list):  # for network j
-        ckpt_file = os.path.join(ENSEMBLE_DIR, dir, 'ckpt.pth')
-        global_state = torch.load(ckpt_file, map_location=torch.device(device))
-        net.load_state_dict(global_state['best_net'])
-        for i in range(X_test_rev_all.shape[1]):  # for image created from network i
-            y_cross_rev_logits[:, i, j]     = classifier.predict(X_test_rev_all[:, i], batch_size=batch_size)
-            y_adv_cross_rev_logits[:, i, j] = classifier.predict(X_test_adv_rev_all[:, i], batch_size=batch_size)
-
-    np.save(os.path.join(REV_DIR, 'y_test_cross_rev_logits.npy'), y_cross_rev_logits)
-    np.save(os.path.join(REV_DIR, 'y_test_adv_cross_rev_logits.npy'), y_adv_cross_rev_logits)
-else:
-    y_cross_rev_logits     = np.load(os.path.join(REV_DIR, 'y_test_cross_rev_logits.npy'))
-    y_adv_cross_rev_logits = np.load(os.path.join(REV_DIR, 'y_test_adv_cross_rev_logits.npy'))
-
-y_cross_logits     = np.concatenate((np.expand_dims(y_main_logits, axis=1), y_net_logits), axis=1)  # (N, 10, #class)
-y_adv_cross_logits = np.concatenate((np.expand_dims(y_adv_main_logits, axis=1), y_adv_net_logits), axis=1)  # (N, 10, #class)
-
+#cross
 y_cross_preds         = softmax((1/T) * y_cross_logits, axis=2)          # (N, 10, #cls)
 y_adv_cross_preds     = softmax((1/T) * y_adv_cross_logits, axis=2)      # (N, 10, #cls)
-y_cross_rev_preds     = softmax((1/T) * y_cross_rev_logits, axis=3)      # (N, 10, 10, #cls)
-y_adv_cross_rev_preds = softmax((1/T) * y_adv_cross_rev_logits, axis=3)  # (N, 10, 10, #cls)
+
+if args.method != 'ensemble':
+    # main rev
+    y_main_rev_logits     = np.load(os.path.join(REV_DIR, 'y_test_rev_logits.npy'))
+    y_adv_main_rev_logits = np.load(os.path.join(REV_DIR, 'y_test_adv_rev_logits.npy'))
+    # ensemble rev
+    y_net_rev_logits      = np.load(os.path.join(REV_DIR, 'y_test_net_rev_logits_mat.npy'))
+    y_adv_net_rev_logits  = np.load(os.path.join(REV_DIR, 'y_test_adv_net_rev_logits_mat.npy'))
+
+    # calculating preds:
+    # main rev
+    y_main_rev_preds      = softmax((1/T) * y_main_rev_logits, axis=1)      # (N, #class)
+    y_adv_main_rev_preds  = softmax((1/T) * y_adv_main_rev_logits, axis=1)  # (N, #class)
+    # ensemble_rev
+    y_net_rev_preds       = softmax((1/T) * y_net_rev_logits, axis=2)       # (N, 9, #class)
+    y_adv_net_rev_preds   = softmax((1/T) * y_adv_net_rev_logits, axis=2)   # (N, 9, #class)
+
+    if not os.path.exists(os.path.join(REV_DIR, 'y_test_adv_cross_rev_logits.npy')):
+        X_test_rev         = np.load(os.path.join(REV_DIR, 'X_test_rev.npy'))
+        X_test_rev_mat     = np.load(os.path.join(REV_DIR, 'X_test_rev_mat.npy'))
+        X_test_adv_rev     = np.load(os.path.join(REV_DIR, 'X_test_adv_rev.npy'))
+        X_test_adv_rev_mat = np.load(os.path.join(REV_DIR, 'X_test_adv_rev_mat.npy'))
+
+        X_test_rev_all     = np.concatenate((np.expand_dims(X_test_rev, axis=1), X_test_rev_mat), axis=1)  # (N, 10, 3, 32, 32)
+        X_test_adv_rev_all = np.concatenate((np.expand_dims(X_test_adv_rev, axis=1), X_test_adv_rev_mat), axis=1)  # (N, 10, 3, 32, 32)
+        del X_test_rev, X_test_rev_mat, X_test_adv_rev, X_test_adv_rev_mat
+
+        print('generating cross predictions for {} using ensemble in {}'.format(REV_DIR, ENSEMBLE_DIR))
+        checkpoint_dir_list = next(os.walk(ENSEMBLE_DIR))[1]
+        checkpoint_dir_list.sort()
+
+        y_cross_rev_logits     = np.empty((test_size, len(checkpoint_dir_list), len(checkpoint_dir_list), len(classes)), dtype=np.float32)
+        y_adv_cross_rev_logits = np.empty_like(y_cross_rev_logits)
+
+        for j, dir in enumerate(checkpoint_dir_list):  # for network j
+            ckpt_file = os.path.join(ENSEMBLE_DIR, dir, 'ckpt.pth')
+            global_state = torch.load(ckpt_file, map_location=torch.device(device))
+            net.load_state_dict(global_state['best_net'])
+            for i in range(X_test_rev_all.shape[1]):  # for image created from network i
+                y_cross_rev_logits[:, i, j]     = classifier.predict(X_test_rev_all[:, i], batch_size=batch_size)
+                y_adv_cross_rev_logits[:, i, j] = classifier.predict(X_test_adv_rev_all[:, i], batch_size=batch_size)
+
+        np.save(os.path.join(REV_DIR, 'y_test_cross_rev_logits.npy'), y_cross_rev_logits)
+        np.save(os.path.join(REV_DIR, 'y_test_adv_cross_rev_logits.npy'), y_adv_cross_rev_logits)
+    else:
+        y_cross_rev_logits     = np.load(os.path.join(REV_DIR, 'y_test_cross_rev_logits.npy'))
+        y_adv_cross_rev_logits = np.load(os.path.join(REV_DIR, 'y_test_adv_cross_rev_logits.npy'))
+
+    y_cross_rev_preds     = softmax((1/T) * y_cross_rev_logits, axis=3)      # (N, 10, 10, #cls)
+    y_adv_cross_rev_preds = softmax((1/T) * y_adv_cross_rev_logits, axis=3)  # (N, 10, 10, #cls)
 
 def add_feature(x, x1):
     """Adding feature x1 to x"""
