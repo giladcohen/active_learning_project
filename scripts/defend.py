@@ -36,7 +36,7 @@ parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness
 parser.add_argument('--attack', default='fgsm', type=str, help='checkpoint dir')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
 parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
-parser.add_argument('--rev', default='fgsm', type=str, help='fgsm, pgd, deepfool, none')
+parser.add_argument('--rev', default='', type=str, help='fgsm, pgd, deepfool, none')
 parser.add_argument('--minimal', action='store_true', help='use FGSM minimal attack')
 parser.add_argument('--rev_dir', default='', type=str, help='reverse dir')
 parser.add_argument('--guru', action='store_true', help='use guru labels')
@@ -182,7 +182,7 @@ print("Number of test samples: {}. #net_succ: {}. #net_succ_attack_flip: {}. # n
 # reverse attack:
 if args.rev == 'fgsm':
     defense = FastGradientMethod(
-        classifier=classifier,
+        estimator=classifier,
         norm=np.inf,
         eps=0.01,
         eps_step=0.001,
@@ -193,7 +193,7 @@ if args.rev == 'fgsm':
     )
 elif args.rev == 'pgd':
     defense = ProjectedGradientDescent(
-        classifier=classifier,
+        estimator=classifier,
         norm=np.inf,
         eps=0.01,
         eps_step=0.003,
@@ -209,14 +209,14 @@ elif args.rev == 'deepfool':
     )
 elif args.rev == 'jsma':
     defense = SaliencyMapMethod(
-        classifier,
+        classifier=classifier,
         theta=1.0,
         gamma=0.01,
         batch_size=batch_size
     )
 elif args.rev == 'cw':
     defense = CarliniL2Method(
-        classifier,
+        classifier=classifier,
         confidence=0.8,
         targeted=args.guru,
         initial_const=0.1,
@@ -224,7 +224,7 @@ elif args.rev == 'cw':
     )
 elif args.rev == 'ead':
     defense = ElasticNet(
-        classifier,
+        classifier=classifier,
         confidence=0.8,
         targeted=args.guru,
         beta=0.01,  # EAD paper shows good results for L1
