@@ -282,7 +282,7 @@ if args.ensemble:
     print('Running ensemble defense. Loading all models')
     checkpoint_dir_list = next(os.walk(ENSEMBLE_DIR))[1]
     checkpoint_dir_list.sort()
-    checkpoint_dir_list = checkpoint_dir_list[1:]  # ignoring the first (original) network
+    checkpoint_dir_list = checkpoint_dir_list[2:]  # ignoring the first (original) network
 
     # calculated all the time, even without rev. For normal:
     y_test_net_logits_mat = np.empty((test_size, len(checkpoint_dir_list), len(classes)), dtype=np.float32)  # (N, #nets, #classes)
