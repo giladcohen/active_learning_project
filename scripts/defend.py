@@ -35,7 +35,7 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robust
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack', default='fgsm', type=str, help='checkpoint dir')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
-parser.add_argument('--attack_dir', default='debug', type=str, help='attack directory')
+parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
 parser.add_argument('--rev', default='fgsm', type=str, help='fgsm, pgd, deepfool, none')
 parser.add_argument('--minimal', action='store_true', help='use FGSM minimal attack')
 parser.add_argument('--rev_dir', default='', type=str, help='reverse dir')
