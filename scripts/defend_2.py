@@ -218,6 +218,7 @@ if args.method != 'ensemble':
         print('generating cross predictions for {} using ensemble in {}'.format(REV_DIR, ENSEMBLE_DIR))
         checkpoint_dir_list = next(os.walk(ENSEMBLE_DIR))[1]
         checkpoint_dir_list.sort()
+        checkpoint_dir_list = checkpoint_dir_list[1:]
 
         y_cross_rev_logits     = np.empty((test_size, len(checkpoint_dir_list), len(checkpoint_dir_list), len(classes)), dtype=np.float32)
         y_adv_cross_rev_logits = np.empty_like(y_cross_rev_logits)
