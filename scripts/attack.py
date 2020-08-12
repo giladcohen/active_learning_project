@@ -225,7 +225,7 @@ if __name__ == "__main__":
     with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'w') as f:
         json.dump(dump_args, f, indent=2)
 
-    if args.subset != -1:  # not debug
+    if args.subset == -1:  # not debug
         X_val_adv = attack.generate(x=X_val, y=y_val_targets)
         val_adv_logits = classifier.predict(X_val_adv, batch_size=batch_size)
         y_val_adv_preds = np.argmax(val_adv_logits, axis=1)
