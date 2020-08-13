@@ -63,7 +63,7 @@ def is_safe_gpu(gpu_id):
         return (time() - last_call_timestamp) > SAFE_TIME
 
 def wait_for_idle_gpu():
-    # always try to prioritize the top of the COMMAND list
+    # always prioritize the top of the COMMAND list
     required_mem = COMMANDS[0][1]
 
     memory_free_list = get_gpu_memory()
