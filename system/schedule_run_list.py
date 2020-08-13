@@ -82,7 +82,7 @@ def main():
             sleep(60)  # sample again in 1 minute
         else:
             last_time_used[gpu_id] = time()
-            command = 'CUDA_VISIBLE_DEVICES={} '.format(gpu_id) + COMMANDS.pop()[0]
+            command = 'CUDA_VISIBLE_DEVICES={} '.format(gpu_id) + COMMANDS.pop(0)[0]
             pid = os.fork()
             if pid == 0:
                 run_cmd(command)
