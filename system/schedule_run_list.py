@@ -74,7 +74,6 @@ def wait_for_idle_gpu():
     return -1
 
 def main():
-    start_time = time()
     while len(COMMANDS):
         gpu_id = wait_for_idle_gpu()
         if gpu_id == -1:
@@ -90,9 +89,9 @@ def main():
                 # os.waitpid(pid, os.WNOHANG)
                 break
             sleep(5)
-
-    print('Done running all commands. It took {} seconds.'.format(time() - start_time))
-
+            
 
 if __name__ == '__main__':
+    start_time = time()
     main()
+    print('Done running all commands. It took {} seconds.'.format(time() - start_time))
