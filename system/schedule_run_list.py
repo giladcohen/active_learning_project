@@ -15,27 +15,27 @@ SAFE_TIME = 40
 # top of the list first
 COMMANDS = [
     ('python active_learning_project/scripts/attack.py '
-    '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-    '--attack fgsm'
-    '--targeted True'
+    '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00 '
+    '--attack fgsm '
+    '--targeted True '
     '--attack_dir run_example1', 3000),
 
     ('python active_learning_project/scripts/attack.py '
-    '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-    '--attack fgsm'
-    '--targeted True'
-    '--attack_dir run_example2', 4000),
+    '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00 '
+    '--attack fgsm '
+    '--targeted True '
+    '--attack_dir run_example2 ', 4000),
 
     ('python active_learning_project/scripts/attack.py '
-    '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-    '--attack fgsm'
-    '--targeted True'
+    '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00 '
+    '--attack fgsm '
+    '--targeted True '
     '--attack_dir run_example3', 10000),
 
     ('python active_learning_project/scripts/attack.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     '--attack fgsm'
-     '--targeted True'
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00 '
+     '--attack fgsm '
+     '--targeted True '
      '--attack_dir run_example4', 1000),
 ]
 
