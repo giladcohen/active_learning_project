@@ -4,9 +4,9 @@ import subprocess as sp
 import os
 
 def run_cmd(cmd):
-    print('start running command {}'.format(cmd))
+    print('start running command \n{}'.format(cmd))
     process = sp.call(cmd, shell=True)
-    print('finished running command {}'.format(cmd))
+    print('finished running command \n{}'.format(cmd))
 
 # buffer time for running different commands on the same GPU
 SAFE_TIME = 40
@@ -86,7 +86,7 @@ def main():
             pid = os.fork()
             if pid == 0:
                 run_cmd(command)
-                os.waitpid(pid, os.WNOHANG)
+                os.waitpid(pid)
             sleep(5)
 
     print('Done running all commands. It took {} seconds.'.format(time() - start_time))
