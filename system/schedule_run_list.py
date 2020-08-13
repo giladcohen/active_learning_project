@@ -83,9 +83,9 @@ def main():
         else:
             last_time_used[gpu_id] = time()
             command = 'CUDA_VISIBLE_DEVICES={} '.format(gpu_id) + COMMANDS.pop()[0]
-            pid = os.fork()
+            # pid = os.fork()
             run_cmd(command)
-            os.waitpid(pid, 0)
+            # os.waitpid(pid, 0)
             sleep(5)
 
     print('Done running all commands. It took {} seconds.'.format(time() - start_time))
