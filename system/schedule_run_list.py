@@ -4,9 +4,9 @@ import subprocess as sp
 import os
 
 def run_cmd(cmd):
-    print('start running command \n{}'.format(cmd))
+    print('start running command: \n{}'.format(cmd))
     process = sp.call(cmd, shell=True)
-    print('finished running command \n{}'.format(cmd))
+    print('finished running command: \n{}'.format(cmd))
 
 # buffer time for running different commands on the same GPU
 SAFE_TIME = 40
@@ -30,7 +30,7 @@ COMMANDS = [
     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00 '
     '--attack fgsm '
     '--targeted True '
-    '--attack_dir run_example3', 10000),
+    '--attack_dir run_example3', 100000),
 
     ('python active_learning_project/scripts/attack.py '
      '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00 '
@@ -91,7 +91,7 @@ def main():
                 exit(0)
             sleep(5)
 
-    if len(COMMANDS):  # if we got here after the loop actually finished, and no
+    if len(COMMANDS) == 0:  # if we got here after the loop actually finished, and no
         print('Done running all commands. It took {} seconds.'.format(time() - start_time))
 
 
