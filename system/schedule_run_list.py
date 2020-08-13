@@ -87,7 +87,7 @@ def main():
             pid = os.fork()
             if pid == 0:
                 run_cmd(command)
-                os.waitpid(pid, 0)
+                os.waitpid(pid)
             sleep(5)
 
     print('Done running all commands. It took {} seconds.'.format(time() - start_time))
