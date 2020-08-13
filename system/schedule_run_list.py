@@ -78,7 +78,8 @@ def main():
     while len(COMMANDS):
         gpu_id = wait_for_idle_gpu()
         if gpu_id == -1:
-            print('All GPUs do not have a free memory of {} GB. Automatic retry in 1 minute.'.format(COMMANDS[0][1]))
+            print('No GPU with a free memory of {} GB to run command: \n{}'.format(COMMANDS[0][1], COMMANDS[0][0]) +
+            '\nAutomatic retry in 1 minute.')
             sleep(60)  # sample again in 1 minute
         else:
             last_time_used[gpu_id] = time()
@@ -86,7 +87,7 @@ def main():
             pid = os.fork()
             if pid == 0:
                 run_cmd(command)
-                os.waitpid(pid)
+                os.waitpid(pid, 0)
             sleep(5)
 
     print('Done running all commands. It took {} seconds.'.format(time() - start_time))
