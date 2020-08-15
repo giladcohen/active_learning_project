@@ -11,32 +11,97 @@ def run_cmd(cmd):
 # buffer time for running different commands on the same GPU
 SAFE_TIME = 40
 
-# tuple of (command, required memory is GB). List the command by priority. The script will always try to clear up the
+# tuple of (command, required memory in GB). List the command by priority. The script will always try to clear up the
 # top of the list first
 COMMANDS = [
-    ('python active_learning_project/scripts/attack.py '
-    '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00 '
-    '--attack fgsm '
-    '--targeted True '
-    '--attack_dir run_example1', 3000),
+    ('python active_learning_project/scripts/train.py '
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_02 '
+     '--dataset svhn '
+     '--net resnet101 '
+     '--epochs 200 '
+     '--patience 2 '
+     '--cooldown 1', 10000),
+    ('python active_learning_project/scripts/train.py '
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_03 '
+     '--dataset svhn '
+     '--net resnet101 '
+     '--epochs 200 '
+     '--patience 2 '
+     '--cooldown 1', 10000),
+    ('python active_learning_project/scripts/train.py '
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_04 '
+     '--dataset svhn '
+     '--net resnet101 '
+     '--epochs 200 '
+     '--patience 2 '
+     '--cooldown 1', 10000),
+    ('python active_learning_project/scripts/train.py '
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_05 '
+     '--dataset svhn '
+     '--net resnet101 '
+     '--epochs 200 '
+     '--patience 2 '
+     '--cooldown 1', 10000),
+    ('python active_learning_project/scripts/train.py '
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_06 '
+     '--dataset svhn '
+     '--net resnet101 '
+     '--epochs 200 '
+     '--patience 2 '
+     '--cooldown 1', 10000),
+    ('python active_learning_project/scripts/train.py '
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_07 '
+     '--dataset svhn '
+     '--net resnet101 '
+     '--epochs 200 '
+     '--patience 2 '
+     '--cooldown 1', 10000),
+    ('python active_learning_project/scripts/train.py '
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_08 '
+     '--dataset svhn '
+     '--net resnet101 '
+     '--epochs 200 '
+     '--patience 2 '
+     '--cooldown 1', 10000),
+    ('python active_learning_project/scripts/train.py '
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_09 '
+     '--dataset svhn '
+     '--net resnet101 '
+     '--epochs 200 '
+     '--patience 2 '
+     '--cooldown 1', 10000),
 
     ('python active_learning_project/scripts/attack.py '
-    '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00 '
-    '--attack fgsm '
-    '--targeted True '
-    '--attack_dir run_example2 ', 4000),
-
-    ('python active_learning_project/scripts/attack.py '
-    '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00 '
-    '--attack fgsm '
-    '--targeted True '
-    '--attack_dir run_example3', 100000),
-
-    ('python active_learning_project/scripts/attack.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00 '
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_00 '
      '--attack fgsm '
-     '--targeted True '
-     '--attack_dir run_example4', 1000),
+     '--targeted True', 10000),
+    ('python active_learning_project/scripts/attack.py '
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_00 '
+     '--attack pgd '
+     '--targeted True', 10000),
+    ('python active_learning_project/scripts/attack.py '
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_00 '
+     '--attack jsma '
+     '--targeted True', 10000),
+    ('python active_learning_project/scripts/attack.py '
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_00 '
+     '--attack cw '
+     '--targeted True', 10000),
+    ('python active_learning_project/scripts/attack.py '
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_00 '
+     '--attack deepfool '
+     '--targeted False', 10000),
+
+    ('python active_learning_project/scripts/attack.py '
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_00 '
+     '--attack ead '
+     '--targeted False '
+     'batch_size 50', 10000),
+
+    ('python active_learning_project/scripts/attack.py '
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust '
+     '--attack ead '
+     '--targeted False', 10000),
 ]
 
 WORKING_DIR = '/home/gilad/python3_workspace'
