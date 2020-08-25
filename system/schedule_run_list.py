@@ -96,7 +96,7 @@ COMMANDS = [
      '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_00 '
      '--attack ead '
      '--targeted False '
-     'batch_size 50', 10000),
+     '--batch_size 50', 10000),
 
     ('python active_learning_project/scripts/attack.py '
      '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust '
