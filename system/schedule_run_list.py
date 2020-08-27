@@ -184,7 +184,11 @@ def main():
             if new_pid == 0:
                 pid = os.getpid()
                 run_cmd(command)
-                os.waitpid(pid, os.WNOHANG)
+                try:  # might return an error
+                    os.waitpid(pid, os.WNOHANG)
+                except ChildProcessError:
+                    # It was already killed
+                    pass
                 break
             sleep(5)
 
