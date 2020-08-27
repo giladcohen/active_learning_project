@@ -14,66 +14,125 @@ SAFE_TIME = 40
 # tuple of (command, required memory in GB). List the command by priority. The script will always try to clear up the
 # top of the list first
 COMMANDS = [
-    ('python active_learning_project/scripts/attack.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     '--attack fgsm'
-     '--targeted True'
-     '--attack_dir run_example1', 5000),
+    ('python active_learning_project/scripts/attack.py'
+     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     ' --attack fgsm'
+     ' --targeted True'
+     ' --attack_dir run_example1', 5000),
 
-    ('python active_learning_project/scripts/attack.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     '--attack fgsm'
-     '--targeted True'
-     '--attack_dir run_example2', 5000),
+    ('python active_learning_project/scripts/attack.py'
+     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     ' --attack fgsm'
+     ' --targeted True'
+     ' --attack_dir run_example2', 5000),
 
-    ('python active_learning_project/scripts/attack.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     '--attack fgsm'
-     '--targeted True'
-     '--attack_dir run_example3', 5000),
+    ('python active_learning_project/scripts/attack.py'
+     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     ' --attack fgsm'
+     ' --targeted True'
+     ' --attack_dir run_example3', 5000),
 
-    ('python active_learning_project/scripts/attack.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     '--attack fgsm'
-     '--targeted True'
-     '--attack_dir run_example4', 5000),
+    ('python active_learning_project/scripts/attack.py'
+     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     ' --attack fgsm'
+     ' --targeted True'
+     ' --attack_dir run_example4', 5000),
 
-    ('python active_learning_project/scripts/attack.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     '--attack fgsm'
-     '--targeted True'
-     '--attack_dir run_example5', 5000),
+    ('python active_learning_project/scripts/attack.py'
+     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     ' --attack fgsm'
+     ' --targeted True'
+     ' --attack_dir run_example5', 5000),
 
-    ('python active_learning_project/scripts/attack.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     '--attack fgsm'
-     '--targeted True'
-     '--attack_dir run_example6', 5000),
+    ('python active_learning_project/scripts/attack.py'
+     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     ' --attack fgsm'
+     ' --targeted True'
+     ' --attack_dir run_example6', 5000),
 
-    ('python active_learning_project/scripts/attack.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     '--attack fgsm'
-     '--targeted True'
-     '--attack_dir run_example7', 5000),
+    ('python active_learning_project/scripts/attack.py'
+     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     ' --attack fgsm'
+     ' --targeted True'
+     ' --attack_dir run_example7', 5000),
 
-    ('python active_learning_project/scripts/attack.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     '--attack fgsm'
-     '--targeted True'
-     '--attack_dir run_example8', 5000),
+    ('python active_learning_project/scripts/attack.py'
+     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     ' --attack fgsm'
+     ' --targeted True'
+     ' --attack_dir run_example8', 5000),
 
-    ('python active_learning_project/scripts/attack.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     '--attack fgsm'
-     '--targeted True'
-     '--attack_dir run_example9', 5000),
+    ('python active_learning_project/scripts/attack.py'
+     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     ' --attack fgsm'
+     ' --targeted True'
+     ' --attack_dir run_example9', 5000),
 
-    ('python active_learning_project/scripts/attack.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     '--attack fgsm'
-     '--targeted True'
-     '--attack_dir run_example10', 5000),
+    ('python active_learning_project/scripts/attack.py'
+     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     ' --attack fgsm'
+     ' --targeted True'
+     ' --attack_dir run_example10', 5000),
 
+    ('python active_learning_project/scripts/attack.py'
+     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     ' --attack fgsm'
+     ' --targeted True'
+     ' --attack_dir run_example11', 5000),
+
+    ('python active_learning_project/scripts/attack.py'
+     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     ' --attack fgsm'
+     ' --targeted True'
+     ' --attack_dir run_example12', 5000),
+
+    ('python active_learning_project/scripts/attack.py'
+     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     ' --attack fgsm'
+     ' --targeted True'
+     ' --attack_dir run_example13', 5000),
+
+    ('python active_learning_project/scripts/attack.py'
+     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     ' --attack fgsm'
+     ' --targeted True'
+     ' --attack_dir run_example14', 5000),
+
+    ('python active_learning_project/scripts/attack.py'
+     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     ' --attack fgsm'
+     ' --targeted True'
+     ' --attack_dir run_example15', 5000),
+
+    ('python active_learning_project/scripts/attack.py'
+     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     ' --attack fgsm'
+     ' --targeted True'
+     ' --attack_dir run_example16', 5000),
+
+    ('python active_learning_project/scripts/attack.py'
+     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     ' --attack fgsm'
+     ' --targeted True'
+     ' --attack_dir run_example17', 5000),
+
+    ('python active_learning_project/scripts/attack.py'
+     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     ' --attack fgsm'
+     ' --targeted True'
+     ' --attack_dir run_example18', 5000),
+
+    ('python active_learning_project/scripts/attack.py'
+     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     ' --attack fgsm'
+     ' --targeted True'
+     ' --attack_dir run_example19', 5000),
+
+    ('python active_learning_project/scripts/attack.py'
+     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     ' --attack fgsm'
+     ' --targeted True'
+     ' --attack_dir run_example20', 5000),
 ]
 
 WORKING_DIR = '/home/gilad/python3_workspace'
