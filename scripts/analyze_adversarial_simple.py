@@ -14,10 +14,10 @@ import matplotlib.pyplot as plt
 import pickle
 
 parser = argparse.ArgumentParser(description='PyTorch adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/Users/giladcohen/data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust', type=str, help='checkpoint dir')
-parser.add_argument('--attack', default='ead', type=str, help='checkpoint dir')
-parser.add_argument('--targeted', default=False, type=boolean_string, help='use targeted attack')
-parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
+parser.add_argument('--checkpoint_dir', default='/Users/giladcohen/data/gilad/logs/adv_robustness/svhn/resnet101/adv_robust', type=str, help='checkpoint dir')
+parser.add_argument('--attack', default='cw', type=str, help='checkpoint dir')
+parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
+parser.add_argument('--attack_dir', default='cw_targeted_conf_0.6', type=str, help='attack directory')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')

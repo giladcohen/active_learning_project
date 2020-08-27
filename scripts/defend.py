@@ -50,14 +50,14 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 args = parser.parse_args()
 
 # DEBUG:
-# args.checkpoint_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-# args.attack = 'cw'
-# args.targeted = True
-# args.rev = 'fgsm'
+args.checkpoint_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+args.attack = 'fgsm'
+args.targeted = True
+# args.rev = ''
 # args.minimal = False
-# args.rev_dir = 'fgsm'
+# args.rev_dir = ''
 # args.guru = False
-# args.ensemble = True
+args.ensemble = True
 # args.ensemble_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34'
 
 if args.rev not in ['fgsm', 'pgd', 'jsma', 'cw', 'ead']:
@@ -70,17 +70,24 @@ with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
 
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
+
 if args.attack_dir != '':
     ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
 else:
     ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack)
     if args.targeted:
         ATTACK_DIR = ATTACK_DIR + '_targeted'
+
 if args.rev_dir != '':
+    assert args.rev != ''
     REV_DIR = os.path.join(ATTACK_DIR, 'rev', args.rev_dir)
+elif args.rev != '':
+    REV_DIR = os.path.join(ATTACK_DIR, 'rev', args.rev)  # the default
 else:
-    REV_DIR = os.path.join(ATTACK_DIR, 'rev', args.rev)
-os.makedirs(REV_DIR, exist_ok=True)
+    REV_DIR = None  # no rev!
+if REV_DIR is not None:
+    os.makedirs(REV_DIR, exist_ok=True)
+
 if args.ensemble_dir != '':
     ENSEMBLE_DIR = args.ensemble_dir
 else:
@@ -154,6 +161,7 @@ assert (y_test_adv_preds == np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.n
 np.save(os.path.join(ATTACK_DIR, 'y_test_adv_logits.npy'), y_test_adv_logits)
 
 # what are the samples we care about? net_succ (not attack_succ. it is irrelevant)
+f0_inds = []  # net_fail
 f1_inds = []  # net_succ
 f2_inds = []  # net_succ AND attack_flip
 f3_inds = []  # net_succ AND attack_flip AND attack_succ
@@ -167,11 +175,14 @@ for i in range(test_size):
         f3 = f2
     if f1:
         f1_inds.append(i)
+    else:
+        f0_inds.append(i)
     if f2:
         f2_inds.append(i)
     if f3:
         f3_inds.append(i)
 
+f0_inds = np.asarray(f0_inds)
 f1_inds = np.asarray(f1_inds)
 f2_inds = np.asarray(f2_inds)
 f3_inds = np.asarray(f3_inds)
@@ -242,8 +253,8 @@ if defense is not None:
     dump_args['defense_params'] = {}
     for param in defense.attack_params:
         dump_args['defense_params'][param] = defense.__dict__[param]
-with open(os.path.join(REV_DIR, 'defense_args.txt'), 'w') as f:
-    json.dump(dump_args, f, indent=2)
+    with open(os.path.join(REV_DIR, 'defense_args.txt'), 'w') as f:
+        json.dump(dump_args, f, indent=2)
 
 if args.guru:
     y_targets = y_test
