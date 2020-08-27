@@ -14,94 +14,66 @@ SAFE_TIME = 40
 # tuple of (command, required memory in GB). List the command by priority. The script will always try to clear up the
 # top of the list first
 COMMANDS = [
-    ('python active_learning_project/scripts/train.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_02 '
-     '--dataset svhn '
-     '--net resnet101 '
-     '--epochs 200 '
-     '--patience 2 '
-     '--cooldown 1', 10000),
-    ('python active_learning_project/scripts/train.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_03 '
-     '--dataset svhn '
-     '--net resnet101 '
-     '--epochs 200 '
-     '--patience 2 '
-     '--cooldown 1', 10000),
-    ('python active_learning_project/scripts/train.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_04 '
-     '--dataset svhn '
-     '--net resnet101 '
-     '--epochs 200 '
-     '--patience 2 '
-     '--cooldown 1', 10000),
-    ('python active_learning_project/scripts/train.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_05 '
-     '--dataset svhn '
-     '--net resnet101 '
-     '--epochs 200 '
-     '--patience 2 '
-     '--cooldown 1', 10000),
-    ('python active_learning_project/scripts/train.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_06 '
-     '--dataset svhn '
-     '--net resnet101 '
-     '--epochs 200 '
-     '--patience 2 '
-     '--cooldown 1', 10000),
-    ('python active_learning_project/scripts/train.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_07 '
-     '--dataset svhn '
-     '--net resnet101 '
-     '--epochs 200 '
-     '--patience 2 '
-     '--cooldown 1', 10000),
-    ('python active_learning_project/scripts/train.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_08 '
-     '--dataset svhn '
-     '--net resnet101 '
-     '--epochs 200 '
-     '--patience 2 '
-     '--cooldown 1', 10000),
-    ('python active_learning_project/scripts/train.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_09 '
-     '--dataset svhn '
-     '--net resnet101 '
-     '--epochs 200 '
-     '--patience 2 '
-     '--cooldown 1', 10000),
+    ('python active_learning_project/scripts/attack.py '
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     '--attack fgsm'
+     '--targeted True'
+     '--attack_dir run_example1', 5000),
 
     ('python active_learning_project/scripts/attack.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_00 '
-     '--attack fgsm '
-     '--targeted True', 10000),
-    ('python active_learning_project/scripts/attack.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_00 '
-     '--attack pgd '
-     '--targeted True', 10000),
-    ('python active_learning_project/scripts/attack.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_00 '
-     '--attack jsma '
-     '--targeted True', 10000),
-    ('python active_learning_project/scripts/attack.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_00 '
-     '--attack cw '
-     '--targeted True', 10000),
-    ('python active_learning_project/scripts/attack.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_00 '
-     '--attack deepfool '
-     '--targeted False', 10000),
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     '--attack fgsm'
+     '--targeted True'
+     '--attack_dir run_example2', 5000),
 
     ('python active_learning_project/scripts/attack.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/resnet101_00 '
-     '--attack ead '
-     '--targeted False '
-     '--batch_size 50', 10000),
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     '--attack fgsm'
+     '--targeted True'
+     '--attack_dir run_example3', 5000),
 
     ('python active_learning_project/scripts/attack.py '
-     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust '
-     '--attack ead '
-     '--targeted False', 10000),
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     '--attack fgsm'
+     '--targeted True'
+     '--attack_dir run_example4', 5000),
+
+    ('python active_learning_project/scripts/attack.py '
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     '--attack fgsm'
+     '--targeted True'
+     '--attack_dir run_example5', 5000),
+
+    ('python active_learning_project/scripts/attack.py '
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     '--attack fgsm'
+     '--targeted True'
+     '--attack_dir run_example6', 5000),
+
+    ('python active_learning_project/scripts/attack.py '
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     '--attack fgsm'
+     '--targeted True'
+     '--attack_dir run_example7', 5000),
+
+    ('python active_learning_project/scripts/attack.py '
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     '--attack fgsm'
+     '--targeted True'
+     '--attack_dir run_example8', 5000),
+
+    ('python active_learning_project/scripts/attack.py '
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     '--attack fgsm'
+     '--targeted True'
+     '--attack_dir run_example9', 5000),
+
+    ('python active_learning_project/scripts/attack.py '
+     '--checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+     '--attack fgsm'
+     '--targeted True'
+     '--attack_dir run_example10', 5000),
+
 ]
 
 WORKING_DIR = '/home/gilad/python3_workspace'
@@ -149,14 +121,15 @@ def main():
         else:
             last_time_used[gpu_id] = time()
             command = 'CUDA_VISIBLE_DEVICES={} '.format(gpu_id) + COMMANDS.pop(0)[0]
-            pid = os.fork()
-            if pid == 0:
+            new_pid = os.fork()
+            if new_pid == 0:
+                pid = os.getpid()
                 run_cmd(command)
-                # os.waitpid(pid, os.WNOHANG)
-                exit(0)
+                os.waitpid(pid, os.WNOHANG)
+                break
             sleep(5)
 
-    if len(COMMANDS) == 0:  # if we got here after the loop actually finished, and no
+    if len(COMMANDS) == 0:  # if we got here after the loop actually finished
         print('Done running all commands. It took {} seconds.'.format(time() - start_time))
 
 
