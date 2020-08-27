@@ -50,14 +50,14 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 args = parser.parse_args()
 
 # DEBUG:
-args.checkpoint_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-args.attack = 'fgsm'
-args.targeted = True
+# args.checkpoint_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+# args.attack = 'fgsm'
+# args.targeted = True
 # args.rev = ''
 # args.minimal = False
 # args.rev_dir = ''
 # args.guru = False
-args.ensemble = True
+# args.ensemble = True
 # args.ensemble_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34'
 
 if args.rev not in ['fgsm', 'pgd', 'jsma', 'cw', 'ead']:
