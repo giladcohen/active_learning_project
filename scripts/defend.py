@@ -50,15 +50,15 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 args = parser.parse_args()
 
 # DEBUG:
-# args.checkpoint_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-# args.attack = 'fgsm'
-# args.targeted = True
-# args.rev = ''
-# args.minimal = False
-# args.rev_dir = ''
-# args.guru = False
-# args.ensemble = True
-# args.ensemble_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34'
+args.checkpoint_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
+args.attack = 'jsma'
+args.targeted = True
+args.rev = ''
+args.minimal = False
+args.rev_dir = ''
+args.guru = False
+args.ensemble = True
+args.ensemble_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34'
 
 if args.rev not in ['fgsm', 'pgd', 'jsma', 'cw', 'ead']:
     assert not args.guru
@@ -152,12 +152,12 @@ classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
 
 y_test_logits = classifier.predict(X_test, batch_size=batch_size)
 y_test_preds = y_test_logits.argmax(axis=1)
-assert np.testing.assert_allclose(y_test_preds, np.load(os.path.join(ATTACK_DIR, 'y_test_preds.npy')))
+np.testing.assert_array_almost_equal_nulp(y_test_preds, np.load(os.path.join(ATTACK_DIR, 'y_test_preds.npy')))
 np.save(os.path.join(ATTACK_DIR, 'y_test_logits.npy'), y_test_logits)
 
 y_test_adv_logits = classifier.predict(X_test_adv, batch_size=batch_size)
 y_test_adv_preds = y_test_adv_logits.argmax(axis=1)
-assert np.testing.assert_allclose(y_test_adv_preds, np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy')))
+np.testing.assert_array_almost_equal_nulp(y_test_adv_preds, np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy')))
 np.save(os.path.join(ATTACK_DIR, 'y_test_adv_logits.npy'), y_test_adv_logits)
 
 # what are the samples we care about? net_succ (not attack_succ. it is irrelevant)
