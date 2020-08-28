@@ -152,12 +152,12 @@ classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
 
 y_test_logits = classifier.predict(X_test, batch_size=batch_size)
 y_test_preds = y_test_logits.argmax(axis=1)
-assert (y_test_preds == np.load(os.path.join(ATTACK_DIR, 'y_test_preds.npy'))).all()
+assert np.testing.assert_allclose(y_test_preds, np.load(os.path.join(ATTACK_DIR, 'y_test_preds.npy')))
 np.save(os.path.join(ATTACK_DIR, 'y_test_logits.npy'), y_test_logits)
 
 y_test_adv_logits = classifier.predict(X_test_adv, batch_size=batch_size)
 y_test_adv_preds = y_test_adv_logits.argmax(axis=1)
-assert (y_test_adv_preds == np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'))).all()
+assert np.testing.assert_allclose(y_test_adv_preds, np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy')))
 np.save(os.path.join(ATTACK_DIR, 'y_test_adv_logits.npy'), y_test_adv_logits)
 
 # what are the samples we care about? net_succ (not attack_succ. it is irrelevant)
