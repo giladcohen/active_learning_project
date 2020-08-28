@@ -153,13 +153,19 @@ classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
 
 y_test_logits = classifier.predict(X_test, batch_size=batch_size)
 y_test_preds = y_test_logits.argmax(axis=1)
-np.testing.assert_array_almost_equal_nulp(y_test_preds, np.load(os.path.join(ATTACK_DIR, 'y_test_preds.npy')))
-np.save(os.path.join(ATTACK_DIR, 'y_test_logits.npy'), y_test_logits)
+try:
+    np.testing.assert_array_almost_equal_nulp(y_test_preds, np.load(os.path.join(ATTACK_DIR, 'y_test_preds.npy')))
+    np.save(os.path.join(ATTACK_DIR, 'y_test_logits.npy'), y_test_logits)
+except AssertionError as e:
+    raise AssertionError('{}\nAssert failed for y_test_preds for ATTACK_DIR={}'.format(e, ATTACK_DIR))
 
 y_test_adv_logits = classifier.predict(X_test_adv, batch_size=batch_size)
 y_test_adv_preds = y_test_adv_logits.argmax(axis=1)
-np.testing.assert_array_almost_equal_nulp(y_test_adv_preds, np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy')))
-np.save(os.path.join(ATTACK_DIR, 'y_test_adv_logits.npy'), y_test_adv_logits)
+try:
+    np.testing.assert_array_almost_equal_nulp(y_test_adv_preds, np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy')))
+    np.save(os.path.join(ATTACK_DIR, 'y_test_adv_logits.npy'), y_test_adv_logits)
+except AssertionError as e:
+    raise AssertionError('{}\nAssert failed for y_test_adv_logits for ATTACK_DIR={}'.format(e, ATTACK_DIR))
 
 # what are the samples we care about? net_succ (not attack_succ. it is irrelevant)
 f0_inds = []  # net_fail
