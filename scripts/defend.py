@@ -49,10 +49,11 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 
 args = parser.parse_args()
 
-# DEBUG:
+# # DEBUG:
 # args.checkpoint_dir = '/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-# args.attack = 'jsma'
-# args.targeted = True
+# args.attack = ''
+# args.targeted = False
+# args.attack_dir = 'deepfool'
 # args.rev = ''
 # args.minimal = False
 # args.rev_dir = ''
