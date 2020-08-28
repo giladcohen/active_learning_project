@@ -2,6 +2,7 @@ import torch
 from time import time, sleep
 import subprocess as sp
 import os
+import yaml
 
 def run_cmd(cmd):
     print('start running command: \n{}'.format(cmd))
@@ -10,130 +11,15 @@ def run_cmd(cmd):
 
 # buffer time for running different commands on the same GPU
 SAFE_TIME = 40
+# yml_command_file = os.path.join(os.path.dirname(__file__), 'commands.yml')
+#debug:
+yml_command_file = 'active_learning_project/system/commands.yml'
 
-# tuple of (command, required memory in GB). List the command by priority. The script will always try to clear up the
+with open(yml_command_file) as f:
+    d = yaml.load(f.read())
+# list of (command, required memory in GB). List the command by priority. The script will always try to clear up the
 # top of the list first
-COMMANDS = [
-    ('python active_learning_project/scripts/attack.py'
-     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     ' --attack pgd'
-     ' --targeted True'
-     ' --attack_dir run_example1', 5000),
-
-    ('python active_learning_project/scripts/attack.py'
-     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     ' --attack pgd'
-     ' --targeted True'
-     ' --attack_dir run_example2', 5000),
-
-    ('python active_learning_project/scripts/attack.py'
-     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     ' --attack pgd'
-     ' --targeted True'
-     ' --attack_dir run_example3', 5000),
-
-    ('python active_learning_project/scripts/attack.py'
-     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     ' --attack pgd'
-     ' --targeted True'
-     ' --attack_dir run_example4', 5000),
-
-    ('python active_learning_project/scripts/attack.py'
-     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     ' --attack pgd'
-     ' --targeted True'
-     ' --attack_dir run_example5', 5000),
-
-    ('python active_learning_project/scripts/attack.py'
-     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     ' --attack pgd'
-     ' --targeted True'
-     ' --attack_dir run_example6', 5000),
-
-    ('python active_learning_project/scripts/attack.py'
-     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     ' --attack pgd'
-     ' --targeted True'
-     ' --attack_dir run_example7', 5000),
-
-    ('python active_learning_project/scripts/attack.py'
-     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     ' --attack pgd'
-     ' --targeted True'
-     ' --attack_dir run_example8', 5000),
-
-    ('python active_learning_project/scripts/attack.py'
-     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     ' --attack pgd'
-     ' --targeted True'
-     ' --attack_dir run_example9', 5000),
-
-    ('python active_learning_project/scripts/attack.py'
-     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     ' --attack pgd'
-     ' --targeted True'
-     ' --attack_dir run_example10', 5000),
-
-    ('python active_learning_project/scripts/attack.py'
-     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     ' --attack pgd'
-     ' --targeted True'
-     ' --attack_dir run_example11', 5000),
-
-    ('python active_learning_project/scripts/attack.py'
-     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     ' --attack pgd'
-     ' --targeted True'
-     ' --attack_dir run_example12', 5000),
-
-    ('python active_learning_project/scripts/attack.py'
-     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     ' --attack pgd'
-     ' --targeted True'
-     ' --attack_dir run_example13', 5000),
-
-    ('python active_learning_project/scripts/attack.py'
-     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     ' --attack pgd'
-     ' --targeted True'
-     ' --attack_dir run_example14', 5000),
-
-    ('python active_learning_project/scripts/attack.py'
-     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     ' --attack pgd'
-     ' --targeted True'
-     ' --attack_dir run_example15', 5000),
-
-    ('python active_learning_project/scripts/attack.py'
-     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     ' --attack pgd'
-     ' --targeted True'
-     ' --attack_dir run_example16', 5000),
-
-    ('python active_learning_project/scripts/attack.py'
-     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     ' --attack pgd'
-     ' --targeted True'
-     ' --attack_dir run_example17', 5000),
-
-    ('python active_learning_project/scripts/attack.py'
-     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     ' --attack pgd'
-     ' --targeted True'
-     ' --attack_dir run_example18', 5000),
-
-    ('python active_learning_project/scripts/attack.py'
-     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     ' --attack pgd'
-     ' --targeted True'
-     ' --attack_dir run_example19', 5000),
-
-    ('python active_learning_project/scripts/attack.py'
-     ' --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00'
-     ' --attack pgd'
-     ' --targeted True'
-     ' --attack_dir run_example20', 5000),
-]
+COMMANDS = d['commands']
 
 WORKING_DIR = '/home/gilad/python3_workspace'
 os.chdir(WORKING_DIR)
@@ -175,8 +61,8 @@ def main():
         gpu_id = wait_for_idle_gpu()
         if gpu_id == -1:
             print('No GPU with a free memory of {} GB to run command: \n{}'.format(COMMANDS[0][1], COMMANDS[0][0]) +
-            '\nAutomatic retry in 1 minute.')
-            sleep(60)  # sample again in 1 minute
+            '\nAutomatic retry in 10 seconds.')
+            sleep(10)  # sample again in 10 seconds
         else:
             last_time_used[gpu_id] = time()
             command = 'CUDA_VISIBLE_DEVICES={} '.format(gpu_id) + COMMANDS.pop(0)[0]
