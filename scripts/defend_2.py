@@ -77,8 +77,8 @@ global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
 train_inds = np.asarray(global_state['train_inds'])
 val_inds = np.asarray(global_state['val_inds'])
 classes = testloader.dataset.classes
-test_size  = len(testloader.dataset)
-test_inds  = np.arange(test_size)
+test_size = len(testloader.dataset)
+test_inds = np.arange(test_size)
 
 X_test           = get_normalized_tensor(testloader, batch_size)
 y_test           = np.asarray(testloader.dataset.targets)
@@ -175,8 +175,8 @@ y_adv_main_logits     = np.load(os.path.join(ATTACK_DIR, 'y_test_adv_logits.npy'
 y_net_logits          = np.load(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_net_logits_mat.npy'))
 y_adv_net_logits      = np.load(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_adv_net_logits_mat.npy'))
 # cross
-y_cross_logits     = np.concatenate((np.expand_dims(y_main_logits, axis=1), y_net_logits), axis=1)          # (N, 10, #class)
-y_adv_cross_logits = np.concatenate((np.expand_dims(y_adv_main_logits, axis=1), y_adv_net_logits), axis=1)  # (N, 10, #class)
+y_cross_logits        = np.concatenate((np.expand_dims(y_main_logits, axis=1), y_net_logits), axis=1)          # (N, 10, #class)
+y_adv_cross_logits    = np.concatenate((np.expand_dims(y_adv_main_logits, axis=1), y_adv_net_logits), axis=1)  # (N, 10, #class)
 
 # calculating preds:
 # main
