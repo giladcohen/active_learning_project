@@ -1,308 +1,355 @@
-# This module is adapted from https://github.com/pytorch/examples/blob/master/imagenet/main.py
-import argparse
-import os
-import time
-import sys
+'''Train CIFAR10 with PyTorch.'''
 import torch
 import torch.nn as nn
-import torch.backends.cudnn as cudnn
-import torch.optim
-import torchvision.transforms as transforms
-import torchvision.datasets as datasets
-from torch.autograd import Variable
-import math
-import numpy as np
-from torchsummary import summary
-from torchsummary import summary
 from torch.utils.tensorboard import SummaryWriter
+import torch.optim as optim
+import torch.backends.cudnn as cudnn
+from torch.autograd import Variable
+from torchsummary import summary
+
+import numpy as np
+import json
+import os
+import argparse
+from tqdm import tqdm
+import time
+
 import sys
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 sys.path.insert(0, "./FreeAdversarialTraining")
 sys.path.insert(0, "./FreeAdversarialTraining/lib")
-from utils import *
 
 from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader
+from active_learning_project.utils import remove_substr_from_keys
 
-DATA_DIR = '/Users/giladcohen/data/dataset/cifar10/try3_300720'
-RESUME = False
-EVALUATE = False
-PRETRAINED = False
-OUTPUT_DIR = '/Users/giladcohen/logs/debug'
-TRAIN_EPOCHES = 32
-ADV_N_REPEATS = 4
-FGSM_STEP = 4.0
-MAX_COLOR_VALUE = 255.0
-CROP_SIZE = 32
-CLIP_EPS = 4.0
-LR = 0.1
-MOMENTUM = 0.9
-WD = 0.0001  # TODO(change)
-BATCH_SIZE = 100
-NUM_WORKERS = 4  # TODO(change)
-START_EPOCH = 0
-MEAN = [0.4914, 0.4822, 0.4465]
-STD = [0.2471, 0.2435, 0.2616]
-PRINT_FREQ = 10
-ADV_PGD_ATTACK = [[10, 1/255], [50, 1/255]]  # 10 iters and 50 iters
-FACTOR = 0.9
-PATIENCE = 3
-COOLDOWN = 0
+from utils import fgsm
 
-VAL_SIZE = 0.05
+parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
+# dataset
+parser.add_argument('--dataset', default='cifar10', type=str, help='dataset: cifar10, cifar100, svhn')
+parser.add_argument('--val_size', default=0.05, type=float, help='Fraction of validation size')
 
-rand_gen = np.random.RandomState(15101985)
-train_writer = SummaryWriter(os.path.join(OUTPUT_DIR, 'train'))
-val_writer   = SummaryWriter(os.path.join(OUTPUT_DIR, 'val'))
+# adv
+parser.add_argument('--adv_n_repeats', default=4, type=int, help='LR schedule patience')
+parser.add_argument('--fgsm_step', default=4.0, type=float, help='fgsm step')
+parser.add_argument('--clip_eps', default=4.0, type=float, help='eps limit')
 
-# rand_gen = np.random.RandomState(int(time.time()))
 
-# Parse config file and initiate logging
-logger = initiate_logger(OUTPUT_DIR)
-print = logger.info
+# optimizer, loss, metrics
+parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
+parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
+parser.add_argument('--wd', default=0.0001, type=float, help='weight decay')  # was 5e-4 for batch_size=128
+parser.add_argument('--metric', default='accuracy', type=str, help='metric to optimize. accuracy or sparsity')
+
+
+# training
+parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
+parser.add_argument('--checkpoint_dir', default='/Users/giladcohen/logs/adv_robustness/debug', type=str, help='checkpoint dir')
+parser.add_argument('--epochs', default='300', type=int, help='number of epochs')
+parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
+parser.add_argument('--patience', default=3, type=int, help='LR schedule patience')
+parser.add_argument('--cooldown', default=0, type=int, help='LR cooldown')
+parser.add_argument('--n_workers', default=1, type=int, help='Data loading threads')
+parser.add_argument('--batch_size', default=100, type=int, help='batch size')
+
+# network
+parser.add_argument('--net', default='resnet34', type=str, help='network architecture')
+
+parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
+parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
+
+args = parser.parse_args()
+
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-if device == 'cuda':
-    cudnn.benchmark = True
+CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
+os.makedirs(args.checkpoint_dir, exist_ok=True)
+batch_size = args.batch_size
 
-# Scale and initialize the parameters
-best_acc = 0.0
-TRAIN_EPOCHES = int(math.ceil(TRAIN_EPOCHES / ADV_N_REPEATS))
-FGSM_STEP /= MAX_COLOR_VALUE
-CLIP_EPS /= MAX_COLOR_VALUE
+rand_gen = np.random.RandomState(int(time.time()))
+train_writer = SummaryWriter(os.path.join(args.checkpoint_dir, 'train'))
+val_writer   = SummaryWriter(os.path.join(args.checkpoint_dir, 'val'))
+test_writer  = SummaryWriter(os.path.join(args.checkpoint_dir, 'test'))
 
-# Create output folder
-if not os.path.isdir(OUTPUT_DIR):
-    os.makedirs(OUTPUT_DIR)
+# Data
+print('==> Preparing data..')
 
-print("=> creating model '{}'".format('Resnet34'))
-net = ResNet34(num_classes=10)
-net = net.to(device)
-summary(net, (3, 32, 32))
-
-# Criterion:
-criterion = nn.CrossEntropyLoss().cuda()
-
-# Optimizer:
-#TODO(add nesterov)
-optimizer = torch.optim.SGD(net.parameters(), LR, momentum=MOMENTUM, weight_decay=WD)
-
-# Resume if a valid checkpoint path is provided
-#TODO(support resume)
-
-# Initiate data loaders
-train_loader, val_loader, train_inds, val_inds = get_train_valid_loader(
-    dataset='cifar10',
-    batch_size=BATCH_SIZE,
+trainloader, valloader, train_inds, val_inds = get_train_valid_loader(
+    dataset=args.dataset,
+    batch_size=batch_size,
     rand_gen=rand_gen,
-    valid_size=VAL_SIZE,
-    num_workers=NUM_WORKERS,
+    valid_size=args.val_size,
+    num_workers=args.n_workers,
+    pin_memory=device=='cuda'
+)
+testloader = get_test_loader(
+    dataset=args.dataset,
+    batch_size=batch_size,
+    num_workers=args.n_workers,
     pin_memory=device=='cuda'
 )
 
-lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+classes = trainloader.dataset.classes
+train_size = len(trainloader.dataset)
+val_size   = len(valloader.dataset)
+test_size  = len(testloader.dataset)
+
+# Model
+print('==> Building model..')
+if args.net == 'resnet34':
+    net = ResNet34(num_classes=len(classes))
+elif args.net == 'resnet101':
+    net = ResNet101(num_classes=len(classes))
+else:
+    raise AssertionError("network {} is unknown".format(args.net))
+
+net = net.to(device)
+summary(net, (3, 32, 32))
+
+if device == 'cuda':
+    # net = torch.nn.DataParallel(net)
+    cudnn.benchmark = True
+
+criterion = nn.CrossEntropyLoss()
+y_val = np.asarray(valloader.dataset.targets)
+y_test = np.asarray(testloader.dataset.targets)
+
+args.fgsm_step /= 255.0
+args.clip_eps /= 255.0
+
+input_shape = (batch_size, trainloader.dataset.data.shape[3],) + trainloader.dataset.data[0].shape[0:2]
+global_noise_data = torch.zeros(input_shape).to(device=device)
+
+def reset_optim():
+    global optimizer
+    global lr_scheduler
+    global best_metric
+    best_metric = 0.0
+    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.mom, weight_decay=args.wd, nesterov=args.mom > 0)
+    lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
         mode='max',
-        factor=FACTOR,
-        patience=PATIENCE,
+        factor=args.factor,
+        patience=args.patience,
         verbose=True,
-        cooldown=COOLDOWN
+        cooldown=args.cooldown
     )
 
-# If in evaluate mode: perform validation on PGD attacks as well as clean samples
-#TODO(add validation)
+def reset_net():
+    global net
+    global global_step
+    net.load_state_dict(global_state['best_net'])
+    global_step = global_state['global_step']
 
-global global_noise_data
-global_noise_data = torch.zeros([BATCH_SIZE, 3, CROP_SIZE, CROP_SIZE]).cuda()
-def train(train_loader, net, criterion, optimizer, epoch):
+def train():
+    """Train and validate"""
+    # Training
+    global global_step
+    global epoch
     global global_noise_data
-    mean = torch.Tensor(np.array(MEAN)[:, np.newaxis, np.newaxis])
-    mean = mean.expand(3, CROP_SIZE, CROP_SIZE).cuda()
-    std = torch.Tensor(np.array(STD)[:, np.newaxis, np.newaxis])
-    std = std.expand(3, CROP_SIZE, CROP_SIZE).cuda()
-    # Initialize the meters
-    batch_time = AverageMeter()
-    data_time = AverageMeter()
-    losses = AverageMeter()
-    acc = AverageMeter()
-    # switch to train mode
-    net.train()
-    for i, (input, target) in enumerate(train_loader):
-        end = time.time()
-        input = input.cuda(non_blocking=True)
-        target = target.cuda(non_blocking=True)
-        data_time.update(time.time() - end)
-        for j in range(ADV_N_REPEATS):
-            # Ascend on the global noise
-            noise_batch = Variable(global_noise_data[0:input.size(0)], requires_grad=True).cuda()
-            in1 = input + noise_batch
-            in1.clamp_(0, 1.0)
-            in1.sub_(mean).div_(std)
-            output = net(in1)['logits']
-            loss = criterion(output, target)
 
-            accu = accuracy(output, target)[0]
-            losses.update(loss.item(), input.size(0))
-            acc.update(accu[0], input.size(0))
+    net.train()
+    train_loss = 0
+    predicted = []
+    labels = []
+    for batch_idx, (inputs, targets) in enumerate(trainloader):  # train a single step
+        inputs, targets = inputs.to(device, non_blocking=True), targets.to(device, non_blocking=True)
+        for j in range(args.adv_n_repeats):
+            # Ascend on the global noise
+            noise_batch = Variable(global_noise_data[0:inputs.size(0)], requires_grad=True).to(device=device)
+            in1 = inputs + noise_batch
+            in1.clamp_(0, 1.0)
+            outputs = net(in1)
+            loss_ce = criterion(outputs['logits'], targets)
 
             # compute gradient and do SGD step
             optimizer.zero_grad()
+            loss = loss_ce
             loss.backward()
 
             # Update the noise for the next iteration
-            pert = fgsm(noise_batch.grad, FGSM_STEP)
-            global_noise_data[0:input.size(0)] += pert.data
-            global_noise_data.clamp_(-CLIP_EPS, CLIP_EPS)
+            pert = fgsm(noise_batch.grad, args.fgsm_step)
+            global_noise_data[0:inputs.size(0)] += pert.data
+            global_noise_data.clamp_(-args.clip_eps, args.clip_eps)
 
             optimizer.step()
-            # measure elapsed time
-            batch_time.update(time.time() - end)
-            end = time.time()
 
-            if i % PRINT_FREQ == 0:
-                print('Train Epoch: [{0}][{1}/{2}]\t'
-                      'Time {batch_time.val:.3f}\t'
-                      'Data {data_time.val:.3f}\t'
-                      'Loss {cls_loss.val:.4f}\t'
-                      'Acc {acc.val:.3f}'.format(
-                       epoch, i, len(train_loader), batch_time=batch_time,
-                       data_time=data_time, acc=acc, cls_loss=losses))
-                sys.stdout.flush()
+            if j == args.adv_n_repeats - 1:
+                train_loss += loss.item()
+                _, preds = outputs['logits'].max(1)
+                predicted.extend(preds.cpu().numpy())
+                labels.extend(targets.cpu().numpy())
+                num_corrected = preds.eq(targets).sum().item()
+                acc = num_corrected / targets.size(0)
+
+                if global_step % 10 == 0:  # sampling, once ever 10 train iterations
+                    train_writer.add_scalar('losses/loss',    loss.item(),    global_step)
+                    train_writer.add_scalar('losses/loss_ce', loss_ce.item(), global_step)
+                    train_writer.add_scalar('metrics/acc', 100.0 * acc, global_step)
+                    train_writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], global_step)
+
+        global_step += 1
+
+    N = batch_idx + 1
+    train_loss = train_loss / N
+    predicted = np.asarray(predicted)
+    labels = np.asarray(labels)
+    train_acc = 100.0 * np.mean(predicted == labels)
+    print('Epoch #{} (TRAIN): loss={}\tacc={:.2f}'
+          .format(epoch + 1, train_loss, train_acc))
 
 
-def validate(val_loader, net, criterion, logger):
-    # Mean/Std for normalization
-    mean = torch.Tensor(np.array(MEAN)[:, np.newaxis, np.newaxis])
-    mean = mean.expand(3, CROP_SIZE, CROP_SIZE).cuda()
-    std = torch.Tensor(np.array(STD)[:, np.newaxis, np.newaxis])
-    std = std.expand(3, CROP_SIZE, CROP_SIZE).cuda()
+def validate():
+    global global_step
+    global global_state
+    global best_metric
+    global epoch
 
-    # Initiate the meters
-    batch_time = AverageMeter()
-    losses = AverageMeter()
-    acc = AverageMeter()
-    # switch to evaluate mode
+    # validation
     net.eval()
-    end = time.time()
-    for i, (input, target) in enumerate(val_loader):
-        with torch.no_grad():
-            input = input.cuda(non_blocking=True)
-            target = target.cuda(non_blocking=True)
+    val_loss = 0
+    val_loss_ce = 0
+    predicted = []
 
-            # compute output
-            input = input - mean
-            input.div_(std)
-            output = net(input)['logits']
-            loss = criterion(output, target)
+    with torch.no_grad():
+        for batch_idx, (inputs, targets) in enumerate(valloader):
+            inputs, targets = inputs.to(device, non_blocking=True), targets.to(device, non_blocking=True)
+            outputs = net(inputs)
+            loss_ce = criterion(outputs['logits'], targets)
+            loss = loss_ce
 
-            # measure accuracy and record loss
-            accu = accuracy(output, target)[0]
-            losses.update(loss.item(), input.size(0))
-            acc.update(accu[0], input.size(0))
+            val_loss    += loss.item()
+            val_loss_ce += loss_ce.item()
 
-            # measure elapsed time
-            batch_time.update(time.time() - end)
-            end = time.time()
+            predicted.extend(outputs['logits'].max(1)[1].cpu().numpy())
 
-            if i % PRINT_FREQ == 0:
-                print('Test: [{0}/{1}]\t'
-                      'Time {batch_time.val:.3f}\t'
-                      'Loss {loss.val:.4f}\t'
-                      'acc {acc.val:.3f}\t'.format(
-                    i, len(val_loader), batch_time=batch_time, loss=losses, acc=acc))
-                sys.stdout.flush()
+    N = batch_idx + 1
+    val_loss    = val_loss / N
+    val_loss_ce = val_loss_ce / N
+    predicted = np.asarray(predicted)
+    val_acc = 100.0 * np.mean(predicted == y_val)
 
-    print('Final acc: {acc.avg:.3f}'.format(acc=acc))
-    return acc.avg
+    val_writer.add_scalar('losses/loss',    val_loss,    global_step)
+    val_writer.add_scalar('losses/loss_ce', val_loss_ce, global_step)
 
+    val_writer.add_scalar('metrics/acc', val_acc, global_step)
 
-def validate_pgd(val_loader, net, criterion, K, step, logger):
-    # Mean/Std for normalization
-    mean = torch.Tensor(np.array(MEAN)[:, np.newaxis, np.newaxis])
-    mean = mean.expand(3, CROP_SIZE, CROP_SIZE).cuda()
-    std = torch.Tensor(np.array(STD)[:, np.newaxis, np.newaxis])
-    std = std.expand(3, CROP_SIZE, CROP_SIZE).cuda()
-    # Initiate the meters
-    batch_time = AverageMeter()
-    losses = AverageMeter()
-    acc = AverageMeter()
+    if args.metric == 'accuracy':
+        metric = val_acc
+    else:
+        raise AssertionError('Unknown metric for optimization {}'.format(args.metric))
 
-    eps = CLIP_EPS
-    net.eval()
-    end = time.time()
-    logger.info(pad_str(' PGD eps: {}, K: {}, step: {} '.format(eps, K, step)))
-    for i, (input, target) in enumerate(val_loader):
+    if metric > best_metric:
+        best_metric = metric
+        print('Found new best model. Saving...')
+        global_state['best_net'] = net.state_dict()
+        global_state['best_metric'] = best_metric
+        global_state['epoch'] = epoch
+        global_state['global_step'] = global_step
 
-        input = input.cuda(non_blocking=True)
-        target = target.cuda(non_blocking=True)
+    print('Epoch #{} (VAL): loss={}\tacc={:.2f}\tbest_metric({})={:.4f}'
+          .format(epoch + 1, val_loss, val_acc, args.metric, best_metric))
 
-        orig_input = input.clone()
-        randn = torch.FloatTensor(input.size()).uniform_(-eps, eps).cuda()
-        input += randn
-        input.clamp_(0, 1.0)
-        for _ in range(K):
-            invar = Variable(input, requires_grad=True)
-            in1 = invar - mean
-            in1.div_(std)
-            output = net(in1)['logits']
-            ascend_loss = criterion(output, target)
-            ascend_grad = torch.autograd.grad(ascend_loss, invar)[0]
-            pert = fgsm(ascend_grad, step)
-            # Apply purturbation
-            input += pert.data
-            input = torch.max(orig_input - eps, input)
-            input = torch.min(orig_input + eps, input)
-            input.clamp_(0, 1.0)
+    # updating learning rate if we see no improvement
+    lr_scheduler.step(metrics=metric, epoch=epoch)
 
-        input.sub_(mean).div_(std)
-        with torch.no_grad():
-            # compute output
-            output = net(input)['logits']
-            loss = criterion(output, target)
+def test():
+    global global_step
+    global epoch
 
-            # measure accuracy and record loss
-            accu = accuracy(output, target)[0]
-            losses.update(loss.item(), input.size(0))
-            acc.update(accu[0], input.size(0))
+    with torch.no_grad():
+        # test
+        net.eval()
+        test_loss = 0
+        test_loss_ce = 0
+        predicted = []
 
-            # measure elapsed time
-            batch_time.update(time.time() - end)
-            end = time.time()
+        for batch_idx, (inputs, targets) in enumerate(testloader):
+            inputs, targets = inputs.to(device), targets.to(device)
+            outputs = net(inputs)
+            loss_ce = criterion(outputs['logits'], targets)
+            loss = loss_ce
 
-            if i % PRINT_FREQ == 0:
-                print('PGD Test: [{0}/{1}]\t'
-                      'Time {batch_time.val:.3f}\t'
-                      'Loss {loss.val:.4f}\t'
-                      'acc {acc.val:.3f}'.format(i, len(val_loader), batch_time=batch_time, loss=losses, acc=acc))
-                sys.stdout.flush()
+            test_loss    += loss.item()
+            test_loss_ce += loss_ce.item()
 
-    print(' PGD Final acc {acc.avg:.3f}'.format(acc=acc))
-    return acc.avg
+            predicted.extend(outputs['logits'].max(1)[1].cpu().numpy())
 
+    N = batch_idx + 1
+    test_loss    = test_loss / N
+    test_loss_ce = test_loss_ce / N
+    predicted = np.asarray(predicted)
+    test_acc = 100.0 * np.mean(predicted == y_test)
 
-for epoch in range(START_EPOCH, TRAIN_EPOCHES):
-    # adjust_learning_rate(configs.TRAIN.lr, optimizer, epoch, configs.ADV.n_repeats)
+    test_writer.add_scalar('losses/loss',    test_loss,    global_step)
+    test_writer.add_scalar('losses/loss_ce', test_loss_ce, global_step)
 
-    # train for one epoch
-    train(train_loader, net, criterion, optimizer, epoch)
+    test_writer.add_scalar('metrics/acc', test_acc, global_step)
 
-    # evaluate on validation set
-    acc = validate(val_loader, net, criterion, logger)
+    print('Epoch #{} (TEST): loss={}\tacc={:.2f}'
+          .format(epoch + 1, test_loss, test_acc))
 
-    # remember best acc and save checkpoint
-    is_best = acc > best_acc
-    best_acc = max(acc, best_acc)
-    if is_best:
-        save_checkpoint({
-            'epoch': epoch + 1,
-            'arch': 'Resnet34',
-            'state_dict': net.state_dict(),
-            'best_acc': best_acc,
-            'optimizer' : optimizer.state_dict(),
-        }, is_best, OUTPUT_DIR)
-        lr_scheduler.step(metrics=best_acc, epoch=epoch)
+def save_global_state():
+    global epoch
+    global global_state
 
-# Automatically perform PGD Attacks at the end of training
-logger.info(pad_str(' Performing PGD Attacks '))
-for pgd_param in ADV_PGD_ATTACK:
-    validate_pgd(val_loader, net, criterion, pgd_param[0], pgd_param[1], logger)
+    global_state['train_inds'] = train_inds
+    global_state['val_inds'] = val_inds
+    torch.save(global_state, CHECKPOINT_PATH)
+
+def flush():
+    train_writer.flush()
+    val_writer.flush()
+    test_writer.flush()
+
+if __name__ == "__main__":
+    if args.resume:
+        # Load checkpoint.
+        print('==> Resuming from checkpoint..')
+        assert os.path.isfile(CHECKPOINT_PATH), 'Error: no checkpoint file found!'
+        checkpoint = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
+
+        # check if trained for DataParallel:
+        if 'module' in list(checkpoint['best_net'].keys())[0]:
+            checkpoint['best_net'] = remove_substr_from_keys(checkpoint['best_net'], 'module.')
+
+        net.load_state_dict(checkpoint['best_net'])
+        best_metric    = checkpoint['best_metric']
+        epoch          = checkpoint['epoch']
+        global_step    = checkpoint['global_step']
+        train_inds     = checkpoint['train_inds']
+        val_inds       = checkpoint['val_inds']
+
+        global_state = checkpoint
+    else:
+        # no old knowledge
+        best_metric    = 0.0
+        epoch          = 0
+        global_step    = 0
+        # train_inds     = train_inds
+        # val_inds       = val_inds
+
+        global_state = {}
+
+    # dumping args to txt file
+    with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'w') as f:
+        json.dump(args.__dict__, f, indent=2)
+
+    reset_optim()
+
+    print('Testing epoch #{}'.format(epoch + 1))
+    test()
+
+    print('start training from epoch #{} for {} epochs'.format(epoch + 1, args.epochs))
+    for epoch in tqdm(range(epoch, epoch + args.epochs)):
+        train()
+        validate()
+        if epoch % 10 == 0:
+            test()
+            save_global_state()
+    save_global_state()
+    test()
+    reset_net()
+    test()  # post test the final best model
+    flush()
