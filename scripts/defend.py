@@ -19,7 +19,7 @@ from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, \
     get_loader_with_specific_inds, get_normalized_tensor
 from active_learning_project.utils import convert_tensor_to_image
-from active_learning_project.utils import boolean_string, majority_vote
+from active_learning_project.utils import boolean_string, get_ensemble_paths
 
 import matplotlib.pyplot as plt
 
@@ -33,15 +33,13 @@ from art.classifiers import PyTorchClassifier
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
-parser.add_argument('--attack', default='', type=str, help='checkpoint dir')
-parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
 parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
+parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
 parser.add_argument('--rev', default='', type=str, help='fgsm, pgd, deepfool, none')
 parser.add_argument('--rev_dir', default='', type=str, help='reverse dir')
 parser.add_argument('--minimal', action='store_true', help='use FGSM minimal attack')
 parser.add_argument('--guru', action='store_true', help='use guru labels')
 parser.add_argument('--ensemble', action='store_true', help='use ensemble')
-parser.add_argument('--ensemble_dir', default='', type=str, help='ensemble dir of many networks')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -72,27 +70,17 @@ with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
 
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 
-if args.attack_dir != '':
-    ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
-else:
-    ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack)
-    if args.targeted:
-        ATTACK_DIR = ATTACK_DIR + '_targeted'
+ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
 
 if args.rev_dir != '':
     assert args.rev != ''
     REV_DIR = os.path.join(ATTACK_DIR, 'rev', args.rev_dir)
-elif args.rev != '':
-    REV_DIR = os.path.join(ATTACK_DIR, 'rev', args.rev)  # the default
 else:
     REV_DIR = None  # no rev!
 if REV_DIR is not None:
     os.makedirs(REV_DIR, exist_ok=True)
 
-if args.ensemble_dir != '':
-    ENSEMBLE_DIR = args.ensemble_dir
-else:
-    ENSEMBLE_DIR = os.path.dirname(args.checkpoint_dir)
+ENSEMBLE_DIR = os.path.dirname(args.checkpoint_dir)
 
 ENSEMBLE_DIR_DUMP = os.path.join(ATTACK_DIR, 'ensemble')
 os.makedirs(ENSEMBLE_DIR_DUMP, exist_ok=True)
@@ -298,13 +286,12 @@ if defense:  # if rev is not empty
 
 if args.ensemble:
     print('Running ensemble defense. Loading all models')
-    checkpoint_dir_list = next(os.walk(ENSEMBLE_DIR))[1]
-    checkpoint_dir_list.sort()
-    checkpoint_dir_list = checkpoint_dir_list[2:]  # ignoring the first (original) network
+    ensemble_paths = get_ensemble_paths(ENSEMBLE_DIR)
+    ensemble_paths = ensemble_paths[1:]  # ignoring the first (original) network
 
     # calculated all the time, even without rev. For normal:
-    y_test_net_logits_mat = np.empty((test_size, len(checkpoint_dir_list), len(classes)), dtype=np.float32)  # (N, #nets, #classes)
-    y_test_net_preds_mat = np.empty((test_size, len(checkpoint_dir_list)), dtype=np.int32)  # (N, #nets)
+    y_test_net_logits_mat = np.empty((test_size, len(ensemble_paths), len(classes)), dtype=np.float32)  # (N, #nets, #classes)
+    y_test_net_preds_mat = np.empty((test_size, len(ensemble_paths)), dtype=np.int32)  # (N, #nets)
 
     # and for adv:
     y_test_adv_net_logits_mat = np.empty_like(y_test_net_logits_mat)  # (N, #nets, #classes)
@@ -316,7 +303,7 @@ if args.ensemble:
 
         if not normal_rev_exist:  # will be calculated. Very time consuming
             print('ensemble normal rev images were not calculated before. Initializing mat...')
-            X_test_rev_mat = np.empty((test_size, len(checkpoint_dir_list)) + X_test.shape[1:], dtype=np.float32)
+            X_test_rev_mat = np.empty((test_size, len(ensemble_paths)) + X_test.shape[1:], dtype=np.float32)
         else:
             print('ensemble normal rev images were already calculated before. Loading...')
             X_test_rev_mat = np.load(os.path.join(REV_DIR, 'X_test_rev_mat.npy'))
@@ -334,8 +321,7 @@ if args.ensemble:
         y_test_adv_net_rev_logits_mat = np.empty_like(y_test_net_rev_logits_mat)  # (N, #nets, #classes)
         y_test_adv_net_rev_preds_mat = np.empty_like(y_test_net_rev_preds_mat)  # (N, #nets)
 
-    for i, dir in tqdm(enumerate(checkpoint_dir_list)):
-        ckpt_file = os.path.join(ENSEMBLE_DIR, dir, 'ckpt.pth')
+    for i, ckpt_file in tqdm(enumerate(ensemble_paths)):
         global_state = torch.load(ckpt_file, map_location=torch.device(device))
         net.load_state_dict(global_state['best_net'])
         print('{}: fetching predictions using ckpt file: {}'.format(datetime.now().strftime("%H:%M:%S"), ckpt_file))

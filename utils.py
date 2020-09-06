@@ -227,3 +227,12 @@ def convert_tensor_to_image(X: np.ndarray):
 def majority_vote(x):
     return np.bincount(x).argmax()
 
+def get_ensemble_paths(ensemble_dir):
+    ensemble_subdirs = next(os.walk(ensemble_dir))[1]
+    ensemble_subdirs.sort()
+    ensemble_paths = []
+    for j, dir in enumerate(ensemble_subdirs):  # for network j
+        ensemble_paths.append(os.path.join(ensemble_dir, dir, 'ckpt.pth'))
+
+    return ensemble_paths
+

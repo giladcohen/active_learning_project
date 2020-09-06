@@ -16,7 +16,7 @@ sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 
 from active_learning_project.models.resnet import ResNet34, ResNet101
-from active_learning_project.utils import boolean_string, majority_vote
+from active_learning_project.utils import boolean_string, majority_vote, get_ensemble_paths
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_normalized_tensor
 from scipy.special import softmax
 
@@ -194,18 +194,15 @@ if REV_DIR is not None:
         del X_test_rev, X_test_rev_mat, X_test_adv_rev, X_test_adv_rev_mat
 
         print('generating cross predictions for {} using ensemble in {}'.format(REV_DIR, ENSEMBLE_DIR))
-        checkpoint_dir_list = next(os.walk(ENSEMBLE_DIR))[1]
-        checkpoint_dir_list.sort()
-        checkpoint_dir_list = checkpoint_dir_list[1:]
-
-        y_cross_rev_logits     = np.empty((test_size, len(checkpoint_dir_list), len(checkpoint_dir_list), len(classes)), dtype=np.float32)
+        ensemble_paths = get_ensemble_paths(ENSEMBLE_DIR)
+        y_cross_rev_logits     = np.empty((test_size, len(ensemble_paths), len(ensemble_paths), len(classes)), dtype=np.float32)
         y_adv_cross_rev_logits = np.empty_like(y_cross_rev_logits)
 
-        for j, dir in enumerate(checkpoint_dir_list):  # for network j
-            ckpt_file = os.path.join(ENSEMBLE_DIR, dir, 'ckpt.pth')
+        for j, ckpt_file in enumerate(ensemble_paths):  # for network j
             global_state = torch.load(ckpt_file, map_location=torch.device(device))
             net.load_state_dict(global_state['best_net'])
             for i in range(X_test_rev_all.shape[1]):  # for image created from network i
+                print('predicting images created from network i={} on network j={} (net path={})'.format(i, j, ckpt_file))
                 y_cross_rev_logits[:, i, j]     = classifier.predict(X_test_rev_all[:, i], batch_size=batch_size)
                 y_adv_cross_rev_logits[:, i, j] = classifier.predict(X_test_adv_rev_all[:, i], batch_size=batch_size)
 
