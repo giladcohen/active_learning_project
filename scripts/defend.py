@@ -350,11 +350,11 @@ if args.ensemble:
 
         if defense:
             if not normal_rev_exist:
-                print('Generating normal rev images for network {}'.format(dir))
+                print('Generating normal rev images for network {}'.format(ckpt_file))
                 X_test_rev_mat[:, i] = defense.generate(x=X_test, y=y_targets)
 
             if not adv_rev_exist:
-                print('Generating adv rev images for network {}'.format(dir))
+                print('Generating adv rev images for network {}'.format(ckpt_file))
                 X_test_adv_rev_mat[:, i] = defense.generate(x=X_test_adv, y=y_targets)
 
             # normal preds for net rev:
