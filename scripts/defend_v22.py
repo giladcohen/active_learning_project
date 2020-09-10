@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 from art.classifiers import PyTorchClassifier
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/Users/giladcohen/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/Users/giladcohen/data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust/robust_resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='pgd_targeted', type=str, help='attack directory')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
 parser.add_argument('--rev_dir', default='fgsm_minimal', type=str, help='reverse dir')
