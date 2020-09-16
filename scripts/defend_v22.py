@@ -19,19 +19,20 @@ from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.utils import boolean_string, majority_vote, get_ensemble_paths
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_normalized_tensor
 from scipy.special import softmax
+from cleverhans.utils import to_categorical, batch_indices
 
 import matplotlib.pyplot as plt
 from art.classifiers import PyTorchClassifier
 
-parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/Users/giladcohen/data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust/robust_resnet34_00', type=str, help='checkpoint dir')
+parser = argparse.ArgumentParser(description='Adversarial robustness testing')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust/robust_resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='pgd_targeted', type=str, help='attack directory')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
 parser.add_argument('--rev_dir', default='fgsm_minimal', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--net_pool', default='all', type=str, help='networks pool: main, ensemble, all')
-parser.add_argument('--img_pool', default='all', type=str, help='images pool: orig, rev, all')
-parser.add_argument('--method', default='inference_svm', type=str, help='method of defense: simple, inference_svm')
+parser.add_argument('--img_pool', default='orig', type=str, help='images pool: orig, rev, all')
+parser.add_argument('--method', default='inference_grads_svm', type=str, help='method of defense: simple, inference_svm')
 parser.add_argument('--train_on', default='all', type=str, help='normal, adv, all')
 parser.add_argument('--temperature', default=1, type=float, help='normal, adv')
 parser.add_argument('--pca_dims', default=-1, type=int, help='if not -1, apply PCA to svm with dims')
@@ -76,6 +77,7 @@ val_inds = np.asarray(global_state['val_inds'])
 classes = testloader.dataset.classes
 test_size = len(testloader.dataset)
 test_inds = np.arange(test_size)
+num_batches = int(np.ceil(test_size/batch_size))
 
 X_test           = get_normalized_tensor(testloader, batch_size)
 y_test           = np.asarray(testloader.dataset.targets)
@@ -234,7 +236,7 @@ elif load_main and load_ensemble:
 else:
     raise AssertionError('load_main or load_ensemble must be True')
 
-# stats
+# inputs stats
 normal_mean     = np.mean(normal_input, axis=1)
 normal_std      = np.std(normal_input, axis=1)
 normal_rev_mean = np.mean(normal_rev_input, axis=1)
@@ -244,6 +246,45 @@ adv_mean     = np.mean(adv_input, axis=1)
 adv_std      = np.std(adv_input, axis=1)
 adv_rev_mean = np.mean(adv_rev_input, axis=1)
 adv_rev_std  = np.std(adv_rev_input, axis=1)
+
+# grads
+if 'grads' in args.method:
+    print('Calculating gradients...')
+    normal_grads     = np.empty_like(X_test)
+    adv_grads        = np.empty_like(X_test)
+    for i in tqdm(range(num_batches)):
+        start, end = batch_indices(i, test_size, batch_size)
+        normal_grads[start:end] = classifier.loss_gradient(X_test[start:end]    , to_categorical(y_test_preds[start:end]    , len(classes)))
+        adv_grads[start:end]    = classifier.loss_gradient(X_test_adv[start:end], to_categorical(y_test_adv_preds[start:end], len(classes)))
+
+    normal_grads_abs = np.abs(normal_grads)
+    adv_grads_abs    = np.abs(adv_grads)
+
+    # grads stats
+    axd = (1, 2, 3)
+    normal_grads_max        = normal_grads.max(axd)
+    normal_grads_min        = normal_grads.min(axd)
+    normal_grads_mean       = normal_grads.mean(axd)
+    normal_grads_std        = normal_grads.std(axd)
+    normal_grads_median     = np.median(normal_grads, axd)
+
+    normal_grads_abs_max    = normal_grads_abs.max(axd)
+    normal_grads_abs_min    = normal_grads_abs.min(axd)
+    normal_grads_abs_mean   = normal_grads_abs.mean(axd)
+    normal_grads_abs_std    = normal_grads_abs.std(axd)
+    normal_grads_abs_median = np.median(normal_grads_abs, axd)
+
+    adv_grads_max        = adv_grads.max(axd)
+    adv_grads_min        = adv_grads.min(axd)
+    adv_grads_mean       = adv_grads.mean(axd)
+    adv_grads_std        = adv_grads.std(axd)
+    adv_grads_median     = np.median(adv_grads, axd)
+
+    adv_grads_abs_max    = adv_grads_abs.max(axd)
+    adv_grads_abs_min    = adv_grads_abs.min(axd)
+    adv_grads_abs_mean   = adv_grads_abs.mean(axd)
+    adv_grads_abs_std    = adv_grads_abs.std(axd)
+    adv_grads_abs_median = np.median(adv_grads_abs, axd)
 
 def add_feature(x, x1):
     """Adding feature x1 to x"""
@@ -309,6 +350,32 @@ elif 'svm' in args.method:
         adv_features = add_feature(adv_features, adv_std)
         adv_features = add_feature(adv_features, adv_rev_mean)
         adv_features = add_feature(adv_features, adv_rev_std)
+
+    elif args.method == 'inference_grads_svm':
+        print('Analyzing inference+grads_stats SVM robustness')
+        normal_features = normal_features.reshape((test_size, -1))
+        normal_features = add_feature(normal_features, normal_grads_max[:, np.newaxis])
+        normal_features = add_feature(normal_features, normal_grads_min[:, np.newaxis])
+        normal_features = add_feature(normal_features, normal_grads_mean[:, np.newaxis])
+        normal_features = add_feature(normal_features, normal_grads_std[:, np.newaxis])
+        normal_features = add_feature(normal_features, normal_grads_median[:, np.newaxis])
+        normal_features = add_feature(normal_features, normal_grads_abs_max[:, np.newaxis])
+        normal_features = add_feature(normal_features, normal_grads_abs_min[:, np.newaxis])
+        normal_features = add_feature(normal_features, normal_grads_abs_mean[:, np.newaxis])
+        normal_features = add_feature(normal_features, normal_grads_abs_std[:, np.newaxis])
+        normal_features = add_feature(normal_features, normal_grads_abs_median[:, np.newaxis])
+
+        adv_features = adv_features.reshape((test_size, -1))
+        adv_features = add_feature(adv_features, adv_grads_max[:, np.newaxis])
+        adv_features = add_feature(adv_features, adv_grads_min[:, np.newaxis])
+        adv_features = add_feature(adv_features, adv_grads_mean[:, np.newaxis])
+        adv_features = add_feature(adv_features, adv_grads_std[:, np.newaxis])
+        adv_features = add_feature(adv_features, adv_grads_median[:, np.newaxis])
+        adv_features = add_feature(adv_features, adv_grads_abs_max[:, np.newaxis])
+        adv_features = add_feature(adv_features, adv_grads_abs_min[:, np.newaxis])
+        adv_features = add_feature(adv_features, adv_grads_abs_mean[:, np.newaxis])
+        adv_features = add_feature(adv_features, adv_grads_abs_std[:, np.newaxis])
+        adv_features = add_feature(adv_features, adv_grads_abs_median[:, np.newaxis])
 
     # common code for all SVM methods:
     normal_features = normal_features.reshape((test_size, -1))
