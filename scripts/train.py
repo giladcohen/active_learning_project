@@ -28,6 +28,7 @@ parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--net', default='resnet34', type=str, help='network architecture')
+parser.add_argument('--activation', default='relu', type=str, help='network activation: relu or softplus')
 parser.add_argument('--checkpoint_dir', default='/Users/giladcohen/logs/adv_robustness/debug', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='300', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.0001, type=float, help='weight decay')  # was 5e-4 for batch_size=128
@@ -80,9 +81,9 @@ test_size  = len(testloader.dataset)
 # Model
 print('==> Building model..')
 if args.net == 'resnet34':
-    net = ResNet34(num_classes=len(classes))
+    net = ResNet34(num_classes=len(classes), activation=args.activation)
 elif args.net == 'resnet101':
-    net = ResNet101(num_classes=len(classes))
+    net = ResNet101(num_classes=len(classes), activation=args.activation)
 else:
     raise AssertionError("network {} is unknown".format(args.net))
 

@@ -56,6 +56,7 @@ parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
 # network
 parser.add_argument('--net', default='resnet34', type=str, help='network architecture')
+parser.add_argument('--activation', default='relu', type=str, help='network activation: relu or softplus')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -98,9 +99,9 @@ test_size  = len(testloader.dataset)
 # Model
 print('==> Building model..')
 if args.net == 'resnet34':
-    net = ResNet34(num_classes=len(classes))
+    net = ResNet34(num_classes=len(classes), activation=args.activation)
 elif args.net == 'resnet101':
-    net = ResNet101(num_classes=len(classes))
+    net = ResNet101(num_classes=len(classes), activation=args.activation)
 else:
     raise AssertionError("network {} is unknown".format(args.net))
 

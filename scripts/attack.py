@@ -28,11 +28,13 @@ from art.attacks.evasion.saliency_map import SaliencyMapMethod
 from art.attacks.evasion.carlini import CarliniL2Method
 from art.attacks.evasion.elastic_net import ElasticNet
 from art.classifiers import PyTorchClassifier
+# from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchExtClassifier
+
 from cleverhans.utils import random_targets, to_categorical
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
-parser.add_argument('--attack', default='fgsm', type=str, help='attack: fgsm, jsma, cw, deepfool, ead, pgd')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
+parser.add_argument('--attack', default='cw', type=str, help='attack: fgsm, jsma, cw, deepfool, ead, pgd')
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use trageted attack')
 parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
