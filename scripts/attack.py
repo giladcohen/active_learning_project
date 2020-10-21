@@ -96,9 +96,9 @@ test_inds  = np.arange(test_size)
 # Model
 print('==> Building model..')
 if train_args['net'] == 'resnet34':
-    net = ResNet34(num_classes=len(classes))
+    net = ResNet34(num_classes=len(classes), activation=train_args['activation'])
 elif train_args['net'] == 'resnet101':
-    net = ResNet101(num_classes=len(classes))
+    net = ResNet101(num_classes=len(classes), activation=train_args['activation'])
 else:
     raise AssertionError("network {} is unknown".format(train_args['net']))
 net = net.to(device)
