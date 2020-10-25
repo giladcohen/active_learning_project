@@ -100,8 +100,9 @@ class ZeroGrad(EvasionAttack):
         :return: A tuple holding the current l2 distance and overall loss.
         """
         l2dist = np.sum(np.square(x - x_adv).reshape(x.shape[0], -1), axis=1)
-        grads = self.estimator.loss_gradient(np.array(x_adv, dtype=ART_NUMPY_DTYPE), target)
-        grads_dist = np.sum(np.abs(grads).reshape(x.shape[0], -1), axis=1)
+        # grads = self.estimator.loss_gradient(np.array(x_adv, dtype=ART_NUMPY_DTYPE), target)
+        grads = self.estimator.class_gradient(np.array(x_adv, dtype=ART_NUMPY_DTYPE), target)
+        grads_dist = np.sum(np.square(grads).reshape(x.shape[0], -1), axis=1)
 
         return l2dist, c_weight * grads_dist + l2dist
 
@@ -129,9 +130,8 @@ class ZeroGrad(EvasionAttack):
         :return: An array with the gradient of the loss function.
         """
         grad_label = np.argmax(target, axis=1)
-        gradients = self.estimator.class_gradient(x_adv, label=grad_label)
-        loss_gradient = torch.abs(gradients)
-        loss_gradient = loss_gradient.reshape(x.shape)
+        loss_gradient = self.estimator.gradient_norm_gradient(x_adv, grad_label, 'pred')
+        assert loss_gradient.shape == x.shape
 
         c_mult = c_weight
         for _ in range(len(x.shape) - 1):
@@ -185,7 +185,6 @@ class ZeroGrad(EvasionAttack):
 
             # Initialize placeholders for best l2 distance and attack found so far
             best_l2dist = np.inf * np.ones(x_batch.shape[0])
-            best_loss = np.inf * np.ones(x_batch.shape[0])
             best_x_adv_batch = x_batch.copy()
 
             for bss in range(self.binary_search_steps):
@@ -219,10 +218,10 @@ class ZeroGrad(EvasionAttack):
                         len(attack_success),
                     )
 
-                    improved_adv = attack_success & (loss < best_loss)
-                    logger.debug("Number of improved loss: %i", int(np.sum(improved_adv)))
+                    improved_adv = attack_success & (l2dist < best_l2dist)  #  attack_success & (loss < best_loss)
+                    logger.debug("Number of improved L2 distances: %i", int(np.sum(improved_adv)))
                     if np.sum(improved_adv) > 0:
-                        best_loss[improved_adv] = loss[improved_adv]
+                        best_l2dist[improved_adv] = l2dist[improved_adv]
                         best_x_adv_batch[improved_adv] = x_adv_batch[improved_adv]
 
                     active = (c_current < self._c_upper_bound) & (learning_rate > 0)
@@ -359,11 +358,11 @@ class ZeroGrad(EvasionAttack):
                         overall_attack_success = overall_attack_success | attack_success
 
                 # Update depending on attack success:
-                improved_adv = attack_success & (loss < best_loss)
-                logger.debug("Number of improved overall loss: %i", int(np.sum(improved_adv)))
+                improved_adv = attack_success & (l2dist < best_l2dist) #  attack_success & (loss < best_loss)
+                logger.debug("Number of improved L2 distances: %i", int(np.sum(improved_adv)))
 
                 if np.sum(improved_adv) > 0:
-                    best_loss[improved_adv] = loss[improved_adv]
+                    best_l2dist[improved_adv] = l2dist[improved_adv]
                     best_x_adv_batch[improved_adv] = x_adv_batch[improved_adv]
 
                 c_double[overall_attack_success] = False

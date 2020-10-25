@@ -36,13 +36,11 @@ parser.add_argument('--adv_n_repeats', default=4, type=int, help='LR schedule pa
 parser.add_argument('--fgsm_step', default=4.0, type=float, help='fgsm step')
 parser.add_argument('--clip_eps', default=4.0, type=float, help='eps limit')
 
-
 # optimizer, loss, metrics
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--wd', default=0.0001, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--metric', default='accuracy', type=str, help='metric to optimize. accuracy or sparsity')
-
 
 # training
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')

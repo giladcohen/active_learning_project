@@ -28,7 +28,8 @@ from art.attacks.evasion.saliency_map import SaliencyMapMethod
 from art.attacks.evasion.carlini import CarliniL2Method
 from art.attacks.evasion.elastic_net import ElasticNet
 from art.classifiers import PyTorchClassifier
-# from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchExtClassifier
+from active_learning_project.attacks.zero_grad_cw_try import ZeroGrad
+from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchExtClassifier
 
 from cleverhans.utils import random_targets, to_categorical
 
@@ -126,7 +127,7 @@ if __name__ == "__main__":
     y_test = np.asarray(testloader.dataset.targets)
 
     net.eval()
-    classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
+    classifier = PyTorchExtClassifier(model=net, clip_values=(0, 1), loss=criterion,
                                    optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 
     y_val_preds = classifier.predict(X_val, batch_size=batch_size)
@@ -213,6 +214,12 @@ if __name__ == "__main__":
             beta=0.01,  # EAD paper shows good results for L1
             batch_size=batch_size,
             decision_rule='L1'
+        )
+    elif args.attack == 'zga':
+        attack = ZeroGrad(
+            classifier=classifier,
+            initial_const=0.1,
+            batch_size=100,
         )
     else:
         err_str = 'Attack {} is not supported'.format(args.attack)
