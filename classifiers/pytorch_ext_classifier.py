@@ -73,18 +73,30 @@ class PyTorchExtClassifier(PyTorchClassifier):  # lgtm [py/missing-call-to-init]
             inputs_t.grad.zero_()
 
         # Compute gradients
-        torch.autograd.backward(out_tensor, torch.tensor([1.0] * len(out_tensor)).to(self._device), create_graph=True)
-        norm_grad = torch.sum(torch.square(inputs_t.grad), dim=(1, 2, 3))
-        grads = all_grads(norm_grad, inputs_t, create_graph=False).detach().cpu().numpy()
+        # torch.autograd.backward(out_tensor, torch.tensor([1.0] * len(out_tensor)).to(self._device), create_graph=True)
+        # norm_grad = torch.sum(torch.square(inputs_t.grad), dim=(1, 2, 3))
+        # grads = all_grads(norm_grad, inputs_t, create_graph=False).detach().cpu().numpy()
+        # grads = np.zeros((100, 3, 32, 32))
+
+        # compute gradients try 2
+        # img_grads = all_grads(out_tensor, inputs_t, create_graph=True)
+        # norm_grad = torch.sum(torch.square(img_grads), dim=(1, 2, 3))
+        # grads = all_grads(norm_grad, inputs_t, create_graph=False).detach().cpu().numpy()
+
+        # compute gradients try 3
+        grad_outputs = torch.tensor([1.0] * len(out_tensor)).to(self._device)
+        img_grads = torch.autograd.grad(out_tensor, inputs_t, grad_outputs=grad_outputs, create_graph=True)[0]
+        norm_grad = torch.sum(torch.square(img_grads), dim=(1, 2, 3))
+        grads = torch.autograd.grad(norm_grad, inputs_t, grad_outputs=grad_outputs, create_graph=False)[0].detach().cpu().numpy()
 
         # grads = self._apply_preprocessing_gradient(x, norm_grad_grad)
         assert grads.shape == x.shape
 
         # cleaning:
-        norm_grad.detach()
-        del norm_grad
-        self._model.zero_grad()
-        inputs_t.grad.detach()
-        del inputs_t
+        # norm_grad.detach()
+        # del norm_grad
+        # self._model.zero_grad()
+        # # inputs_t.grad.detach()
+        # del inputs_t
 
         return grads
