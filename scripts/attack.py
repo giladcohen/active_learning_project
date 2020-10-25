@@ -218,7 +218,7 @@ if __name__ == "__main__":
     elif args.attack == 'zga':
         attack = ZeroGrad(
             classifier=classifier,
-            initial_const=0.1,
+            initial_const=0.00005,
             batch_size=100,
         )
     else:
@@ -255,7 +255,8 @@ if __name__ == "__main__":
     else:
         X_test = X_test[:args.subset]
         y_test = y_test[:args.subset]
-        y_test_targets = y_test_targets[:args.subset]
+        if y_test_targets is not None:
+            y_test_targets = y_test_targets[:args.subset]
         X_test_adv = attack.generate(x=X_test, y=y_test_targets)
         test_adv_logits = classifier.predict(X_test_adv, batch_size=batch_size)
         y_test_adv_preds = np.argmax(test_adv_logits, axis=1)

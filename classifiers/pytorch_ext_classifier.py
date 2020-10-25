@@ -64,19 +64,27 @@ class PyTorchExtClassifier(PyTorchClassifier):  # lgtm [py/missing-call-to-init]
         if out == 'loss':
             out_tensor = self._loss(model_outputs[-1]['logits'], labels_t)
         else:  # pred
-            out_tensor = model_outputs[-1]['logits'][:, labels_t]
+            out_tensor = model_outputs[-1]['logits'].gather(1, labels_t.unsqueeze(1)).squeeze()
 
         # Clean gradients
         self._model.zero_grad()
-        inputs_t.grad.zero_()
+        if inputs_t.grad is not None:
+            inputs_t.grad.detach()
+            inputs_t.grad.zero_()
 
         # Compute gradients
         torch.autograd.backward(out_tensor, torch.tensor([1.0] * len(out_tensor)).to(self._device), create_graph=True)
         norm_grad = torch.sum(torch.square(inputs_t.grad), dim=(1, 2, 3))
-        norm_grad_grad = all_grads(norm_grad, inputs_t, create_graph=False)
+        grads = all_grads(norm_grad, inputs_t, create_graph=False).detach().cpu().numpy()
 
-        grads = norm_grad_grad.cpu().numpy().copy()  # type: ignore
-        grads = self._apply_preprocessing_gradient(x, grads)
+        # grads = self._apply_preprocessing_gradient(x, norm_grad_grad)
         assert grads.shape == x.shape
+
+        # cleaning:
+        norm_grad.detach()
+        del norm_grad
+        self._model.zero_grad()
+        inputs_t.grad.detach()
+        del inputs_t
 
         return grads

@@ -99,9 +99,10 @@ class ZeroGrad(EvasionAttack):
         :param c_weight: Weight of the loss term aiming for zero gradient.
         :return: A tuple holding the current l2 distance and overall loss.
         """
+        label = np.argmax(target, axis=1)
         l2dist = np.sum(np.square(x - x_adv).reshape(x.shape[0], -1), axis=1)
         # grads = self.estimator.loss_gradient(np.array(x_adv, dtype=ART_NUMPY_DTYPE), target)
-        grads = self.estimator.class_gradient(np.array(x_adv, dtype=ART_NUMPY_DTYPE), target)
+        grads = self.estimator.class_gradient(np.array(x_adv, dtype=ART_NUMPY_DTYPE), label=label)
         grads_dist = np.sum(np.square(grads).reshape(x.shape[0], -1), axis=1)
 
         return l2dist, c_weight * grads_dist + l2dist
@@ -129,8 +130,8 @@ class ZeroGrad(EvasionAttack):
         :param clip_max: Maximum clipping value.
         :return: An array with the gradient of the loss function.
         """
-        grad_label = np.argmax(target, axis=1)
-        loss_gradient = self.estimator.gradient_norm_gradient(x_adv, grad_label, 'pred')
+        # grad_label = np.argmax(target, axis=1)
+        loss_gradient = self.estimator.gradient_norm_gradient(x_adv, target, 'pred')
         assert loss_gradient.shape == x.shape
 
         c_mult = c_weight
@@ -204,7 +205,7 @@ class ZeroGrad(EvasionAttack):
                 x_adv_batch_tanh = x_batch_tanh.copy()
 
                 l2dist, loss = self._loss(x_batch, x_adv_batch, y_batch, c_current)
-                attack_success = self.estimator.predict(x_adv_batch) != y_batch.argmax(axis=1)
+                attack_success = self.estimator.predict(x_adv_batch).argmax(axis=1) != y_batch.argmax(axis=1)
                 overall_attack_success = attack_success
 
                 for i_iter in range(self.max_iter):
@@ -354,7 +355,7 @@ class ZeroGrad(EvasionAttack):
                             y_batch[active_and_update_adv],
                             c_current[active_and_update_adv],
                         )
-                        attack_success = self.estimator.predict(x_adv_batch) != y_batch.argmax(axis=1)
+                        attack_success = self.estimator.predict(x_adv_batch).argmax(axis=1) != y_batch.argmax(axis=1)
                         overall_attack_success = overall_attack_success | attack_success
 
                 # Update depending on attack success:
