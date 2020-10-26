@@ -44,7 +44,6 @@ parser.add_argument('--minimal', action='store_true', help='use FGSM minimal att
 parser.add_argument('--guru', action='store_true', help='use guru labels')
 parser.add_argument('--ensemble', action='store_true', help='use ensemble')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
 
 # for ZAG rev
 parser.add_argument('--initial_const', default=0.01, type=float, help='guess for weight for new grad loss term')
@@ -79,6 +78,8 @@ with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 
 ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
+with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'r') as f:
+    attack_args = json.load(f)
 
 if args.rev_dir != '':
     assert args.rev != ''
@@ -163,17 +164,18 @@ try:
 except AssertionError as e:
     raise AssertionError('{}\nAssert failed for y_test_adv_logits for ATTACK_DIR={}'.format(e, ATTACK_DIR))
 
-if args.subset != -1:  # if debug run
-    X_test = X_test[:args.subset]
-    y_test = y_test[:args.subset]
-    X_test_adv = X_test_adv[:args.subset]
+subset = attack_args.get('subset', -1)
+if subset != -1:  # if debug run
+    X_test = X_test[:subset]
+    y_test = y_test[:subset]
+    X_test_adv = X_test_adv[:subset]
     if args.targeted:
-        y_test_adv = y_test_adv[:args.subset]
-    y_test_logits = y_test_logits[:args.subset]
-    y_test_preds = y_test_preds[:args.subset]
-    y_test_adv_logits = y_test_adv_logits[:args.subset]
-    y_test_adv_preds = y_test_adv_preds[:args.subset]
-    test_size = args.subset
+        y_test_adv = y_test_adv[:subset]
+    y_test_logits = y_test_logits[:subset]
+    y_test_preds = y_test_preds[:subset]
+    y_test_adv_logits = y_test_adv_logits[:subset]
+    y_test_adv_preds = y_test_adv_preds[:subset]
+    test_size = subset
 
 # what are the samples we care about? net_succ (not attack_succ. it is irrelevant)
 f0_inds = []  # net_fail

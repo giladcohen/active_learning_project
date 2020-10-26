@@ -49,6 +49,8 @@ with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 
 ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
+with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'r') as f:
+    attack_args = json.load(f)
 
 if args.rev_dir != '':
     REV_DIR = os.path.join(ATTACK_DIR, 'rev', args.rev_dir)
@@ -117,6 +119,29 @@ net.eval()
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
                                optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 
+subset = attack_args.get('subset', -1)
+if subset != -1:  # if debug run
+    X_test = X_test[:subset]
+    y_test = y_test[:subset]
+    if args.targeted:
+        y_test_adv = y_test_adv[:subset]
+    y_test_preds = y_test_preds[:subset]
+    test_size = subset
+
+# main
+y_main_logits         = np.load(os.path.join(ATTACK_DIR, 'y_test_logits.npy'))
+y_adv_main_logits     = np.load(os.path.join(ATTACK_DIR, 'y_test_adv_logits.npy'))
+# ensemble
+y_net_logits          = np.load(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_net_logits_mat.npy'))
+y_adv_net_logits      = np.load(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_adv_net_logits_mat.npy'))
+# cross
+y_cross_logits        = np.concatenate((np.expand_dims(y_main_logits, axis=1), y_net_logits), axis=1)          # (N, 10, #class)
+y_adv_cross_logits    = np.concatenate((np.expand_dims(y_adv_main_logits, axis=1), y_adv_net_logits), axis=1)  # (N, 10, #class)
+
+# calculating preds:
+y_cross_preds         = softmax((1/T) * y_cross_logits, axis=2)          # (N, 10, #cls)
+y_adv_cross_preds     = softmax((1/T) * y_adv_cross_logits, axis=2)      # (N, 10, #cls)
+
 # what are the samples we care about? net_succ (not attack_succ. it is irrelevant)
 f0_inds = []  # net_fail
 f1_inds = []  # net_succ
@@ -148,7 +173,7 @@ all_inds = np.arange(test_size)
 print("Number of test samples: {}. #net_succ: {}. #net_succ_attack_flip: {}. #net_succ_attack_succ: {}"
       .format(test_size, len(f1_inds), len(f2_inds), len(f3_inds)))
 
-# diving the official test set to a val set and to a test set
+# dividing the official test set to a val set and to a test set
 val_inds = rand_gen.choice(all_inds, int(0.5*test_size), replace=False)
 val_inds.sort()
 f0_inds_val = np.asarray([ind for ind in f0_inds if ind in val_inds])
@@ -169,20 +194,6 @@ load_orig     = args.img_pool in ['orig', 'all']
 load_rev      = args.img_pool in ['rev', 'all']
 train_normal  = args.train_on in ['normal', 'all']
 train_adv     = args.train_on in ['adv', 'all']
-
-# main
-y_main_logits         = np.load(os.path.join(ATTACK_DIR, 'y_test_logits.npy'))
-y_adv_main_logits     = np.load(os.path.join(ATTACK_DIR, 'y_test_adv_logits.npy'))
-# ensemble
-y_net_logits          = np.load(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_net_logits_mat.npy'))
-y_adv_net_logits      = np.load(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_adv_net_logits_mat.npy'))
-# cross
-y_cross_logits        = np.concatenate((np.expand_dims(y_main_logits, axis=1), y_net_logits), axis=1)          # (N, 10, #class)
-y_adv_cross_logits    = np.concatenate((np.expand_dims(y_adv_main_logits, axis=1), y_adv_net_logits), axis=1)  # (N, 10, #class)
-
-# calculating preds:
-y_cross_preds         = softmax((1/T) * y_cross_logits, axis=2)          # (N, 10, #cls)
-y_adv_cross_preds     = softmax((1/T) * y_adv_cross_logits, axis=2)      # (N, 10, #cls)
 
 if REV_DIR is not None:
     if not os.path.exists(os.path.join(REV_DIR, 'y_test_adv_cross_rev_logits.npy')):
