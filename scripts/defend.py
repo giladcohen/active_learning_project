@@ -20,6 +20,8 @@ from active_learning_project.datasets.train_val_test_data_loaders import get_tes
     get_loader_with_specific_inds, get_normalized_tensor
 from active_learning_project.utils import convert_tensor_to_image
 from active_learning_project.utils import boolean_string, get_ensemble_paths
+from active_learning_project.attacks.zero_grad_cw_try import ZeroGrad
+from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchExtClassifier
 
 import matplotlib.pyplot as plt
 
@@ -31,6 +33,7 @@ from art.attacks.evasion.carlini import CarliniL2Method
 from art.attacks.evasion.elastic_net import ElasticNet
 from art.classifiers import PyTorchClassifier
 
+
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
@@ -41,6 +44,11 @@ parser.add_argument('--minimal', action='store_true', help='use FGSM minimal att
 parser.add_argument('--guru', action='store_true', help='use guru labels')
 parser.add_argument('--ensemble', action='store_true', help='use ensemble')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
+parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
+
+# for ZAG rev
+parser.add_argument('--initial_const', default=0.01, type=float, help='guess for weight for new grad loss term')
+parser.add_argument('--rev_lr', default=0.01, type=float, help='rev learning rate')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -113,9 +121,9 @@ if args.targeted:
 # Model
 print('==> Building model..')
 if train_args['net'] == 'resnet34':
-    net = ResNet34(num_classes=len(classes))
+    net = ResNet34(num_classes=len(classes), activation=train_args['activation'])
 elif train_args['net'] == 'resnet101':
-    net = ResNet101(num_classes=len(classes))
+    net = ResNet101(num_classes=len(classes), activation=train_args['activation'])
 else:
     raise AssertionError("network {} is unknown".format(train_args['net']))
 net = net.to(device)
@@ -136,8 +144,8 @@ optimizer = optim.SGD(
 
 # get and assert preds:
 net.eval()
-classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
-                               optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
+classifier = PyTorchExtClassifier(model=net, clip_values=(0, 1), loss=criterion,
+                                  optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 
 y_test_logits = classifier.predict(X_test, batch_size=batch_size)
 y_test_preds = y_test_logits.argmax(axis=1)
@@ -154,6 +162,18 @@ try:
     np.save(os.path.join(ATTACK_DIR, 'y_test_adv_logits.npy'), y_test_adv_logits)
 except AssertionError as e:
     raise AssertionError('{}\nAssert failed for y_test_adv_logits for ATTACK_DIR={}'.format(e, ATTACK_DIR))
+
+if args.subset != -1:  # if debug run
+    X_test = X_test[:args.subset]
+    y_test = y_test[:args.subset]
+    X_test_adv = X_test_adv[:args.subset]
+    if args.targeted:
+        y_test_adv = y_test_adv[:args.subset]
+    y_test_logits = y_test_logits[:args.subset]
+    y_test_preds = y_test_preds[:args.subset]
+    y_test_adv_logits = y_test_adv_logits[:args.subset]
+    y_test_adv_preds = y_test_adv_preds[:args.subset]
+    test_size = args.subset
 
 # what are the samples we care about? net_succ (not attack_succ. it is irrelevant)
 f0_inds = []  # net_fail
@@ -236,6 +256,13 @@ elif args.rev == 'ead':
         beta=0.01,  # EAD paper shows good results for L1
         batch_size=batch_size,
         decision_rule='L1'
+    )
+elif args.rev == 'zga':
+    defense = ZeroGrad(
+        classifier=classifier,
+        initial_const=args.initial_const,
+        learning_rate=args.rev_lr,
+        batch_size=100,
     )
 elif args.rev == '':
     assert args.ensemble

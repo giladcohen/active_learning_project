@@ -39,7 +39,7 @@ parser.add_argument('--attack', default='cw', type=str, help='attack: fgsm, jsma
 parser.add_argument('--targeted', default=True, type=boolean_string, help='use trageted attack')
 parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--subset', default=-1, type=int, help='batch size')
+parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -234,35 +234,28 @@ if __name__ == "__main__":
     with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'w') as f:
         json.dump(dump_args, f, indent=2)
 
+    # attack val set
     if args.subset == -1:  # not debug
         X_val_adv = attack.generate(x=X_val, y=y_val_targets)
         val_adv_logits = classifier.predict(X_val_adv, batch_size=batch_size)
         y_val_adv_preds = np.argmax(val_adv_logits, axis=1)
         val_adv_accuracy = np.mean(y_val_adv_preds == y_val)
 
-        X_test_adv = attack.generate(x=X_test, y=y_test_targets)
-        test_adv_logits = classifier.predict(X_test_adv, batch_size=batch_size)
-        y_test_adv_preds = np.argmax(test_adv_logits, axis=1)
-        test_adv_accuracy = np.mean(y_test_adv_preds == y_test)
         print('Accuracy on adversarial val examples: {}%'.format(val_adv_accuracy * 100))
-        print('Accuracy on adversarial test examples: {}%'.format(test_adv_accuracy * 100))
-
-        # saving adv images and predictions
         np.save(os.path.join(ATTACK_DIR, 'X_val_adv.npy'), X_val_adv)
         np.save(os.path.join(ATTACK_DIR, 'y_val_adv_preds.npy'), y_val_adv_preds)
-        np.save(os.path.join(ATTACK_DIR, 'X_test_adv.npy'), X_test_adv)
-        np.save(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'), y_test_adv_preds)
-    else:
+
+    # attack test set
+    if args.subset != -1:  # debug
         X_test = X_test[:args.subset]
         y_test = y_test[:args.subset]
         if y_test_targets is not None:
             y_test_targets = y_test_targets[:args.subset]
-        X_test_adv = attack.generate(x=X_test, y=y_test_targets)
-        test_adv_logits = classifier.predict(X_test_adv, batch_size=batch_size)
-        y_test_adv_preds = np.argmax(test_adv_logits, axis=1)
-        test_adv_accuracy = np.mean(y_test_adv_preds == y_test)
-        print('Accuracy on adversarial test subset={} examples: {}%'.format(args.subset, test_adv_accuracy * 100))
+    X_test_adv = attack.generate(x=X_test, y=y_test_targets)
+    test_adv_logits = classifier.predict(X_test_adv, batch_size=batch_size)
+    y_test_adv_preds = np.argmax(test_adv_logits, axis=1)
+    test_adv_accuracy = np.mean(y_test_adv_preds == y_test)
 
-        # saving adv images and predictions
-        np.save(os.path.join(ATTACK_DIR, 'X_test_subset_adv.npy'), X_test_adv)
-        np.save(os.path.join(ATTACK_DIR, 'y_test_subset_adv_preds.npy'), y_test_adv_preds)
+    print('Accuracy on adversarial test examples: {}% (subset={})'.format(test_adv_accuracy * 100, args.subset))
+    np.save(os.path.join(ATTACK_DIR, 'X_test_adv.npy'), X_test_adv)
+    np.save(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'), y_test_adv_preds)
