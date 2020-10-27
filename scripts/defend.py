@@ -37,7 +37,6 @@ from art.classifiers import PyTorchClassifier
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
-parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
 parser.add_argument('--rev', default='', type=str, help='fgsm, pgd, deepfool, none')
 parser.add_argument('--rev_dir', default='', type=str, help='reverse dir')
 parser.add_argument('--minimal', action='store_true', help='use FGSM minimal attack')
@@ -80,6 +79,7 @@ CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
 with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'r') as f:
     attack_args = json.load(f)
+targeted = attack_args['targeted']
 
 if args.rev_dir != '':
     assert args.rev != ''
@@ -116,7 +116,7 @@ X_test           = get_normalized_tensor(testloader, batch_size)
 y_test           = np.asarray(testloader.dataset.targets)
 
 X_test_adv       = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
-if args.targeted:
+if targeted:
     y_test_adv = np.load(os.path.join(ATTACK_DIR, 'y_test_adv.npy'))
 
 # Model
@@ -166,15 +166,15 @@ except AssertionError as e:
 
 subset = attack_args.get('subset', -1)
 if subset != -1:  # if debug run
-    X_test = X_test[:subset]
-    y_test = y_test[:subset]
-    X_test_adv = X_test_adv[:subset]
-    if args.targeted:
-        y_test_adv = y_test_adv[:subset]
-    y_test_logits = y_test_logits[:subset]
-    y_test_preds = y_test_preds[:subset]
-    y_test_adv_logits = y_test_adv_logits[:subset]
-    y_test_adv_preds = y_test_adv_preds[:subset]
+    # X_test = X_test[:subset]
+    # y_test = y_test[:subset]
+    # X_test_adv = X_test_adv[:subset]
+    # if targeted:
+    #     y_test_adv = y_test_adv[:subset]
+    # y_test_logits = y_test_logits[:subset]
+    # y_test_preds = y_test_preds[:subset]
+    # y_test_adv_logits = y_test_adv_logits[:subset]
+    # y_test_adv_preds = y_test_adv_preds[:subset]
     test_size = subset
 
 # what are the samples we care about? net_succ (not attack_succ. it is irrelevant)
@@ -186,7 +186,7 @@ f3_inds = []  # net_succ AND attack_flip AND attack_succ
 for i in range(test_size):
     f1 = y_test_preds[i] == y_test[i]
     f2 = f1 and y_test_preds[i] != y_test_adv_preds[i]
-    if args.targeted:
+    if targeted:
         f3 = f2 and y_test_adv_preds[i] == y_test_adv[i]
     else:
         f3 = f2
@@ -281,7 +281,7 @@ if defense is not None:
         json.dump(dump_args, f, indent=2)
 
 if args.guru:
-    y_targets = y_test
+    y_targets = y_test[:test_size]  # is used for the defense, thus, always subset
 else:
     y_targets = None
 
@@ -289,7 +289,7 @@ if defense:  # if rev is not empty
     # if necessary, generate the rev images
     if not os.path.exists(os.path.join(REV_DIR, 'X_test_rev.npy')):
         print('main normal rev images were not calculated before. Generating...')
-        X_test_rev = defense.generate(x=X_test, y=y_targets)
+        X_test_rev = defense.generate(x=X_test[:test_size], y=y_targets)
         np.save(os.path.join(REV_DIR, 'X_test_rev.npy'), X_test_rev)
     else:
         print('main normal rev images were already calculated before. Loading...')
@@ -297,7 +297,7 @@ if defense:  # if rev is not empty
 
     if not os.path.exists(os.path.join(REV_DIR, 'X_test_adv_rev.npy')):
         print('main adv rev images were not calculated before. Generating...')
-        X_test_adv_rev = defense.generate(x=X_test_adv, y=y_targets)
+        X_test_adv_rev = defense.generate(x=X_test_adv[:test_size], y=y_targets)
         np.save(os.path.join(REV_DIR, 'X_test_adv_rev.npy'), X_test_adv_rev)
     else:
         print('main adv rev images were already calculated before. Loading...')
@@ -319,12 +319,12 @@ if args.ensemble:
     ensemble_paths = ensemble_paths[1:]  # ignoring the first (original) network
 
     # calculated all the time, even without rev. For normal:
-    y_test_net_logits_mat = np.empty((test_size, len(ensemble_paths), len(classes)), dtype=np.float32)  # (N, #nets, #classes)
-    y_test_net_preds_mat = np.empty((test_size, len(ensemble_paths)), dtype=np.int32)  # (N, #nets)
+    y_test_net_logits_mat = np.empty((X_test.shape[0], len(ensemble_paths), len(classes)), dtype=np.float32)  # (N, #nets, #classes)
+    y_test_net_preds_mat = np.empty((X_test.shape[0], len(ensemble_paths)), dtype=np.int32)  # (N, #nets)
 
     # and for adv:
-    y_test_adv_net_logits_mat = np.empty_like(y_test_net_logits_mat)  # (N, #nets, #classes)
-    y_test_adv_net_preds_mat = np.empty_like(y_test_net_preds_mat)  # (N, #nets)
+    y_test_adv_net_logits_mat = np.empty((test_size, len(ensemble_paths), len(classes)), dtype=np.float32) # (N, #nets, #classes)
+    y_test_adv_net_preds_mat = np.empty((test_size, len(ensemble_paths)), dtype=np.int32)  # (N, #nets)
 
     if defense:  # calculated only for rev:
         normal_rev_exist = os.path.exists(os.path.join(REV_DIR, 'X_test_rev_mat.npy'))
@@ -344,8 +344,8 @@ if args.ensemble:
             print('ensemble adv rev images were already calculated before. Loading...')
             X_test_adv_rev_mat = np.load(os.path.join(REV_DIR, 'X_test_adv_rev_mat.npy'))
 
-        y_test_net_rev_logits_mat = np.empty_like(y_test_net_logits_mat)  # (N, #nets, #classes)
-        y_test_net_rev_preds_mat = np.empty_like(y_test_net_preds_mat)  # (N, #nets)
+        y_test_net_rev_logits_mat = np.empty_like(y_test_adv_net_logits_mat)  # (N, #nets, #classes)
+        y_test_net_rev_preds_mat = np.empty_like(y_test_adv_net_preds_mat)  # (N, #nets)
 
         y_test_adv_net_rev_logits_mat = np.empty_like(y_test_net_rev_logits_mat)  # (N, #nets, #classes)
         y_test_adv_net_rev_preds_mat = np.empty_like(y_test_net_rev_preds_mat)  # (N, #nets)
@@ -358,7 +358,7 @@ if args.ensemble:
         y_test_net_logits_mat[:, i] = classifier.predict(X_test, batch_size=batch_size)
         y_test_net_preds_mat[:, i] = y_test_net_logits_mat[:, i].argmax(axis=1)
 
-        y_test_adv_net_logits_mat[:, i] = classifier.predict(X_test_adv, batch_size=batch_size)
+        y_test_adv_net_logits_mat[:, i] = classifier.predict(X_test_adv[:test_size], batch_size=batch_size)
         y_test_adv_net_preds_mat[:, i] = y_test_adv_net_logits_mat[:, i].argmax(axis=1)
 
         # probability for same prediction for normal images:
@@ -370,21 +370,21 @@ if args.ensemble:
               .format(prob_all * 100, prob_f1 * 100, prob_f2 * 100, prob_f3 * 100))
 
         # probability for same prediction for adv images:
-        prob_all = np.mean(y_test_adv_net_preds_mat[:, i] == y_test_adv_preds)
-        prob_f1 = np.mean(y_test_adv_net_preds_mat[:, i][f1_inds] == y_test_adv_preds[f1_inds])
-        prob_f2 = np.mean(y_test_adv_net_preds_mat[:, i][f2_inds] == y_test_adv_preds[f2_inds])
-        prob_f3 = np.mean(y_test_adv_net_preds_mat[:, i][f3_inds] == y_test_adv_preds[f3_inds])
+        prob_all = np.mean(y_test_adv_net_preds_mat[:, i] == y_test_adv_preds[:test_size])
+        prob_f1 = np.mean(y_test_adv_net_preds_mat[:, i][f1_inds] == y_test_adv_preds[:test_size][f1_inds])
+        prob_f2 = np.mean(y_test_adv_net_preds_mat[:, i][f2_inds] == y_test_adv_preds[:test_size][f2_inds])
+        prob_f3 = np.mean(y_test_adv_net_preds_mat[:, i][f3_inds] == y_test_adv_preds[:test_size][f3_inds])
         print('Probability of adv net prediction to match the adv prediction: all samples: {:.2f}%. f1 samples: {:.2f}%, f2 samples: {:.2f}%, f3 samples: {:.2f}%'
               .format(prob_all * 100, prob_f1 * 100, prob_f2 * 100, prob_f3 * 100))
 
         if defense:
             if not normal_rev_exist:
                 print('Generating normal rev images for network {}'.format(ckpt_file))
-                X_test_rev_mat[:, i] = defense.generate(x=X_test, y=y_targets)
+                X_test_rev_mat[:, i] = defense.generate(x=X_test[:test_size], y=y_targets)
 
             if not adv_rev_exist:
                 print('Generating adv rev images for network {}'.format(ckpt_file))
-                X_test_adv_rev_mat[:, i] = defense.generate(x=X_test_adv, y=y_targets)
+                X_test_adv_rev_mat[:, i] = defense.generate(x=X_test_adv[:test_size], y=y_targets)
 
             # normal preds for net rev:
             y_test_net_rev_logits_mat[:, i] = classifier.predict(X_test_rev_mat[:, i], batch_size=batch_size)

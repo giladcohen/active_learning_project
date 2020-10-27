@@ -25,14 +25,13 @@ import matplotlib.pyplot as plt
 from art.classifiers import PyTorchClassifier
 
 parser = argparse.ArgumentParser(description='Adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust/robust_resnet34_00', type=str, help='checkpoint dir')
-parser.add_argument('--attack_dir', default='pgd_targeted', type=str, help='attack directory')
-parser.add_argument('--targeted', default=True, type=boolean_string, help='use targeted attack')
-parser.add_argument('--rev_dir', default='fgsm_minimal', type=str, help='reverse dir')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular_softplus/resnet34_00', type=str, help='checkpoint dir')
+parser.add_argument('--attack_dir', default='deepfool', type=str, help='attack directory')
+parser.add_argument('--rev_dir', default='', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--net_pool', default='all', type=str, help='networks pool: main, ensemble, all')
+parser.add_argument('--net_pool', default='main', type=str, help='networks pool: main, ensemble, all')
 parser.add_argument('--img_pool', default='orig', type=str, help='images pool: orig, rev, all')
-parser.add_argument('--method', default='inference_grads_svm', type=str, help='method of defense: simple, inference_svm')
+parser.add_argument('--method', default='simple', type=str, help='method of defense: simple, inference_svm')
 parser.add_argument('--train_on', default='all', type=str, help='normal, adv, all')
 parser.add_argument('--temperature', default=1, type=float, help='normal, adv')
 parser.add_argument('--pca_dims', default=-1, type=int, help='if not -1, apply PCA to svm with dims')
@@ -51,11 +50,15 @@ CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
 with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'r') as f:
     attack_args = json.load(f)
+targeted = attack_args['targeted']
 
 if args.rev_dir != '':
     REV_DIR = os.path.join(ATTACK_DIR, 'rev', args.rev_dir)
+    with open(os.path.join(REV_DIR, 'defense_args.txt'), 'r') as f:
+        defense_args = json.load(f)
 else:
     REV_DIR = None
+    defense_args = None
 
 ENSEMBLE_DIR = os.path.dirname(args.checkpoint_dir)
 ENSEMBLE_DIR_DUMP = os.path.join(ATTACK_DIR, 'ensemble')
@@ -87,15 +90,15 @@ y_test_preds     = np.load(os.path.join(ATTACK_DIR, 'y_test_preds.npy'))
 
 X_test_adv       = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
 y_test_adv_preds = np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'))
-if args.targeted:
+if targeted:
     y_test_adv = np.load(os.path.join(ATTACK_DIR, 'y_test_adv.npy'))
 
 # Model
 print('==> Building model..')
 if train_args['net'] == 'resnet34':
-    net = ResNet34(num_classes=len(classes))
+    net = ResNet34(num_classes=len(classes), activation=train_args['activation'])
 elif train_args['net'] == 'resnet101':
-    net = ResNet101(num_classes=len(classes))
+    net = ResNet101(num_classes=len(classes), activation=train_args['activation'])
 else:
     raise AssertionError("network {} is unknown".format(train_args['net']))
 net = net.to(device)
@@ -119,21 +122,33 @@ net.eval()
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
                                optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 
-subset = attack_args.get('subset', -1)
-if subset != -1:  # if debug run
-    X_test = X_test[:subset]
-    y_test = y_test[:subset]
-    if args.targeted:
-        y_test_adv = y_test_adv[:subset]
-    y_test_preds = y_test_preds[:subset]
-    test_size = subset
-
 # main
 y_main_logits         = np.load(os.path.join(ATTACK_DIR, 'y_test_logits.npy'))
 y_adv_main_logits     = np.load(os.path.join(ATTACK_DIR, 'y_test_adv_logits.npy'))
 # ensemble
 y_net_logits          = np.load(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_net_logits_mat.npy'))
 y_adv_net_logits      = np.load(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_adv_net_logits_mat.npy'))
+
+if defense_args is not None:  # if the defense only used a subset
+    subset = defense_args.get('subset', -1 )
+else:  # take the subset used in the attack
+    subset = attack_args.get('subset', -1)
+if subset != -1:  # if debug run
+    X_test = X_test[:subset]
+    y_test = y_test[:subset]
+    y_test_preds = y_test_preds[:subset]
+    X_test_adv = X_test_adv[:subset]
+    y_test_adv_preds = y_test_adv_preds[:subset]
+    if targeted:
+        y_test_adv = y_test_adv[:subset]
+
+    y_main_logits = y_main_logits[:subset]
+    y_adv_main_logits = y_adv_main_logits[:subset]
+    y_net_logits = y_net_logits[:subset]
+    y_adv_net_logits = y_adv_net_logits[:subset]
+
+    test_size = subset
+
 # cross
 y_cross_logits        = np.concatenate((np.expand_dims(y_main_logits, axis=1), y_net_logits), axis=1)          # (N, 10, #class)
 y_adv_cross_logits    = np.concatenate((np.expand_dims(y_adv_main_logits, axis=1), y_adv_net_logits), axis=1)  # (N, 10, #class)
@@ -151,7 +166,7 @@ f3_inds = []  # net_succ AND attack_flip AND attack_succ
 for i in range(test_size):
     f1 = y_test_preds[i] == y_test[i]
     f2 = f1 and y_test_preds[i] != y_test_adv_preds[i]
-    if args.targeted:
+    if targeted:
         f3 = f2 and y_test_adv_preds[i] == y_test_adv[i]
     else:
         f3 = f2
