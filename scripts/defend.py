@@ -328,8 +328,8 @@ if args.ensemble:
     y_test_net_preds_mat = np.empty((X_test.shape[0], len(ensemble_paths)), dtype=np.int32)  # (N, #nets)
 
     # and for adv:
-    y_test_adv_net_logits_mat = np.empty((test_size, len(ensemble_paths), len(classes)), dtype=np.float32) # (N, #nets, #classes)
-    y_test_adv_net_preds_mat = np.empty((test_size, len(ensemble_paths)), dtype=np.int32)  # (N, #nets)
+    y_test_adv_net_logits_mat = np.empty_like(y_test_net_logits_mat) # (N, #nets, #classes)
+    y_test_adv_net_preds_mat = np.empty_like(y_test_net_preds_mat)  # (N, #nets)
 
     if defense:  # calculated only for rev:
         normal_rev_exist = os.path.exists(os.path.join(REV_DIR, 'X_test_rev_mat.npy'))
@@ -349,8 +349,8 @@ if args.ensemble:
             print('ensemble adv rev images were already calculated before. Loading...')
             X_test_adv_rev_mat = np.load(os.path.join(REV_DIR, 'X_test_adv_rev_mat.npy'))
 
-        y_test_net_rev_logits_mat = np.empty_like(y_test_adv_net_logits_mat)  # (N, #nets, #classes)
-        y_test_net_rev_preds_mat = np.empty_like(y_test_adv_net_preds_mat)  # (N, #nets)
+        y_test_net_rev_logits_mat = np.empty((test_size, len(ensemble_paths), len(classes)), dtype=np.float32)  # (N, #nets, #classes)
+        y_test_net_rev_preds_mat = np.empty((test_size, len(ensemble_paths)), dtype=np.int32)  # (N, #nets)
 
         y_test_adv_net_rev_logits_mat = np.empty_like(y_test_net_rev_logits_mat)  # (N, #nets, #classes)
         y_test_adv_net_rev_preds_mat = np.empty_like(y_test_net_rev_preds_mat)  # (N, #nets)
@@ -363,7 +363,7 @@ if args.ensemble:
         y_test_net_logits_mat[:, i] = classifier.predict(X_test, batch_size=batch_size)
         y_test_net_preds_mat[:, i] = y_test_net_logits_mat[:, i].argmax(axis=1)
 
-        y_test_adv_net_logits_mat[:, i] = classifier.predict(X_test_adv[:test_size], batch_size=batch_size)
+        y_test_adv_net_logits_mat[:, i] = classifier.predict(X_test_adv, batch_size=batch_size)
         y_test_adv_net_preds_mat[:, i] = y_test_adv_net_logits_mat[:, i].argmax(axis=1)
 
         # probability for same prediction for normal images:
