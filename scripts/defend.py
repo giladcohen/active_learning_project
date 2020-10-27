@@ -43,6 +43,7 @@ parser.add_argument('--minimal', action='store_true', help='use FGSM minimal att
 parser.add_argument('--guru', action='store_true', help='use guru labels')
 parser.add_argument('--ensemble', action='store_true', help='use ensemble')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
+parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
 
 # for ZAG rev
 parser.add_argument('--initial_const', default=0.01, type=float, help='guess for weight for new grad loss term')
@@ -164,7 +165,11 @@ try:
 except AssertionError as e:
     raise AssertionError('{}\nAssert failed for y_test_adv_logits for ATTACK_DIR={}'.format(e, ATTACK_DIR))
 
-subset = attack_args.get('subset', -1)
+subset = attack_args.get('subset', -1)  # default to attack
+# may be overriden:
+if args.subset != -1:
+    subset = args.subset
+
 if subset != -1:  # if debug run
     # X_test = X_test[:subset]
     # y_test = y_test[:subset]
