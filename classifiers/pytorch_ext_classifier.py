@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 import numpy as np
 import torch
 from torch.autograd import grad
+import torch.nn.functional as F
 import six
 
 from art.config import ART_DATA_PATH, CLIP_VALUES_TYPE, PREPROCESSING_TYPE
@@ -42,9 +43,9 @@ class PyTorchExtClassifier(PyTorchClassifier):  # lgtm [py/missing-call-to-init]
                   (nb_samples,).
         :return: Gradients of the same shape as `x`.
         """
-        import torch  # lgtm [py/repeated-import]
         assert out in ['loss', 'pred'], 'out {} is not supported'.format(out)
 
+        torch.nn.functional
         # Apply preprocessing
         x_preprocessed, y_preprocessed = self._apply_preprocessing(x, y, fit=False)
 
@@ -86,7 +87,9 @@ class PyTorchExtClassifier(PyTorchClassifier):  # lgtm [py/missing-call-to-init]
         # compute gradients try 3
         grad_outputs = torch.tensor([1.0] * len(out_tensor)).to(self._device)
         img_grads = torch.autograd.grad(out_tensor, inputs_t, grad_outputs=grad_outputs, create_graph=True)[0]
-        norm_grad = torch.sum(torch.square(img_grads), dim=(1, 2, 3))
+        # norm_grad = torch.square(img_grads), dim=(1, 2, 3)
+        norm_grad = 0.001 * F.smooth_l1_loss(img_grads, torch.zeros_like(img_grads), reduce=False, beta=0.001)
+        norm_grad = torch.sum(norm_grad, dim=(1, 2, 3))
         grads = torch.autograd.grad(norm_grad, inputs_t, grad_outputs=grad_outputs, create_graph=False)[0].detach().cpu().numpy()
 
         # grads = self._apply_preprocessing_gradient(x, norm_grad_grad)
