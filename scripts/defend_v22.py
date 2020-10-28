@@ -27,16 +27,15 @@ from art.classifiers import PyTorchClassifier
 parser = argparse.ArgumentParser(description='Adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular_softplus/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='deepfool', type=str, help='attack directory')
-parser.add_argument('--rev_dir', default='zga_lr_0.01_ic_0.0001', type=str, help='reverse dir')
+parser.add_argument('--rev_dir', default='zga_lr_0.1_ic_0.000001', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--net_pool', default='main', type=str, help='networks pool: main, ensemble, all')
-parser.add_argument('--img_pool', default='orig', type=str, help='images pool: orig, rev, all')
+parser.add_argument('--net_pool', default='ensemble', type=str, help='networks pool: main, ensemble, all')
+parser.add_argument('--img_pool', default='rev', type=str, help='images pool: orig, rev, all')
 parser.add_argument('--method', default='simple', type=str, help='method of defense: simple, inference_svm')
 parser.add_argument('--train_on', default='all', type=str, help='normal, adv, all')
 parser.add_argument('--temperature', default=1, type=float, help='normal, adv')
 parser.add_argument('--pca_dims', default=-1, type=int, help='if not -1, apply PCA to svm with dims')
-parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
-
+parser.add_argument('--subset', default=200, type=int, help='attack only subset of test set')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -124,6 +123,14 @@ net.eval()
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
                                optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 
+# load all calculated features:
+load_main     = args.net_pool in ['main', 'all']
+load_ensemble = args.net_pool in ['ensemble', 'all']
+load_orig     = args.img_pool in ['orig', 'all']
+load_rev      = args.img_pool in ['rev', 'all']
+train_normal  = args.train_on in ['normal', 'all']
+train_adv     = args.train_on in ['adv', 'all']
+
 # main
 y_main_logits         = np.load(os.path.join(ATTACK_DIR, 'y_test_logits.npy'))
 y_adv_main_logits     = np.load(os.path.join(ATTACK_DIR, 'y_test_adv_logits.npy'))
@@ -131,8 +138,8 @@ y_adv_main_logits     = np.load(os.path.join(ATTACK_DIR, 'y_test_adv_logits.npy'
 y_net_logits          = np.load(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_net_logits_mat.npy'))
 y_adv_net_logits      = np.load(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_adv_net_logits_mat.npy'))
 
-subset = args.subset  # must be specified if not -1
-if args.subset != -1:
+subset = args.subset  # must be explicit!
+if subset != -1:  # because of debug defense
     X_test = X_test[:subset]
     y_test = y_test[:subset]
     y_test_preds = y_test_preds[:subset]
@@ -201,20 +208,17 @@ f1_inds_test = np.asarray([ind for ind in f1_inds if ind in test_inds])
 f2_inds_test = np.asarray([ind for ind in f2_inds if ind in test_inds])
 f3_inds_test = np.asarray([ind for ind in f3_inds if ind in test_inds])
 
-# load all calculated features:
-load_main     = args.net_pool in ['main', 'all']
-load_ensemble = args.net_pool in ['ensemble', 'all']
-load_orig     = args.img_pool in ['orig', 'all']
-load_rev      = args.img_pool in ['rev', 'all']
-train_normal  = args.train_on in ['normal', 'all']
-train_adv     = args.train_on in ['adv', 'all']
-
-if REV_DIR is not None:
+if load_rev:
+    assert test_size == defense_args.get('subset')
     if not os.path.exists(os.path.join(REV_DIR, 'y_test_adv_cross_rev_logits.npy')):
         X_test_rev         = np.load(os.path.join(REV_DIR, 'X_test_rev.npy'))
         X_test_rev_mat     = np.load(os.path.join(REV_DIR, 'X_test_rev_mat.npy'))
         X_test_adv_rev     = np.load(os.path.join(REV_DIR, 'X_test_adv_rev.npy'))
         X_test_adv_rev_mat = np.load(os.path.join(REV_DIR, 'X_test_adv_rev_mat.npy'))
+        assert X_test_rev.shape[0] == test_size
+        assert X_test_rev_mat.shape[0] == test_size
+        assert X_test_adv_rev.shape[0] == test_size
+        assert X_test_adv_rev_mat.shape[0] == test_size
 
         X_test_rev_all     = np.concatenate((np.expand_dims(X_test_rev, axis=1), X_test_rev_mat), axis=1)  # (N, 10, 3, 32, 32)
         X_test_adv_rev_all = np.concatenate((np.expand_dims(X_test_adv_rev, axis=1), X_test_adv_rev_mat), axis=1)  # (N, 10, 3, 32, 32)
@@ -239,38 +243,46 @@ if REV_DIR is not None:
         y_cross_rev_logits     = np.load(os.path.join(REV_DIR, 'y_test_cross_rev_logits.npy'))
         y_adv_cross_rev_logits = np.load(os.path.join(REV_DIR, 'y_test_adv_cross_rev_logits.npy'))
 
+    assert y_cross_rev_logits.shape[0] == test_size
+    assert y_adv_cross_rev_logits.shape[0] == test_size
+
     y_cross_rev_preds     = softmax((1/T) * y_cross_rev_logits, axis=3)      # (N, 10, 10, #cls)
     y_adv_cross_rev_preds = softmax((1/T) * y_adv_cross_rev_logits, axis=3)  # (N, 10, 10, #cls)
 
 # organize features
 if load_main and not load_ensemble:  # use only main
     normal_input     = np.expand_dims(y_cross_preds[:, 0], 1)                                       # (N, 1, #cls)
-    normal_rev_input = np.expand_dims(y_cross_rev_preds[:, 0, 0], 1)                                # (N, 1, #cls)
     adv_input        = np.expand_dims(y_adv_cross_preds[:, 0], 1)                                   # (N, 1, #cls)
-    adv_rev_input    = np.expand_dims(y_adv_cross_rev_preds[:, 0, 0], 1)                            # (N, 1, #cls)
+    if load_rev:
+        normal_rev_input = np.expand_dims(y_cross_rev_preds[:, 0, 0], 1)                            # (N, 1, #cls)
+        adv_rev_input    = np.expand_dims(y_adv_cross_rev_preds[:, 0, 0], 1)                        # (N, 1, #cls)
 elif not load_main and load_ensemble:  # use only ensemble
     normal_input     = y_cross_preds[:, 1:]                                                         # (N, 9, #cls)
-    normal_rev_input = np.reshape(y_cross_rev_preds[:, 1:, 1:], (test_size, -1, len(classes)))      # (N, 9, 9, #cls) -> (N, 81, #cls)
     adv_input        = y_adv_cross_preds[:, 1:]                                                     # (N, 9, #cls)
-    adv_rev_input    = np.reshape(y_adv_cross_rev_preds[:, 1:, 1:], (test_size, -1, len(classes)))  # (N, 9, 9, #cls) -> (N, 81, #cls)
+    if load_rev:
+        normal_rev_input = np.reshape(y_cross_rev_preds[:, 1:, 1:], (test_size, -1, len(classes)))  # (N, 9, 9, #cls) -> (N, 81, #cls)
+        adv_rev_input = np.reshape(y_adv_cross_rev_preds[:, 1:, 1:],(test_size, -1, len(classes)))  # (N, 9, 9, #cls) -> (N, 81, #cls)
 elif load_main and load_ensemble:
     normal_input     = y_cross_preds                                                                # (N, 10, #cls)
-    normal_rev_input = np.reshape(y_cross_rev_preds, (test_size, -1, len(classes)))                 # (N, 10, 10, #cls) -> (N, 100, #cls)
     adv_input        = y_adv_cross_preds                                                            # (N, 10, #cls)
-    adv_rev_input    = np.reshape(y_adv_cross_rev_preds, (test_size, -1, len(classes)))             # (N, 10, 10, #cls) -> (N, 100, #cls)
+    if load_rev:
+        normal_rev_input = np.reshape(y_cross_rev_preds, (test_size, -1, len(classes)))             # (N, 10, 10, #cls) -> (N, 100, #cls)
+        adv_rev_input = np.reshape(y_adv_cross_rev_preds,(test_size, -1, len(classes)))             # (N, 10, 10, #cls) -> (N, 100, #cls)
 else:
     raise AssertionError('load_main or load_ensemble must be True')
 
 # inputs stats
 normal_mean     = np.mean(normal_input, axis=1)
 normal_std      = np.std(normal_input, axis=1)
-normal_rev_mean = np.mean(normal_rev_input, axis=1)
-normal_rev_std  = np.std(normal_rev_input, axis=1)
+if load_rev:
+    normal_rev_mean = np.mean(normal_rev_input, axis=1)
+    normal_rev_std  = np.std(normal_rev_input, axis=1)
 
 adv_mean     = np.mean(adv_input, axis=1)
 adv_std      = np.std(adv_input, axis=1)
-adv_rev_mean = np.mean(adv_rev_input, axis=1)
-adv_rev_std  = np.std(adv_rev_input, axis=1)
+if load_rev:
+    adv_rev_mean = np.mean(adv_rev_input, axis=1)
+    adv_rev_std  = np.std(adv_rev_input, axis=1)
 
 # grads
 if 'grads' in args.method:
@@ -319,7 +331,6 @@ def add_feature(x, x1):
         x = np.concatenate((x, x1), axis=1)
     return x
 
-
 normal_features = None
 adv_features = None
 
@@ -331,7 +342,6 @@ if load_orig:
 if load_rev:
     normal_features = add_feature(normal_features, normal_rev_input)
     adv_features    = add_feature(adv_features   , adv_rev_input)
-
 
 if args.method == 'simple':
     preds = normal_features.argmax(axis=2)
@@ -354,27 +364,31 @@ elif 'svm' in args.method:
 
         normal_features = add_feature(normal_features, normal_mean)
         normal_features = add_feature(normal_features, normal_std)
-        normal_features = add_feature(normal_features, normal_rev_mean)
-        normal_features = add_feature(normal_features, normal_rev_std)
+        if load_rev:
+            normal_features = add_feature(normal_features, normal_rev_mean)
+            normal_features = add_feature(normal_features, normal_rev_std)
 
         adv_features = add_feature(adv_features, adv_mean)
         adv_features = add_feature(adv_features, adv_std)
-        adv_features = add_feature(adv_features, adv_rev_mean)
-        adv_features = add_feature(adv_features, adv_rev_std)
+        if load_rev:
+            adv_features = add_feature(adv_features, adv_rev_mean)
+            adv_features = add_feature(adv_features, adv_rev_std)
 
     elif args.method == 'inference_stats_svm':
         print('Analyzing inference+stats SVM robustness')
         normal_features = normal_features.reshape((test_size, -1))
         normal_features = add_feature(normal_features, normal_mean)
         normal_features = add_feature(normal_features, normal_std)
-        normal_features = add_feature(normal_features, normal_rev_mean)
-        normal_features = add_feature(normal_features, normal_rev_std)
+        if load_rev:
+            normal_features = add_feature(normal_features, normal_rev_mean)
+            normal_features = add_feature(normal_features, normal_rev_std)
 
         adv_features = adv_features.reshape((test_size, -1))
         adv_features = add_feature(adv_features, adv_mean)
         adv_features = add_feature(adv_features, adv_std)
-        adv_features = add_feature(adv_features, adv_rev_mean)
-        adv_features = add_feature(adv_features, adv_rev_std)
+        if load_rev:
+            adv_features = add_feature(adv_features, adv_rev_mean)
+            adv_features = add_feature(adv_features, adv_rev_std)
 
     elif args.method == 'inference_grads_svm':
         print('Analyzing inference+grads_stats SVM robustness')
