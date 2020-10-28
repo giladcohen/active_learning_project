@@ -14,10 +14,8 @@ import matplotlib.pyplot as plt
 import pickle
 
 parser = argparse.ArgumentParser(description='PyTorch adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/Users/giladcohen/data/gilad/logs/adv_robustness/svhn/resnet34/resnet34_00', type=str, help='checkpoint dir')
-parser.add_argument('--attack', default='deepfool', type=str, help='checkpoint dir')
-parser.add_argument('--targeted', default=False, type=boolean_string, help='use targeted attack')
-parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
+parser.add_argument('--checkpoint_dir', default='/Users/giladcohen/data/gilad/logs/adv_robustness/cifar10/resnet34/regular_softplus/resnet34_00', type=str, help='checkpoint dir')
+parser.add_argument('--attack_dir', default='deepfool', type=str, help='attack directory')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -28,13 +26,13 @@ args = parser.parse_args()
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
+
+ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
+with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'r') as f:
+    attack_args = json.load(f)
+targeted = attack_args['targeted']
+
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
-if args.attack_dir != '':
-    ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
-else:
-    ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack)
-    if args.targeted:
-        ATTACK_DIR = ATTACK_DIR + '_targeted'
 batch_size = args.batch_size
 
 # load data
@@ -83,7 +81,7 @@ y_test_preds     = np.load(os.path.join(ATTACK_DIR, 'y_test_preds.npy'))
 X_test_adv       = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
 y_test_adv_preds = np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'))
 
-if args.targeted:
+if targeted:
     y_val_adv  = np.load(os.path.join(ATTACK_DIR, 'y_val_adv.npy'))
     y_test_adv = np.load(os.path.join(ATTACK_DIR, 'y_test_adv.npy'))
 
@@ -94,7 +92,7 @@ for i, set_ind in enumerate(val_inds):
     info['val'][i] = {}
     net_succ = y_val_preds[i] == y_val[i]
     attack_flipped = y_val_preds[i] != y_val_adv_preds[i]
-    if args.targeted:
+    if targeted:
         attack_succ = attack_flipped and y_val_adv_preds[i] == y_val_adv[i]
     else:
         attack_succ = attack_flipped
@@ -107,7 +105,7 @@ for i, set_ind in enumerate(test_inds):
     info['test'][i] = {}
     net_succ = y_test_preds[i] == y_test[i]
     attack_flipped = y_test_preds[i] != y_test_adv_preds[i]
-    if args.targeted:
+    if targeted:
         attack_succ = attack_flipped and y_test_adv_preds[i] == y_test_adv[i]
     else:
         attack_succ = attack_flipped
@@ -161,7 +159,7 @@ plt.show()
 
 i = inds[0]
 strr = 'class is {}({}), model predicted {}({}), '.format(classes[y_test[i]], y_test[i], classes[y_test_preds[i]], y_test_preds[i])
-if args.targeted:
+if targeted:
     strr += 'we wanted to attack to {}({}), '.format(classes[y_test_adv[i]], y_test_adv[i])
 strr += 'and after adv noise: {}({}).\n'.format(classes[y_test_adv_preds[i]], y_test_adv_preds[i])
 print(strr)

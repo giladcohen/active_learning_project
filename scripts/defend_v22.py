@@ -27,7 +27,7 @@ from art.classifiers import PyTorchClassifier
 parser = argparse.ArgumentParser(description='Adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular_softplus/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='deepfool', type=str, help='attack directory')
-parser.add_argument('--rev_dir', default='', type=str, help='reverse dir')
+parser.add_argument('--rev_dir', default='zga_lr_0.01_ic_0.0001', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--net_pool', default='main', type=str, help='networks pool: main, ensemble, all')
 parser.add_argument('--img_pool', default='orig', type=str, help='images pool: orig, rev, all')
@@ -35,6 +35,8 @@ parser.add_argument('--method', default='simple', type=str, help='method of defe
 parser.add_argument('--train_on', default='all', type=str, help='normal, adv, all')
 parser.add_argument('--temperature', default=1, type=float, help='normal, adv')
 parser.add_argument('--pca_dims', default=-1, type=int, help='if not -1, apply PCA to svm with dims')
+parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
+
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -129,11 +131,8 @@ y_adv_main_logits     = np.load(os.path.join(ATTACK_DIR, 'y_test_adv_logits.npy'
 y_net_logits          = np.load(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_net_logits_mat.npy'))
 y_adv_net_logits      = np.load(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_adv_net_logits_mat.npy'))
 
-if defense_args is not None:  # if the defense only used a subset
-    subset = defense_args.get('subset', -1 )
-else:  # take the subset used in the attack
-    subset = attack_args.get('subset', -1)
-if subset != -1:  # if debug run
+subset = args.subset  # must be specified if not -1
+if args.subset != -1:
     X_test = X_test[:subset]
     y_test = y_test[:subset]
     y_test_preds = y_test_preds[:subset]
