@@ -375,10 +375,10 @@ if args.ensemble:
               .format(prob_all * 100, prob_f1 * 100, prob_f2 * 100, prob_f3 * 100))
 
         # probability for same prediction for adv images:
-        prob_all = np.mean(y_test_adv_net_preds_mat[:, i] == y_test_adv_preds[:test_size])
-        prob_f1 = np.mean(y_test_adv_net_preds_mat[:, i][f1_inds] == y_test_adv_preds[:test_size][f1_inds])
-        prob_f2 = np.mean(y_test_adv_net_preds_mat[:, i][f2_inds] == y_test_adv_preds[:test_size][f2_inds])
-        prob_f3 = np.mean(y_test_adv_net_preds_mat[:, i][f3_inds] == y_test_adv_preds[:test_size][f3_inds])
+        prob_all = np.mean(y_test_adv_net_preds_mat[:, i] == y_test_adv_preds)
+        prob_f1 = np.mean(y_test_adv_net_preds_mat[:, i][f1_inds] == y_test_adv_preds[f1_inds])
+        prob_f2 = np.mean(y_test_adv_net_preds_mat[:, i][f2_inds] == y_test_adv_preds[f2_inds])
+        prob_f3 = np.mean(y_test_adv_net_preds_mat[:, i][f3_inds] == y_test_adv_preds[f3_inds])
         print('Probability of adv net prediction to match the adv prediction: all samples: {:.2f}%. f1 samples: {:.2f}%, f2 samples: {:.2f}%, f3 samples: {:.2f}%'
               .format(prob_all * 100, prob_f1 * 100, prob_f2 * 100, prob_f3 * 100))
 
