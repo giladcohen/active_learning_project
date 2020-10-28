@@ -35,15 +35,15 @@ from art.classifiers import PyTorchClassifier
 
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/resnet34_00', type=str, help='checkpoint dir')
-parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
-parser.add_argument('--rev', default='', type=str, help='fgsm, pgd, deepfool, none')
-parser.add_argument('--rev_dir', default='', type=str, help='reverse dir')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular_softplus/resnet34_00', type=str, help='checkpoint dir')
+parser.add_argument('--attack_dir', default='deepfool', type=str, help='attack directory')
+parser.add_argument('--rev', default='zga', type=str, help='fgsm, pgd, deepfool, none')
+parser.add_argument('--rev_dir', default='debug', type=str, help='reverse dir')
 parser.add_argument('--minimal', action='store_true', help='use FGSM minimal attack')
 parser.add_argument('--guru', action='store_true', help='use guru labels')
 parser.add_argument('--ensemble', action='store_true', help='use ensemble')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
+parser.add_argument('--subset', default=200, type=int, help='attack only subset of test set')
 
 # for ZAG rev
 parser.add_argument('--initial_const', default=0.01, type=float, help='guess for weight for new grad loss term')

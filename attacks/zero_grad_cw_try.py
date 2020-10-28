@@ -4,6 +4,7 @@ import logging
 from typing import Optional, Tuple
 
 import numpy as np
+import scipy
 import torch
 from tqdm import trange
 
@@ -103,7 +104,9 @@ class ZeroGrad(EvasionAttack):
         l2dist = np.sum(np.square(x - x_adv).reshape(x.shape[0], -1), axis=1)
         # grads = self.estimator.loss_gradient(np.array(x_adv, dtype=ART_NUMPY_DTYPE), target)
         grads = self.estimator.class_gradient(np.array(x_adv, dtype=ART_NUMPY_DTYPE), label=label)
-        grads_dist = np.sum(np.square(grads).reshape(x.shape[0], -1), axis=1)
+        grads = grads.reshape(x.shape[0], -1)
+        # grads_dist = np.sum(np.square(grads), axis=1)
+        grads_dist = np.sum(scipy.special.huber(0.001, grads), axis=1)
 
         return l2dist, c_weight * grads_dist + l2dist
 
