@@ -89,8 +89,8 @@ class PyTorchExtClassifier(PyTorchClassifier):  # lgtm [py/missing-call-to-init]
         # compute gradients try 3
         k = 1e-15
         img_grads = torch.autograd.grad(out_tensor, inputs_t, grad_outputs=grad_outputs, create_graph=True)[0]
-        # norm_grad = torch.square(img_grads), dim=(1, 2, 3)
-        norm_grad = k * F.smooth_l1_loss(img_grads, torch.zeros_like(img_grads), reduce=False, beta=k)
+        norm_grad = torch.square(img_grads)
+        # norm_grad = k * F.smooth_l1_loss(img_grads, torch.zeros_like(img_grads), reduce=False, beta=k)
         norm_grad = torch.sum(norm_grad, dim=(1, 2, 3))
         grads = torch.autograd.grad(norm_grad, inputs_t, grad_outputs=torch.tensor([1.0] * len(norm_grad)).to(self._device), create_graph=False)[0].detach().cpu().numpy()
 

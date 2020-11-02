@@ -107,9 +107,9 @@ class ZeroGrad(EvasionAttack):
         # grads = self.estimator.class_gradient(np.array(x_adv, dtype=ART_NUMPY_DTYPE), label=label)
         grads = grads.reshape(x.shape[0], -1)
 
-        # grads_dist = np.sum(np.square(grads), axis=1)
-        k = 1e-15
-        grads_dist = np.sum(scipy.special.huber(k, grads), axis=1)
+        grads_dist = np.sum(np.square(grads), axis=1)
+        # k = 1e-15
+        # grads_dist = np.sum(scipy.special.huber(k, grads), axis=1)
 
         return l2dist, c_weight * grads_dist + l2dist
 
