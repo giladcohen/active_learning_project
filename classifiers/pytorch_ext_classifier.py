@@ -45,7 +45,6 @@ class PyTorchExtClassifier(PyTorchClassifier):  # lgtm [py/missing-call-to-init]
         """
         assert out in ['loss', 'pred'], 'out {} is not supported'.format(out)
 
-        torch.nn.functional
         # Apply preprocessing
         x_preprocessed, y_preprocessed = self._apply_preprocessing(x, y, fit=False)
 
@@ -63,9 +62,12 @@ class PyTorchExtClassifier(PyTorchClassifier):  # lgtm [py/missing-call-to-init]
         # Compute the gradient and return
         model_outputs = self._model(inputs_t)
         if out == 'loss':
+            # out_tensor = F.cross_entropy(model_outputs[-1]['logits'], labels_t, reduction='none')
             out_tensor = self._loss(model_outputs[-1]['logits'], labels_t)
+            grad_outputs = None
         else:  # pred
             out_tensor = model_outputs[-1]['logits'].gather(1, labels_t.unsqueeze(1)).squeeze()
+            grad_outputs = torch.tensor([1.0] * len(out_tensor)).to(self._device)
 
         # Clean gradients
         self._model.zero_grad()
@@ -85,12 +87,12 @@ class PyTorchExtClassifier(PyTorchClassifier):  # lgtm [py/missing-call-to-init]
         # grads = all_grads(norm_grad, inputs_t, create_graph=False).detach().cpu().numpy()
 
         # compute gradients try 3
-        grad_outputs = torch.tensor([1.0] * len(out_tensor)).to(self._device)
+        k = 1e-15
         img_grads = torch.autograd.grad(out_tensor, inputs_t, grad_outputs=grad_outputs, create_graph=True)[0]
         # norm_grad = torch.square(img_grads), dim=(1, 2, 3)
-        norm_grad = 0.001 * F.smooth_l1_loss(img_grads, torch.zeros_like(img_grads), reduce=False, beta=0.001)
+        norm_grad = k * F.smooth_l1_loss(img_grads, torch.zeros_like(img_grads), reduce=False, beta=k)
         norm_grad = torch.sum(norm_grad, dim=(1, 2, 3))
-        grads = torch.autograd.grad(norm_grad, inputs_t, grad_outputs=grad_outputs, create_graph=False)[0].detach().cpu().numpy()
+        grads = torch.autograd.grad(norm_grad, inputs_t, grad_outputs=torch.tensor([1.0] * len(norm_grad)).to(self._device), create_graph=False)[0].detach().cpu().numpy()
 
         # grads = self._apply_preprocessing_gradient(x, norm_grad_grad)
         assert grads.shape == x.shape

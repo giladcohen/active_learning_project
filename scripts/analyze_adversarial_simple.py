@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import pickle
 
 parser = argparse.ArgumentParser(description='PyTorch adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/Users/giladcohen/data/gilad/logs/adv_robustness/cifar10/resnet34/regular_softplus/resnet34_00', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/Users/giladcohen/data/gilad/logs/adv_robustness/cifar100/resnet34/regular_softplus/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='deepfool', type=str, help='attack directory')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 

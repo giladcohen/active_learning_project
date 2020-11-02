@@ -43,7 +43,7 @@ parser.add_argument('--minimal', action='store_true', help='use FGSM minimal att
 parser.add_argument('--guru', action='store_true', help='use guru labels')
 parser.add_argument('--ensemble', action='store_true', help='use ensemble')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--subset', default=200, type=int, help='attack only subset of test set')
+parser.add_argument('--subset', default=500, type=int, help='attack only subset of test set')
 
 # for ZAG rev
 parser.add_argument('--initial_const', default=0.01, type=float, help='guess for weight for new grad loss term')

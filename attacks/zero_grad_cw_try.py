@@ -102,11 +102,14 @@ class ZeroGrad(EvasionAttack):
         """
         label = np.argmax(target, axis=1)
         l2dist = np.sum(np.square(x - x_adv).reshape(x.shape[0], -1), axis=1)
-        # grads = self.estimator.loss_gradient(np.array(x_adv, dtype=ART_NUMPY_DTYPE), target)
-        grads = self.estimator.class_gradient(np.array(x_adv, dtype=ART_NUMPY_DTYPE), label=label)
+
+        grads = self.estimator.loss_gradient(np.array(x_adv, dtype=ART_NUMPY_DTYPE), target)
+        # grads = self.estimator.class_gradient(np.array(x_adv, dtype=ART_NUMPY_DTYPE), label=label)
         grads = grads.reshape(x.shape[0], -1)
+
         # grads_dist = np.sum(np.square(grads), axis=1)
-        grads_dist = np.sum(scipy.special.huber(0.001, grads), axis=1)
+        k = 1e-15
+        grads_dist = np.sum(scipy.special.huber(k, grads), axis=1)
 
         return l2dist, c_weight * grads_dist + l2dist
 
@@ -134,7 +137,7 @@ class ZeroGrad(EvasionAttack):
         :return: An array with the gradient of the loss function.
         """
         # grad_label = np.argmax(target, axis=1)
-        loss_gradient = self.estimator.gradient_norm_gradient(x_adv, target, 'pred')
+        loss_gradient = self.estimator.gradient_norm_gradient(x_adv, target, 'loss')
         assert loss_gradient.shape == x.shape
 
         c_mult = c_weight
