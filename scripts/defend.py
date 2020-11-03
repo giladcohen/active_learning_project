@@ -84,7 +84,7 @@ targeted = attack_args['targeted']
 
 if args.rev_dir != '':
     assert args.rev != ''
-    REV_DIR = os.path.join(ATTACK_DIR, 'rev', args.rev_dir)
+    REV_DIR = os.path.join(ATTACK_DIR, args.rev_dir)
 else:
     REV_DIR = None  # no rev!
 if REV_DIR is not None:

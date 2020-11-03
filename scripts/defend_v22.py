@@ -54,7 +54,7 @@ with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'r') as f:
 targeted = attack_args['targeted']
 
 if args.rev_dir != '':
-    REV_DIR = os.path.join(ATTACK_DIR, 'rev', args.rev_dir)
+    REV_DIR = os.path.join(ATTACK_DIR, args.rev_dir)
     with open(os.path.join(REV_DIR, 'defense_args.txt'), 'r') as f:
         defense_args = json.load(f)
 else:
