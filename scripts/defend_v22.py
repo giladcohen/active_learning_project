@@ -25,9 +25,9 @@ import matplotlib.pyplot as plt
 from art.classifiers import PyTorchClassifier
 
 parser = argparse.ArgumentParser(description='Adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar100/resnet34/regular_softplus/resnet34_00', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular_softplus/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='deepfool', type=str, help='attack directory')
-parser.add_argument('--rev_dir', default='zga_lr_0.01_ic_1', type=str, help='reverse dir')
+parser.add_argument('--rev_dir', default='rev_L2_pred/zga_lr_0.1_ic_0.0001', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--net_pool', default='ensemble', type=str, help='networks pool: main, ensemble, all')
 parser.add_argument('--img_pool', default='rev', type=str, help='images pool: orig, rev, all')
@@ -35,7 +35,7 @@ parser.add_argument('--method', default='simple', type=str, help='method of defe
 parser.add_argument('--train_on', default='all', type=str, help='normal, adv, all')
 parser.add_argument('--temperature', default=1, type=float, help='normal, adv')
 parser.add_argument('--pca_dims', default=-1, type=int, help='if not -1, apply PCA to svm with dims')
-parser.add_argument('--subset', default=500, type=int, help='attack only subset of test set')
+parser.add_argument('--subset', default=200, type=int, help='attack only subset of test set')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
