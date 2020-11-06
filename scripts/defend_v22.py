@@ -23,19 +23,20 @@ from cleverhans.utils import to_categorical, batch_indices
 
 import matplotlib.pyplot as plt
 from art.classifiers import PyTorchClassifier
+from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchExtClassifier
 
 parser = argparse.ArgumentParser(description='Adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular_softplus/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='deepfool', type=str, help='attack directory')
-parser.add_argument('--rev_dir', default='rev_L2_pred/zga_lr_0.1_ic_0.0001', type=str, help='reverse dir')
+parser.add_argument('--rev_dir', default='rev_L1_pred/zga_lr_0.001_ic_0.000001', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--net_pool', default='ensemble', type=str, help='networks pool: main, ensemble, all')
-parser.add_argument('--img_pool', default='rev', type=str, help='images pool: orig, rev, all')
+parser.add_argument('--img_pool', default='all', type=str, help='images pool: orig, rev, all')
 parser.add_argument('--method', default='simple', type=str, help='method of defense: simple, inference_svm')
-parser.add_argument('--train_on', default='all', type=str, help='normal, adv, all')
+parser.add_argument('--train_on', default='adv', type=str, help='normal, adv, all')
 parser.add_argument('--temperature', default=1, type=float, help='normal, adv')
 parser.add_argument('--pca_dims', default=-1, type=int, help='if not -1, apply PCA to svm with dims')
-parser.add_argument('--subset', default=200, type=int, help='attack only subset of test set')
+parser.add_argument('--subset', default=500, type=int, help='attack only subset of test set')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -83,7 +84,6 @@ val_inds = np.asarray(global_state['val_inds'])
 classes = testloader.dataset.classes
 test_size = len(testloader.dataset)
 test_inds = np.arange(test_size)
-num_batches = int(np.ceil(test_size/batch_size))
 
 X_test           = get_normalized_tensor(testloader, batch_size)
 y_test           = np.asarray(testloader.dataset.targets)
@@ -120,7 +120,7 @@ optimizer = optim.SGD(
 
 # get and assert preds:
 net.eval()
-classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
+classifier = PyTorchExtClassifier(model=net, clip_values=(0, 1), loss=criterion,
                                optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 
 # load all calculated features:
@@ -154,6 +154,8 @@ if subset != -1:  # because of debug defense
     y_adv_net_logits = y_adv_net_logits[:subset]
 
     test_size = subset
+
+num_batches = int(np.ceil(test_size/batch_size))
 
 # cross
 y_cross_logits        = np.concatenate((np.expand_dims(y_main_logits, axis=1), y_net_logits), axis=1)          # (N, 10, #class)
@@ -210,20 +212,19 @@ f3_inds_test = np.asarray([ind for ind in f3_inds if ind in test_inds])
 
 if load_rev:
     assert test_size == defense_args.get('subset')
+    X_test_rev = np.load(os.path.join(REV_DIR, 'X_test_rev.npy'))
+    X_test_rev_mat = np.load(os.path.join(REV_DIR, 'X_test_rev_mat.npy'))
+    X_test_adv_rev = np.load(os.path.join(REV_DIR, 'X_test_adv_rev.npy'))
+    X_test_adv_rev_mat = np.load(os.path.join(REV_DIR, 'X_test_adv_rev_mat.npy'))
+    assert X_test_rev.shape[0] == test_size
+    assert X_test_rev_mat.shape[0] == test_size
+    assert X_test_adv_rev.shape[0] == test_size
+    assert X_test_adv_rev_mat.shape[0] == test_size
+    X_test_rev_all = np.concatenate((np.expand_dims(X_test_rev, axis=1), X_test_rev_mat), axis=1)  # (N, 10, 3, 32, 32)
+    X_test_adv_rev_all = np.concatenate((np.expand_dims(X_test_adv_rev, axis=1), X_test_adv_rev_mat), axis=1)  # (N, 10, 3, 32, 32)
+    del X_test_rev, X_test_rev_mat, X_test_adv_rev, X_test_adv_rev_mat
+
     if not os.path.exists(os.path.join(REV_DIR, 'y_test_adv_cross_rev_logits.npy')):
-        X_test_rev         = np.load(os.path.join(REV_DIR, 'X_test_rev.npy'))
-        X_test_rev_mat     = np.load(os.path.join(REV_DIR, 'X_test_rev_mat.npy'))
-        X_test_adv_rev     = np.load(os.path.join(REV_DIR, 'X_test_adv_rev.npy'))
-        X_test_adv_rev_mat = np.load(os.path.join(REV_DIR, 'X_test_adv_rev_mat.npy'))
-        assert X_test_rev.shape[0] == test_size
-        assert X_test_rev_mat.shape[0] == test_size
-        assert X_test_adv_rev.shape[0] == test_size
-        assert X_test_adv_rev_mat.shape[0] == test_size
-
-        X_test_rev_all     = np.concatenate((np.expand_dims(X_test_rev, axis=1), X_test_rev_mat), axis=1)  # (N, 10, 3, 32, 32)
-        X_test_adv_rev_all = np.concatenate((np.expand_dims(X_test_adv_rev, axis=1), X_test_adv_rev_mat), axis=1)  # (N, 10, 3, 32, 32)
-        del X_test_rev, X_test_rev_mat, X_test_adv_rev, X_test_adv_rev_mat
-
         print('generating cross predictions for {} using ensemble in {}'.format(REV_DIR, ENSEMBLE_DIR))
         ensemble_paths = get_ensemble_paths(ENSEMBLE_DIR)
         y_cross_rev_logits     = np.empty((test_size, len(ensemble_paths), len(ensemble_paths), len(classes)), dtype=np.float32)
@@ -286,42 +287,86 @@ if load_rev:
 
 # grads
 if 'grads' in args.method:
-    print('Calculating gradients...')
-    normal_grads     = np.empty_like(X_test)
-    adv_grads        = np.empty_like(X_test)
-    for i in tqdm(range(num_batches)):
-        start, end = batch_indices(i, test_size, batch_size)
-        normal_grads[start:end] = classifier.loss_gradient(X_test[start:end]    , to_categorical(y_test_preds[start:end]    , len(classes)))
-        adv_grads[start:end]    = classifier.loss_gradient(X_test_adv[start:end], to_categorical(y_test_adv_preds[start:end], len(classes)))
+    assert load_rev
 
-    normal_grads_abs = np.abs(normal_grads)
-    adv_grads_abs    = np.abs(adv_grads)
+    if not os.path.exists(os.path.join(REV_DIR, 'd_normal_d_preds.npy')):
+        print('Calculating gradients...')
+        y_cross_preds_sv         = y_cross_preds.argmax(axis=-1)          # (N, #nets)
+        y_adv_cross_preds_sv     = y_adv_cross_preds.argmax(axis=-1)      # (N, #nets)
+        y_cross_rev_preds_sv     = y_cross_rev_preds.argmax(axis=-1)      # (N, #nets, #nets)
+        y_adv_cross_rev_preds_sv = y_adv_cross_rev_preds.argmax(axis=-1)  # (N, #nets, #nets)
 
-    # grads stats
-    axd = (1, 2, 3)
-    normal_grads_max        = normal_grads.max(axd)
-    normal_grads_min        = normal_grads.min(axd)
-    normal_grads_mean       = normal_grads.mean(axd)
-    normal_grads_std        = normal_grads.std(axd)
-    normal_grads_median     = np.median(normal_grads, axd)
+        ensemble_paths = get_ensemble_paths(ENSEMBLE_DIR)
+        num_nets = len(ensemble_paths)
+        d_normal_d_preds         = np.empty_like(X_test)
+        d_adv_d_preds            = np.empty_like(X_test)
+        d_normal_rev_d_preds     = np.empty((test_size, num_nets, num_nets) + X_test.shape[1:])
+        d_normal_rev_d_rev_preds = np.empty_like(d_normal_rev_d_preds)
+        d_adv_rev_d_preds        = np.empty_like(d_normal_rev_d_preds)
+        d_adv_rev_d_rev_preds    = np.empty_like(d_normal_rev_d_preds)
 
-    normal_grads_abs_max    = normal_grads_abs.max(axd)
-    normal_grads_abs_min    = normal_grads_abs.min(axd)
-    normal_grads_abs_mean   = normal_grads_abs.mean(axd)
-    normal_grads_abs_std    = normal_grads_abs.std(axd)
-    normal_grads_abs_median = np.median(normal_grads_abs, axd)
+        for k in tqdm(range(num_batches)):
+            start, end = batch_indices(k, test_size, batch_size)
+            d_normal_d_preds[start:end] = classifier.class_gradient(X_test[start:end]    , y_cross_preds_sv[start:end, 0]    , dtype=np.float32).squeeze()
+            d_adv_d_preds[start:end]    = classifier.class_gradient(X_test_adv[start:end], y_adv_cross_preds_sv[start:end, 0], dtype=np.float32).squeeze()
 
-    adv_grads_max        = adv_grads.max(axd)
-    adv_grads_min        = adv_grads.min(axd)
-    adv_grads_mean       = adv_grads.mean(axd)
-    adv_grads_std        = adv_grads.std(axd)
-    adv_grads_median     = np.median(adv_grads, axd)
+            for j, ckpt_file in enumerate(ensemble_paths):  # for network j
+                global_state = torch.load(ckpt_file, map_location=torch.device(device))
+                net.load_state_dict(global_state['best_net'])
+                for i in range(num_nets):  # for network i. i means the network that generated the images
+                    d_normal_rev_d_preds[start:end, i, j]     = classifier.class_gradient(X_test_rev_all[start:end, i]    , y_cross_preds_sv[start:end, i]           , dtype=np.float32).squeeze()
+                    d_normal_rev_d_rev_preds[start:end, i, j] = classifier.class_gradient(X_test_rev_all[start:end, i]    , y_cross_rev_preds_sv[start:end, i, j]    , dtype=np.float32).squeeze()
+                    d_adv_rev_d_preds[start:end, i, j]        = classifier.class_gradient(X_test_adv_rev_all[start:end, i], y_adv_cross_preds_sv[start:end, i]       , dtype=np.float32).squeeze()
+                    d_adv_rev_d_rev_preds[start:end, i, j]    = classifier.class_gradient(X_test_adv_rev_all[start:end, i], y_adv_cross_rev_preds_sv[start:end, i, j], dtype=np.float32).squeeze()
 
-    adv_grads_abs_max    = adv_grads_abs.max(axd)
-    adv_grads_abs_min    = adv_grads_abs.min(axd)
-    adv_grads_abs_mean   = adv_grads_abs.mean(axd)
-    adv_grads_abs_std    = adv_grads_abs.std(axd)
-    adv_grads_abs_median = np.median(adv_grads_abs, axd)
+        np.save(os.path.join(REV_DIR, 'd_normal_d_preds.npy'), d_normal_d_preds)
+        np.save(os.path.join(REV_DIR, 'd_adv_d_preds.npy'), d_adv_d_preds)
+        np.save(os.path.join(REV_DIR, 'd_normal_rev_d_preds.npy'), d_normal_rev_d_preds)
+        np.save(os.path.join(REV_DIR, 'd_normal_rev_d_rev_preds.npy'), d_normal_rev_d_rev_preds)
+        np.save(os.path.join(REV_DIR, 'd_adv_rev_d_preds.npy'), d_adv_rev_d_preds)
+        np.save(os.path.join(REV_DIR, 'd_adv_rev_d_rev_preds.npy'), d_adv_rev_d_rev_preds)
+    else:
+        d_normal_d_preds         = np.load(os.path.join(REV_DIR, 'd_normal_d_preds.npy'))
+        d_adv_d_preds            = np.load(os.path.join(REV_DIR, 'd_adv_d_preds.npy'))
+        d_normal_rev_d_preds     = np.load(os.path.join(REV_DIR, 'd_normal_rev_d_preds.npy'))
+        d_normal_rev_d_rev_preds = np.load(os.path.join(REV_DIR, 'd_normal_rev_d_rev_preds.npy'))
+        d_adv_rev_d_preds        = np.load(os.path.join(REV_DIR, 'd_adv_rev_d_preds.npy'))
+        d_adv_rev_d_rev_preds    = np.load(os.path.join(REV_DIR, 'd_adv_rev_d_rev_preds.npy'))
+
+print('done')
+exit(0)
+
+
+
+
+    # normal_grads_abs = np.abs(normal_grads)
+    # adv_grads_abs    = np.abs(adv_grads)
+    #
+    # # grads stats
+    # axd = (1, 2, 3)
+    # normal_grads_max        = normal_grads.max(axd)
+    # normal_grads_min        = normal_grads.min(axd)
+    # normal_grads_mean       = normal_grads.mean(axd)
+    # normal_grads_std        = normal_grads.std(axd)
+    # normal_grads_median     = np.median(normal_grads, axd)
+    #
+    # normal_grads_abs_max    = normal_grads_abs.max(axd)
+    # normal_grads_abs_min    = normal_grads_abs.min(axd)
+    # normal_grads_abs_mean   = normal_grads_abs.mean(axd)
+    # normal_grads_abs_std    = normal_grads_abs.std(axd)
+    # normal_grads_abs_median = np.median(normal_grads_abs, axd)
+    #
+    # adv_grads_max        = adv_grads.max(axd)
+    # adv_grads_min        = adv_grads.min(axd)
+    # adv_grads_mean       = adv_grads.mean(axd)
+    # adv_grads_std        = adv_grads.std(axd)
+    # adv_grads_median     = np.median(adv_grads, axd)
+    #
+    # adv_grads_abs_max    = adv_grads_abs.max(axd)
+    # adv_grads_abs_min    = adv_grads_abs.min(axd)
+    # adv_grads_abs_mean   = adv_grads_abs.mean(axd)
+    # adv_grads_abs_std    = adv_grads_abs.std(axd)
+    # adv_grads_abs_median = np.median(adv_grads_abs, axd)
 
 def add_feature(x, x1):
     """Adding feature x1 to x"""
@@ -351,7 +396,7 @@ if args.method == 'simple':
     defense_preds_adv = np.apply_along_axis(majority_vote, axis=1, arr=preds_adv)
 
 elif 'svm' in args.method:
-    assert load_main and load_ensemble
+    # assert load_main and load_ensemble
 
     if args.method == 'inference_svm':
         print('Analyzing inference SVM robustness')
@@ -440,7 +485,11 @@ elif 'svm' in args.method:
         test_normal_features = pca.transform(test_normal_features)
         test_adv_features    = pca.transform(test_adv_features)
 
-    clf = LinearSVC(penalty='l2', loss='hinge', verbose=1, random_state=rand_gen, max_iter=10000)
+    if len(classes) == 100:
+        max_iter = 1000
+    else:
+        max_iter = 10000
+    clf = LinearSVC(penalty='l2', loss='hinge', verbose=1, random_state=rand_gen, max_iter=max_iter)
     clf.fit(input_features, input_labels)
     defense_preds = clf.predict(test_normal_features)
     defense_preds_adv = clf.predict(test_adv_features)

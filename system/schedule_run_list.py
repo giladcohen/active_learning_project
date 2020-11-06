@@ -61,7 +61,7 @@ def main():
         gpu_id = wait_for_idle_gpu()
         if gpu_id == -1:
             print('No GPU with a free memory of {} GB to run command: \n{}'.format(COMMANDS[0][1], COMMANDS[0][0]) +
-            '\nAutomatic retry in 10 seconds.')
+            '\nAutomatic retry in 60 seconds.')
             sleep(60)  # sample again in 60 seconds
         else:
             last_time_used[gpu_id] = time()
