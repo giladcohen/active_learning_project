@@ -32,7 +32,7 @@ parser.add_argument('--rev_dir', default='rev_L1_pred/zga_lr_0.001_ic_0.000001',
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--net_pool', default='ensemble', type=str, help='networks pool: main, ensemble, all')
 parser.add_argument('--img_pool', default='all', type=str, help='images pool: orig, rev, all')
-parser.add_argument('--method', default='simple', type=str, help='method of defense: simple, inference_svm')
+parser.add_argument('--method', default='simple_grads', type=str, help='method of defense: simple, inference_svm')
 parser.add_argument('--train_on', default='adv', type=str, help='normal, adv, all')
 parser.add_argument('--temperature', default=1, type=float, help='normal, adv')
 parser.add_argument('--pca_dims', default=-1, type=int, help='if not -1, apply PCA to svm with dims')
@@ -238,6 +238,10 @@ if load_rev:
                 y_cross_rev_logits[:, i, j]     = classifier.predict(X_test_rev_all[:, i], batch_size=batch_size)
                 y_adv_cross_rev_logits[:, i, j] = classifier.predict(X_test_adv_rev_all[:, i], batch_size=batch_size)
 
+        # return to original net
+        global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
+        net.load_state_dict(global_state['best_net'])
+
         np.save(os.path.join(REV_DIR, 'y_test_cross_rev_logits.npy'), y_cross_rev_logits)
         np.save(os.path.join(REV_DIR, 'y_test_adv_cross_rev_logits.npy'), y_adv_cross_rev_logits)
     else:
@@ -307,17 +311,22 @@ if 'grads' in args.method:
 
         for k in tqdm(range(num_batches)):
             start, end = batch_indices(k, test_size, batch_size)
-            d_normal_d_preds[start:end] = classifier.class_gradient(X_test[start:end]    , y_cross_preds_sv[start:end, 0]    , dtype=np.float32).squeeze()
-            d_adv_d_preds[start:end]    = classifier.class_gradient(X_test_adv[start:end], y_adv_cross_preds_sv[start:end, 0], dtype=np.float32).squeeze()
-
             for j, ckpt_file in enumerate(ensemble_paths):  # for network j
                 global_state = torch.load(ckpt_file, map_location=torch.device(device))
                 net.load_state_dict(global_state['best_net'])
                 for i in range(num_nets):  # for network i. i means the network that generated the images
+                    if i == 0 and j == 0:
+                        d_normal_d_preds[start:end] = classifier.class_gradient(X_test[start:end]    , y_cross_preds_sv[start:end, i]    , dtype=np.float32).squeeze()
+                        d_adv_d_preds[start:end]    = classifier.class_gradient(X_test_adv[start:end], y_adv_cross_preds_sv[start:end, i], dtype=np.float32).squeeze()
+
                     d_normal_rev_d_preds[start:end, i, j]     = classifier.class_gradient(X_test_rev_all[start:end, i]    , y_cross_preds_sv[start:end, i]           , dtype=np.float32).squeeze()
                     d_normal_rev_d_rev_preds[start:end, i, j] = classifier.class_gradient(X_test_rev_all[start:end, i]    , y_cross_rev_preds_sv[start:end, i, j]    , dtype=np.float32).squeeze()
                     d_adv_rev_d_preds[start:end, i, j]        = classifier.class_gradient(X_test_adv_rev_all[start:end, i], y_adv_cross_preds_sv[start:end, i]       , dtype=np.float32).squeeze()
                     d_adv_rev_d_rev_preds[start:end, i, j]    = classifier.class_gradient(X_test_adv_rev_all[start:end, i], y_adv_cross_rev_preds_sv[start:end, i, j], dtype=np.float32).squeeze()
+
+        # return to original net
+        global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
+        net.load_state_dict(global_state['best_net'])
 
         np.save(os.path.join(REV_DIR, 'd_normal_d_preds.npy'), d_normal_d_preds)
         np.save(os.path.join(REV_DIR, 'd_adv_d_preds.npy'), d_adv_d_preds)
@@ -326,15 +335,33 @@ if 'grads' in args.method:
         np.save(os.path.join(REV_DIR, 'd_adv_rev_d_preds.npy'), d_adv_rev_d_preds)
         np.save(os.path.join(REV_DIR, 'd_adv_rev_d_rev_preds.npy'), d_adv_rev_d_rev_preds)
     else:
-        d_normal_d_preds         = np.load(os.path.join(REV_DIR, 'd_normal_d_preds.npy'))
-        d_adv_d_preds            = np.load(os.path.join(REV_DIR, 'd_adv_d_preds.npy'))
-        d_normal_rev_d_preds     = np.load(os.path.join(REV_DIR, 'd_normal_rev_d_preds.npy'))
-        d_normal_rev_d_rev_preds = np.load(os.path.join(REV_DIR, 'd_normal_rev_d_rev_preds.npy'))
-        d_adv_rev_d_preds        = np.load(os.path.join(REV_DIR, 'd_adv_rev_d_preds.npy'))
-        d_adv_rev_d_rev_preds    = np.load(os.path.join(REV_DIR, 'd_adv_rev_d_rev_preds.npy'))
+        d_normal_d_preds         = np.load(os.path.join(REV_DIR, 'd_normal_d_preds.npy'))          # (N, 3, 32, 32)
+        d_adv_d_preds            = np.load(os.path.join(REV_DIR, 'd_adv_d_preds.npy'))             # (N, 3, 32, 32)
+        d_normal_rev_d_preds     = np.load(os.path.join(REV_DIR, 'd_normal_rev_d_preds.npy'))      # (N, #nets, #nets, 3, 32, 32)
+        d_normal_rev_d_rev_preds = np.load(os.path.join(REV_DIR, 'd_normal_rev_d_rev_preds.npy'))  # (N, #nets, #nets, 3, 32, 32)
+        d_adv_rev_d_preds        = np.load(os.path.join(REV_DIR, 'd_adv_rev_d_preds.npy'))         # (N, #nets, #nets, 3, 32, 32)
+        d_adv_rev_d_rev_preds    = np.load(os.path.join(REV_DIR, 'd_adv_rev_d_rev_preds.npy'))     # (N, #nets, #nets, 3, 32, 32)
+
+    d_normal_d_preds_abs         = np.abs(d_normal_d_preds)
+    d_adv_d_preds_abs            = np.abs(d_adv_d_preds)
+    d_normal_rev_d_preds_abs     = np.abs(d_normal_rev_d_preds)
+    d_normal_rev_d_rev_preds_abs = np.abs(d_normal_rev_d_rev_preds)
+    d_adv_rev_d_preds_abs        = np.abs(d_adv_rev_d_preds)
+    d_adv_rev_d_rev_preds_abs    = np.abs(d_adv_rev_d_rev_preds)
+
+    # diffs - how much the rev is different than the orig?
+    d_normal_rev_d_preds_diff     = np.empty_like(d_normal_rev_d_preds)
+    d_normal_rev_d_rev_preds_diff = np.empty_like(d_normal_rev_d_preds)
+    d_adv_rev_d_preds_diff        = np.empty_like(d_normal_rev_d_preds)
+    d_adv_rev_d_rev_preds_diff    = np.empty_like(d_normal_rev_d_preds)
+
 
 print('done')
 exit(0)
+
+
+
+
 
 
 
