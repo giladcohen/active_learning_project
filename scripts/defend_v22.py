@@ -292,6 +292,8 @@ if load_rev:
 # grads
 if 'grads' in args.method:
     assert load_rev
+    ensemble_paths = get_ensemble_paths(ENSEMBLE_DIR)
+    num_nets = len(ensemble_paths)
 
     if not os.path.exists(os.path.join(REV_DIR, 'd_normal_d_preds.npy')):
         print('Calculating gradients...')
@@ -300,8 +302,6 @@ if 'grads' in args.method:
         y_cross_rev_preds_sv     = y_cross_rev_preds.argmax(axis=-1)      # (N, #nets, #nets)
         y_adv_cross_rev_preds_sv = y_adv_cross_rev_preds.argmax(axis=-1)  # (N, #nets, #nets)
 
-        ensemble_paths = get_ensemble_paths(ENSEMBLE_DIR)
-        num_nets = len(ensemble_paths)
         d_normal_d_preds         = np.empty_like(X_test)
         d_adv_d_preds            = np.empty_like(X_test)
         d_normal_rev_d_preds     = np.empty((test_size, num_nets, num_nets) + X_test.shape[1:])
@@ -349,21 +349,49 @@ if 'grads' in args.method:
     d_adv_rev_d_preds_abs        = np.abs(d_adv_rev_d_preds)
     d_adv_rev_d_rev_preds_abs    = np.abs(d_adv_rev_d_rev_preds)
 
-    # diffs - how much the rev is different than the orig?
+    # NOT DIFF, calculating actual mean abs grads
+    d_normal_d_preds_abs_mean         = d_normal_d_preds_abs.mean(axis=(1,2,3))
+    d_adv_d_preds_abs_mean            = d_adv_d_preds_abs.mean(axis=(1,2,3))
+    d_normal_rev_d_preds_abs_mean     = d_normal_rev_d_preds_abs.mean(axis=(1,2,3,4,5))
+    d_normal_rev_d_rev_preds_abs_mean = d_normal_rev_d_rev_preds_abs.mean(axis=(1,2,3,4,5))
+    d_adv_rev_d_preds_abs_mean        = d_adv_rev_d_preds_abs.mean(axis=(1,2,3,4,5))
+    d_adv_rev_d_rev_preds_abs_mean    = d_adv_rev_d_rev_preds_abs.mean(axis=(1,2,3,4,5))
+
+    # diffs - how much the rev is different than the orig? This is || grad_orig - grad_rev ||
     d_normal_rev_d_preds_diff     = np.empty_like(d_normal_rev_d_preds)
     d_normal_rev_d_rev_preds_diff = np.empty_like(d_normal_rev_d_preds)
     d_adv_rev_d_preds_diff        = np.empty_like(d_normal_rev_d_preds)
     d_adv_rev_d_rev_preds_diff    = np.empty_like(d_normal_rev_d_preds)
 
+    for j in range(num_nets):
+        for i in range(num_nets):
+            d_normal_rev_d_preds_diff[:, i, j]     = np.abs(d_normal_rev_d_preds[:, i, j]     - d_normal_d_preds)
+            d_normal_rev_d_rev_preds_diff[:, i, j] = np.abs(d_normal_rev_d_rev_preds[:, i, j] - d_normal_d_preds)
+            d_adv_rev_d_preds_diff[:, i, j]        = np.abs(d_adv_rev_d_preds[:, i, j]        - d_adv_d_preds)
+            d_adv_rev_d_rev_preds_diff[:, i, j]    = np.abs(d_adv_rev_d_rev_preds[:, i, j]    - d_adv_d_preds)
 
-print('done')
-exit(0)
+    d_normal_rev_d_preds_diff_mean     = d_normal_rev_d_preds_diff.mean(axis=(1,2,3,4,5))
+    d_normal_rev_d_rev_preds_diff_mean = d_normal_rev_d_rev_preds_diff.mean(axis=(1,2,3,4,5))
+    d_adv_rev_d_preds_diff_mean        = d_adv_rev_d_preds_diff.mean(axis=(1,2,3,4,5))
+    d_adv_rev_d_rev_preds_diff_mean    = d_adv_rev_d_rev_preds_diff.mean(axis=(1,2,3,4,5))
 
+    # diffs - how much the rev grad norm is different than the orig? This is | ||grad_orig|| - ||grad_rev || |
+    d_normal_rev_d_preds_norm_diff     = np.empty((test_size, num_nets, num_nets), dtype=np.float32)
+    d_normal_rev_d_rev_preds_norm_diff = np.empty((test_size, num_nets, num_nets), dtype=np.float32)
+    d_adv_rev_d_preds_norm_diff        = np.empty((test_size, num_nets, num_nets), dtype=np.float32)
+    d_adv_rev_d_rev_preds_norm_diff    = np.empty((test_size, num_nets, num_nets), dtype=np.float32)
 
+    for j in range(num_nets):
+        for i in range(num_nets):
+            d_normal_rev_d_preds_norm_diff[:, i, j]     = np.abs(d_normal_rev_d_preds_abs[:, i, j].mean(axis=(1,2,3))     - d_normal_d_preds_abs.mean(axis=(1,2,3)))
+            d_normal_rev_d_rev_preds_norm_diff[:, i, j] = np.abs(d_normal_rev_d_rev_preds_abs[:, i, j].mean(axis=(1,2,3)) - d_normal_d_preds_abs.mean(axis=(1,2,3)))
+            d_adv_rev_d_preds_norm_diff[:, i, j]        = np.abs(d_adv_rev_d_preds_abs[:, i, j].mean(axis=(1,2,3))        - d_adv_d_preds_abs.mean(axis=(1,2,3)))
+            d_adv_rev_d_rev_preds_norm_diff[:, i, j]    = np.abs(d_adv_rev_d_rev_preds_abs[:, i, j].mean(axis=(1,2,3))    - d_adv_d_preds_abs.mean(axis=(1,2,3)))
 
-
-
-
+    d_normal_rev_d_preds_norm_diff_mean     = d_normal_rev_d_preds_norm_diff.mean(axis=(1,2))
+    d_normal_rev_d_rev_preds_norm_diff_mean = d_normal_rev_d_rev_preds_norm_diff.mean(axis=(1,2))
+    d_adv_rev_d_preds_norm_diff_mean        = d_adv_rev_d_preds_norm_diff.mean(axis=(1,2))
+    d_adv_rev_d_rev_preds_norm_diff_mean    = d_adv_rev_d_rev_preds_norm_diff.mean(axis=(1,2))
 
 
     # normal_grads_abs = np.abs(normal_grads)
