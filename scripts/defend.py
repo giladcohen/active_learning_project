@@ -110,8 +110,8 @@ global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
 train_inds = np.asarray(global_state['train_inds'])
 val_inds = np.asarray(global_state['val_inds'])
 classes = testloader.dataset.classes
-test_size  = len(testloader.dataset)
-test_inds  = np.arange(test_size)
+test_size = len(testloader.dataset)
+test_inds = np.arange(test_size)
 
 X_test           = get_normalized_tensor(testloader, batch_size)
 y_test           = np.asarray(testloader.dataset.targets)
