@@ -11,6 +11,8 @@ import os
 import argparse
 import sys
 from datetime import datetime
+from sklearn.decomposition import PCA
+
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 
@@ -29,13 +31,13 @@ parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness
 parser.add_argument('--attack_dir', default='deepfool', type=str, help='attack directory')
 parser.add_argument('--save_dir', default='debug', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--subset', default=200, type=int, help='attack only subset of test set')
+parser.add_argument('--subset', default=500, type=int, help='attack only subset of test set')
 
 # for exploration
 parser.add_argument('--norm', default='L_inf', type=str, help='the ball radius for exploration')
 parser.add_argument('--eps', default=0.01, type=float, help='the ball radius for exploration')
-parser.add_argument('--num_points', default=50, type=int, help='the number of gradients to sample')
-parser.add_argument('--output', default='pred', type=str, help='pred or loss')
+parser.add_argument('--num_points', default=99, type=int, help='the number of gradients to sample')
+parser.add_argument('--output', default='loss', type=str, help='pred or loss')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -61,6 +63,8 @@ with open(os.path.join(SAVE_DIR, 'run_args.txt'), 'w') as f:
     json.dump(args.__dict__, f, indent=2)
 
 batch_size = args.batch_size
+
+rand_gen = np.random.RandomState(seed=12345)
 
 # Data
 print('==> Preparing data..')
@@ -112,7 +116,7 @@ optimizer = optim.SGD(
 # get and assert preds:
 net.eval()
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
-                                  optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
+                               optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 
 y_test_logits = classifier.predict(X_test, batch_size=batch_size)
 y_test_preds = y_test_logits.argmax(axis=1)
@@ -188,15 +192,35 @@ else:
 
 explorer = BallExplorer(
     classifier=classifier,
+    rand_gen=rand_gen,
     norm=norm,
     eps=args.eps,
     num_points=args.num_points,
     batch_size=batch_size,
-    output='pred'
+    output=args.output
 )
 
-grads = explorer.generate(X_test)
+print('calculating original gradients in ball...')
+grads_orig = explorer.generate(X_test)
+print('calculating adv gradients in ball...')
+grads_adv = explorer.generate(X_test_adv)
 print('done')
+
+# get stats
+grads_orig_mean_abs        = np.abs(grads_orig).mean(axis=(1, 2, 3, 4))
+grads_orig_mean_abs_center = np.abs(grads_orig)[:, 0].mean(axis=(1, 2, 3))
+
+grads_adv_mean_abs        = np.abs(grads_adv).mean(axis=(1, 2, 3, 4))
+grads_adv_mean_abs_center = np.abs(grads_adv)[:, 0].mean(axis=(1, 2, 3))
+
+# printing PCA for one sample (from f3 inds). i=10
+pca = PCA(n_components=2, random_state=rand_gen, whiten=False)
+pca.fit(np.abs(grads_orig)[i].reshape(args.num_points, -1))
+grads_orig_proj = pca.transform(np.abs(grads_orig)[i].reshape(args.num_points, -1))
+# input_features = pca.transform(input_features)
+# test_normal_features = pca.transform(test_normal_features)
+# test_adv_features = pca.transform(test_adv_features)
+#
 
 
 
