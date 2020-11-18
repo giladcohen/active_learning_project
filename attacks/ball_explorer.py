@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 from art.utils import get_labels_np_array
 # from art.utils import random_sphere
-from typing import Union
+from typing import Union, Tuple
 from scipy.special import gammainc
 
 
@@ -32,7 +32,7 @@ class BallExplorer(object):
         self.batch_size = batch_size
         self.output = output
 
-    def generate(self, x: np.ndarray) -> np.ndarray:
+    def generate(self, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
 
         targets = get_labels_np_array(self.classifier.predict(x, batch_size=self.batch_size))
         num_classes = targets.shape[1]
@@ -45,17 +45,22 @@ class BallExplorer(object):
             dataset=dataset, batch_size=self.batch_size, shuffle=False, drop_last=False
         )
 
+        all_x_adv = np.empty((x.shape[0], self.num_points) + x.shape[1:], dtype=np.float32)
         if self.output == 'loss':
+            all_output = np.empty((x.shape[0], self.num_points))
             all_grads = np.empty((x.shape[0], self.num_points) + x.shape[1:], dtype=np.float32)
         else:
+            all_output = np.empty((x.shape[0], self.num_points, num_classes))
             all_grads = np.empty((x.shape[0], self.num_points, num_classes) + x.shape[1:], dtype=np.float32)
 
         for batch_id, batch in tqdm(enumerate(data_loader)):
             batch, batch_labels = batch
             batch_index_1, batch_index_2 = batch_id * self.batch_size, (batch_id + 1) * self.batch_size
+            all_x_adv[batch_index_1:batch_index_2],\
+            all_output[batch_index_1:batch_index_2],\
             all_grads[batch_index_1:batch_index_2] = self._generate_batch(batch, batch_labels)
 
-        return all_grads
+        return all_x_adv, all_output, all_grads
 
     def random_sphere(self, nb_points: int, nb_dims: int, radius: float, norm: Union[int, float]) -> np.ndarray:
         """
@@ -88,16 +93,16 @@ class BallExplorer(object):
 
         return res
 
-    def _generate_batch(self, x: "torch.Tensor", targets: "torch.Tensor") -> np.ndarray:
+    def _generate_batch(self, x: "torch.Tensor", targets: "torch.Tensor") -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         x = x.to(self.classifier.device)
         targets = targets.to(self.classifier.device)
         num_classes = targets.shape[1]
 
         n = self.num_points
-        m = np.prod(x.shape)
-        x_all = x.unsqueeze(dim=1).repeat(1, n, 1, 1, 1)  # copy x n times
+        m = np.prod(x.shape[1:])
+        x_all = x.unsqueeze(dim=1).repeat(1, n, 1, 1, 1)  # copy x n times. shape = (b, n, 3, 32, 32)
 
-        random_perturbation = self.random_sphere(n, m, self.eps, self.norm).reshape((x.shape[0], n) + x.shape[1:]).astype(np.float32)
+        random_perturbation = self.random_sphere(n * self.batch_size, m, self.eps, self.norm).reshape((self.batch_size, n) + x.shape[1:]).astype(np.float32)
         random_perturbation[:, 0] = np.zeros(x.shape)  # set zero perturbation for n=0 to get original grads.
         random_perturbation = torch.from_numpy(random_perturbation).to(self.classifier.device)
 
@@ -110,12 +115,15 @@ class BallExplorer(object):
         # calculate grads on x_adv
         if self.output == 'loss':
             grads_batch = np.empty((self.batch_size, n) + x.shape[1:], dtype=np.float32)
+            output_batch = np.empty((self.batch_size, n), dtype=np.float32)
             for i in range(self.num_points):
-                grads_tensor = self.classifier.loss_gradient_framework(x_adv[:, i], targets)
+                loss_tensor, grads_tensor = self.classifier.loss_and_loss_gradient_framework(x_adv[:, i], targets)
+                output_batch[:, i] = loss_tensor.data.cpu().numpy()
                 grads_batch[:, i] = grads_tensor.data.cpu().numpy()
         else:
             grads_batch = np.empty((self.batch_size, n, num_classes) + x.shape[1:], dtype=np.float32)
+            output_batch = np.empty((self.batch_size, n, num_classes), dtype=np.float32)
             for i in range(self.num_points):
-                grads_batch[:, i] = self.classifier.class_gradient(x_adv[:, i].data.cpu().numpy(), label=None)
+                output_batch[:, i], grads_batch[:, i] = self.classifier.preds_and_class_gradient(x_adv[:, i].data.cpu().numpy(), label=None)
 
-        return grads_batch
+        return x_adv.data.cpu().numpy(), output_batch, grads_batch

@@ -24,6 +24,7 @@ from active_learning_project.attacks.ball_explorer import BallExplorer
 import matplotlib.pyplot as plt
 
 from art.classifiers import PyTorchClassifier
+from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchExtClassifier
 
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
@@ -34,9 +35,9 @@ parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--subset', default=500, type=int, help='attack only subset of test set')
 
 # for exploration
-parser.add_argument('--norm', default='L_inf', type=str, help='the ball radius for exploration')
+parser.add_argument('--norm', default='L2', type=str, help='norm or ball distance')
 parser.add_argument('--eps', default=0.01, type=float, help='the ball radius for exploration')
-parser.add_argument('--num_points', default=99, type=int, help='the number of gradients to sample')
+parser.add_argument('--num_points', default=20, type=int, help='the number of gradients to sample')
 parser.add_argument('--output', default='loss', type=str, help='pred or loss')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -106,6 +107,7 @@ if device == 'cuda':
 net.load_state_dict(global_state['best_net'])
 
 criterion = nn.CrossEntropyLoss()
+criterion_unreduced = nn.CrossEntropyLoss(reduction='none')
 optimizer = optim.SGD(
     net.parameters(),
     lr=train_args['lr'],
@@ -115,8 +117,8 @@ optimizer = optim.SGD(
 
 # get and assert preds:
 net.eval()
-classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
-                               optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
+classifier = PyTorchExtClassifier(model=net, clip_values=(0, 1), loss=criterion, loss2=criterion_unreduced,
+                                  optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 
 y_test_logits = classifier.predict(X_test, batch_size=batch_size)
 y_test_preds = y_test_logits.argmax(axis=1)
@@ -201,28 +203,86 @@ explorer = BallExplorer(
 )
 
 print('calculating original gradients in ball...')
-grads_orig = explorer.generate(X_test)
+x_ball, outputs, grads_norm = explorer.generate(X_test)
 print('calculating adv gradients in ball...')
-grads_adv = explorer.generate(X_test_adv)
+x_ball_adv, outputs_adv, grads_adv = explorer.generate(X_test_adv)
 print('done')
 
+# get loss in ball
+# first, for each image sort all the samples by L2 distance from the main
+x_dist     = np.empty((test_size, args.num_points), dtype=np.float32)
+x_adv_dist = np.empty((test_size, args.num_points), dtype=np.float32)
+for j in range(args.num_points):
+    x_dist[:, j]     = np.linalg.norm((x_ball[:, j] - X_test).reshape((test_size, -1)), axis=1)
+    x_adv_dist[:, j] = np.linalg.norm((x_ball_adv[:, j] - X_test_adv).reshape((test_size, -1)), axis=1)
+ranks = x_dist.argsort(axis=1)
+ranks_adv = x_adv_dist.argsort(axis=1)
+
+i=70
+plt.figure()
+plt.plot(outputs[i, ranks[i, :]])
+plt.title('Loss for x in ball vs L2 distance from original x. i={}'.format(i))
+plt.show()
+
+plt.figure()
+plt.plot(outputs_adv[i, ranks_adv[i, :]])
+plt.title('Loss for x in ball vs L2 distance from original x_adv. i={}'.format(i))
+plt.show()
+
+
+
+
+
 # get stats
-grads_orig_mean_abs        = np.abs(grads_orig).mean(axis=(1, 2, 3, 4))
-grads_orig_mean_abs_center = np.abs(grads_orig)[:, 0].mean(axis=(1, 2, 3))
+grads_norm_mean_abs             = np.abs(grads_norm).mean(axis=(1, 2, 3, 4))
+grads_norm_mean_abs_center      = np.abs(grads_norm)[:, 0].mean(axis=(1, 2, 3))
+grads_norm_diff_center          = grads_norm[:, 1:] - np.expand_dims(grads_norm[:, 0], axis=1)
+grads_norm_diff_center_mean_abs = np.abs(grads_norm_diff_center).mean(axis=(1, 2, 3, 4))
 
-grads_adv_mean_abs        = np.abs(grads_adv).mean(axis=(1, 2, 3, 4))
-grads_adv_mean_abs_center = np.abs(grads_adv)[:, 0].mean(axis=(1, 2, 3))
+grads_adv_mean_abs              = np.abs(grads_adv).mean(axis=(1, 2, 3, 4))
+grads_adv_mean_abs_center       = np.abs(grads_adv)[:, 0].mean(axis=(1, 2, 3))
+grads_adv_diff_center           = grads_adv[:, 1:] - np.expand_dims(grads_adv[:, 0], axis=1)
+grads_adv_diff_center_mean_abs  = np.abs(grads_adv_diff_center).mean(axis=(1, 2, 3, 4))
 
-# printing PCA for one sample (from f3 inds). i=10
+# calculate ratio of adv/norm
+grads_adv_norm_ratio = grads_adv_diff_center_mean_abs / grads_norm_diff_center_mean_abs
+acc = np.mean(grads_adv_norm_ratio[f3_inds] > 1.0)
+grads_adv_norm_ratio_just_center = grads_adv_mean_abs_center / grads_norm_mean_abs_center
+acc_just_center = np.mean(grads_adv_norm_ratio_just_center[f3_inds] > 1.0)
+print('accuracy of adversarial detection. plain: {:.2f}%, with ball: {:.2f}%'.format(100. * acc_just_center, 100. * acc))
+
+
+
+# printing PCA for one sample (from f3 inds).
+i = 40
+plt.close()
+plt.figure()
 pca = PCA(n_components=2, random_state=rand_gen, whiten=False)
-pca.fit(np.abs(grads_orig)[i].reshape(args.num_points, -1))
-grads_orig_proj = pca.transform(np.abs(grads_orig)[i].reshape(args.num_points, -1))
-# input_features = pca.transform(input_features)
-# test_normal_features = pca.transform(test_normal_features)
-# test_adv_features = pca.transform(test_adv_features)
-#
+pca.fit(np.abs(grads_norm)[i].reshape(args.num_points, -1))
+grads_norm_proj = pca.transform(np.abs(grads_norm)[i].reshape(args.num_points, -1))
+plt.scatter(grads_norm_proj[1:, 0], grads_norm_proj[1:, 1], s=10, marker='o', c='blue', label='in ball')
+plt.scatter(grads_norm_proj[0, 0], grads_norm_proj[0, 1], s=50, marker='X', c='red', label='original')
+x_min, x_max = grads_norm_proj[:, 0].min(), grads_norm_proj[:, 0].max()
+y_min, y_max = grads_norm_proj[:, 1].min(), grads_norm_proj[:, 1].max()
+x_gap = x_max - x_min
+y_gap = y_max - y_min
+plt.xlim([x_min - 0.04*x_gap, x_max + 0.04*x_gap])
+plt.ylim([y_min - 0.04*y_gap, y_max + 0.04*y_gap])
+plt.legend()
+plt.title('PCA 2D map for normal images. i={}'.format(i))
 
-
-
-
-
+plt.figure()
+pca = PCA(n_components=2, random_state=rand_gen, whiten=False)
+pca.fit(np.abs(grads_adv)[i].reshape(args.num_points, -1))
+grads_adv_proj = pca.transform(np.abs(grads_adv)[i].reshape(args.num_points, -1))
+plt.scatter(grads_adv_proj[1:, 0], grads_adv_proj[1:, 1], s=10, marker='o', c='blue', label='in ball')
+plt.scatter(grads_adv_proj[0, 0], grads_adv_proj[0, 1], s=50, marker='X', c='red', label='original')
+x_min, x_max = grads_adv_proj[:, 0].min(), grads_adv_proj[:, 0].max()
+y_min, y_max = grads_adv_proj[:, 1].min(), grads_adv_proj[:, 1].max()
+x_gap = x_max - x_min
+y_gap = y_max - y_min
+plt.xlim([x_min - 0.04*x_gap, x_max + 0.04*x_gap])
+plt.ylim([y_min - 0.04*y_gap, y_max + 0.04*y_gap])
+plt.legend()
+plt.title('PCA 2D map for adv images. i={}'.format(i))
+plt.show()

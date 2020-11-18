@@ -34,6 +34,25 @@ from art.estimators.classification.pytorch import PyTorchClassifier
 
 class PyTorchExtClassifier(PyTorchClassifier):  # lgtm [py/missing-call-to-init]
 
+    def __init__(self,
+                 model: "torch.nn.Module",
+                 loss: "torch.nn.modules.loss._Loss",
+                 loss2: "torch.nn.modules.loss._Loss",
+                 input_shape: Tuple[int, ...],
+                 nb_classes: int,
+                 optimizer: Optional["torch.optim.Optimizer"] = None,  # type: ignore
+                 clip_values: Optional[CLIP_VALUES_TYPE] = None,
+                 ) -> None:
+        self._loss2 = loss2
+        super(PyTorchExtClassifier, self).__init__(
+             model=model,
+             loss=loss,
+             input_shape=input_shape,
+             nb_classes=nb_classes,
+             optimizer=optimizer,
+             clip_values=clip_values
+        )
+
     def gradient_norm_gradient(self, x: np.ndarray, y: np.ndarray, out: str, **kwargs) -> np.ndarray:
         """
         Compute the gradient of the norm of the gradient of out (pred/loss) w.r.t. `x`.
@@ -105,3 +124,128 @@ class PyTorchExtClassifier(PyTorchClassifier):  # lgtm [py/missing-call-to-init]
         # del inputs_t
 
         return grads
+
+    def loss_and_loss_gradient_framework(self, x: "torch.Tensor", y: "torch.Tensor", **kwargs) -> \
+            Tuple["torch.Tensor", "torch.Tensor"]:
+        """
+        Compute the gradient of the loss function w.r.t. `x`.
+
+        :param x: Input with shape as expected by the model.
+        :param y: Target values (class labels) one-hot-encoded of shape (nb_samples, nb_classes) or indices of shape
+                  (nb_samples,).
+        :return: loss + Gradients of the same shape as `x`.
+        """
+        import torch  # lgtm [py/repeated-import]
+        from torch.autograd import Variable
+
+        # Check label shape
+        if self._reduce_labels:
+            y = torch.argmax(y, dim=1)
+
+        # Convert the inputs to Variable
+        x = Variable(x, requires_grad=True)
+
+        # Compute the gradient and return
+        model_outputs = self._model(x)
+        loss = self._loss(model_outputs[-1]['logits'], y)
+        loss_unreduced = self._loss2(model_outputs[-1]['logits'], y)
+
+        # Clean gradients
+        self._model.zero_grad()
+
+        # Compute gradients
+        loss.backward()
+        grads = x.grad
+        assert grads.shape == x.shape  # type: ignore
+
+        return loss_unreduced, grads  # type: ignore
+
+    def preds_and_class_gradient(self, x: np.ndarray, label: Union[int, List[int], None] = None, **kwargs) -> \
+            Tuple[np.ndarray, np.ndarray]:
+        """
+        Compute per-class derivatives w.r.t. `x`.
+
+        :param x: Sample input with shape as expected by the model.
+        :param label: Index of a specific per-class derivative. If an integer is provided, the gradient of that class
+                      output is computed for all samples. If multiple values as provided, the first dimension should
+                      match the batch size of `x`, and each value will be used as target for its corresponding sample in
+                      `x`. If `None`, then gradients for all classes will be computed for each sample.
+        :return: Array of gradients of input features w.r.t. each class in the form
+                 `(batch_size, nb_classes, input_shape)` when computing for all classes, otherwise shape becomes
+                 `(batch_size, 1, input_shape)` when `label` parameter is specified.
+        """
+        import torch  # lgtm [py/repeated-import]
+
+        if not (
+            (label is None)
+            or (isinstance(label, (int, np.integer)) and label in range(self._nb_classes))
+            or (
+                isinstance(label, np.ndarray)
+                and len(label.shape) == 1
+                and (label < self._nb_classes).all()
+                and label.shape[0] == x.shape[0]
+            )
+        ):
+            raise ValueError("Label %s is out of range." % label)
+
+        # Apply preprocessing
+        x_preprocessed, _ = self._apply_preprocessing(x, y=None, fit=False)
+        x_preprocessed = torch.from_numpy(x_preprocessed).to(self._device)
+
+        # Compute gradients
+        if self._layer_idx_gradients < 0:
+            x_preprocessed.requires_grad = True
+
+        # Run prediction
+        model_outputs = self._model(x_preprocessed)
+
+        # Set where to get gradient
+        if self._layer_idx_gradients >= 0:
+            input_grad = model_outputs[self._layer_idx_gradients]
+        else:
+            input_grad = x_preprocessed
+
+        # Set where to get gradient from
+        preds = model_outputs[-1]['logits']
+        preds_np = preds.data.cpu().numpy()
+
+        # Compute the gradient
+        grads = []
+
+        def save_grad():
+            def hook(grad):
+                grads.append(grad.cpu().numpy().copy())
+                grad.data.zero_()
+
+            return hook
+
+        input_grad.register_hook(save_grad())
+
+        self._model.zero_grad()
+        if label is None:
+            for i in range(self.nb_classes):
+                torch.autograd.backward(
+                    preds[:, i], torch.tensor([1.0] * len(preds[:, 0])).to(self._device), retain_graph=True,
+                )
+
+        elif isinstance(label, (int, np.integer)):
+            torch.autograd.backward(
+                preds[:, label], torch.tensor([1.0] * len(preds[:, 0])).to(self._device), retain_graph=True,
+            )
+        else:
+            unique_label = list(np.unique(label))
+            for i in unique_label:
+                torch.autograd.backward(
+                    preds[:, i], torch.tensor([1.0] * len(preds[:, 0])).to(self._device), retain_graph=True,
+                )
+
+            grads = np.swapaxes(np.array(grads), 0, 1)
+            lst = [unique_label.index(i) for i in label]
+            grads = grads[np.arange(len(grads)), lst]
+
+            grads = grads[None, ...]
+
+        grads = np.swapaxes(np.array(grads), 0, 1)
+        grads = self._apply_preprocessing_gradient(x, grads)
+
+        return preds_np, grads
