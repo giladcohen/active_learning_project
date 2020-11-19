@@ -20,6 +20,7 @@ from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, \
     get_loader_with_specific_inds, get_normalized_tensor
 from active_learning_project.attacks.ball_explorer import BallExplorer
+from active_learning_project.utils import convert_tensor_to_image
 
 import matplotlib.pyplot as plt
 
@@ -36,8 +37,8 @@ parser.add_argument('--subset', default=500, type=int, help='attack only subset 
 
 # for exploration
 parser.add_argument('--norm', default='L2', type=str, help='norm or ball distance')
-parser.add_argument('--eps', default=0.01, type=float, help='the ball radius for exploration')
-parser.add_argument('--num_points', default=20, type=int, help='the number of gradients to sample')
+parser.add_argument('--eps', default=10.0, type=float, help='the ball radius for exploration')
+parser.add_argument('--num_points', default=300, type=int, help='the number of gradients to sample')
 parser.add_argument('--output', default='loss', type=str, help='pred or loss')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -208,24 +209,65 @@ print('calculating adv gradients in ball...')
 x_ball_adv, outputs_adv, grads_adv = explorer.generate(X_test_adv)
 print('done')
 
-# get loss in ball
-# first, for each image sort all the samples by L2 distance from the main
+# first, for each image sort all the samples by norm distance from the main
 x_dist     = np.empty((test_size, args.num_points), dtype=np.float32)
 x_adv_dist = np.empty((test_size, args.num_points), dtype=np.float32)
 for j in range(args.num_points):
-    x_dist[:, j]     = np.linalg.norm((x_ball[:, j] - X_test).reshape((test_size, -1)), axis=1)
-    x_adv_dist[:, j] = np.linalg.norm((x_ball_adv[:, j] - X_test_adv).reshape((test_size, -1)), axis=1)
-ranks = x_dist.argsort(axis=1)
+    x_dist[:, j]     = np.linalg.norm((x_ball[:, j] - X_test).reshape((test_size, -1)), axis=1, ord=norm)
+    x_adv_dist[:, j] = np.linalg.norm((x_ball_adv[:, j] - X_test_adv).reshape((test_size, -1)), axis=1, ord=norm)
+ranks     = x_dist.argsort(axis=1)
 ranks_adv = x_adv_dist.argsort(axis=1)
 
-i=70
+# sorting the points in the ball
+for i in range(test_size):
+    rks     = ranks[i]
+    rks_adv = ranks_adv[i]
+    x_ball[i]      = x_ball[i, rks]
+    outputs[i]     = outputs[i, rks]
+    grads_norm[i]  = grads_norm[i, rks]
+    x_dist[i]      = x_dist[i, rks]
+    x_ball_adv[i]  = x_ball_adv[i, rks_adv]
+    outputs_adv[i] = outputs_adv[i, rks_adv]
+    grads_adv[i]   = grads_adv[i, rks_adv]
+    x_adv_dist[i]  = x_adv_dist[i, rks_adv]
+
+# converting everything from 3x32x32 to 32x32x3
+X_test_img     = convert_tensor_to_image(X_test)
+X_test_adv_img = convert_tensor_to_image(X_test_adv)
+x_ball_img     = convert_tensor_to_image(x_ball.reshape((test_size * args.num_points, ) + X_test.shape[1:])) \
+                .reshape((test_size, args.num_points) + X_test_img.shape[1:])
+x_ball_adv_img = convert_tensor_to_image(x_ball_adv.reshape((test_size * args.num_points, ) + X_test.shape[1:])) \
+                .reshape((test_size, args.num_points) + X_test_img.shape[1:])
+
+# visualizing the images in the ball
+n_imgs = 5   # number of images
+n_dist = 10  # number of distortions
+assert args.num_points % n_dist == 0
+p_delta = int(args.num_points / n_dist)
+inds = rand_gen.choice(f3_inds, n_imgs, replace=False)
+fig = plt.figure(figsize=(n_dist, 2 * n_imgs))
+for i in range(n_imgs):
+    for p in range(n_dist):
+        loc = n_dist * (2 * i) + p + 1
+        fig.add_subplot(2 * n_imgs, n_dist, loc)
+        plt.imshow(x_ball_img[inds[i], p * p_delta])
+        plt.axis('off')
+        loc = n_dist * (2 * i + 1) + p + 1
+        fig.add_subplot(2 * n_imgs, n_dist, loc)
+        plt.imshow(x_ball_adv_img[inds[i], p * p_delta])
+        plt.axis('off')
+plt.tight_layout()
+plt.show()
+
+i = inds[4]
+
 plt.figure()
-plt.plot(outputs[i, ranks[i, :]])
+plt.plot(outputs[i])
 plt.title('Loss for x in ball vs L2 distance from original x. i={}'.format(i))
 plt.show()
 
 plt.figure()
-plt.plot(outputs_adv[i, ranks_adv[i, :]])
+plt.plot(outputs_adv[i])
 plt.title('Loss for x in ball vs L2 distance from original x_adv. i={}'.format(i))
 plt.show()
 

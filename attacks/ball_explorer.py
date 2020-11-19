@@ -62,34 +62,34 @@ class BallExplorer(object):
 
         return all_x_adv, all_output, all_grads
 
-    def random_sphere(self, nb_points: int, nb_dims: int, radius: float, norm: Union[int, float]) -> np.ndarray:
+    def random_sphere(self, nb_points: int, nb_dims: int, max_radius: float, norm: Union[int, float]) -> np.ndarray:
         """
         Generate randomly `m x n`-dimension points with radius `radius` and centered around 0.
 
         :param nb_points: Number of random data points.
         :param nb_dims: Dimensionality of the sphere.
-        :param radius: Radius of the sphere.
+        :param radius: Maximum radius of the sphere.
         :param norm: Current support: 1, 2, np.inf.
         :param rand_gen: a random state
         :return: The generated random sphere.
         """
-        if norm == 1:
-            a_tmp = np.zeros(shape=(nb_points, nb_dims + 1))
-            a_tmp[:, -1] = np.sqrt(self.rand_gen.uniform(0, radius ** 2, nb_points))
-
-            for i in range(nb_points):
-                a_tmp[i, 1:-1] = np.sort(self.rand_gen.uniform(0, a_tmp[i, -1], nb_dims - 1))
-
-            res = (a_tmp[:, 1:] - a_tmp[:, :-1]) * self.rand_gen.choice([-1, 1], (nb_points, nb_dims))
-        elif norm == 2:
-            a_tmp = self.rand_gen.randn(nb_points, nb_dims)
-            s_2 = np.sum(a_tmp ** 2, axis=1)
-            base = gammainc(nb_dims / 2.0, s_2 / 2.0) ** (1 / nb_dims) * radius / np.sqrt(s_2)
-            res = a_tmp * (np.tile(base, (nb_dims, 1))).T
-        elif norm == np.inf:
-            res = self.rand_gen.uniform(float(-radius), float(radius), (nb_points, nb_dims))
-        else:
-            raise NotImplementedError("Norm {} not supported".format(norm))
+        radius_vec = self.rand_gen.uniform(0.0, float(max_radius), nb_points)
+        # radius_vec = np.tile(max_radius, nb_points)  # debug
+        res = np.empty((nb_points, nb_dims), dtype=np.float32)
+        for i in range(nb_points):  # for every sample (with unique radius)...
+            radius = radius_vec[i]
+            if norm == 1:
+                a_tmp = np.zeros(nb_dims + 1)
+                a_tmp[-1] = radius
+                a_tmp[1:-1] = np.sort(self.rand_gen.uniform(0, a_tmp[-1], nb_dims - 1))
+                res[i] = (a_tmp[1:] - a_tmp[:-1]) * self.rand_gen.choice([-1, 1], nb_dims)
+            elif norm == 2:
+                a_tmp = self.rand_gen.randn(nb_dims)
+                s_2 = np.sum(a_tmp ** 2)
+                base = gammainc(nb_dims / 2.0, s_2 / 2.0) ** (1 / nb_dims) * radius / np.sqrt(s_2)
+                res[i] = a_tmp * np.tile(base, nb_dims)
+            elif norm == np.inf:
+                res[i, :] = self.rand_gen.uniform(float(-radius), float(radius), nb_dims)
 
         return res
 
