@@ -125,6 +125,61 @@ class PyTorchExtClassifier(PyTorchClassifier):  # lgtm [py/missing-call-to-init]
 
         return grads
 
+
+    def loss_preds_gradient_framework(self, x: "torch.Tensor", y: "torch.Tensor", wlg=True, wpg=True):
+        """
+        Compute the loss + preds + gradient of the loss + preds w.r.t. `x`.
+
+        :param x: Input with shape as expected by the model.
+        :param y: Target values (class labels) one-hot-encoded of shape (nb_samples, nb_classes) or indices of shape
+                  (nb_samples,).
+        :param wlg: include losses gradients. Boolean.
+        :param wpg: include preds gradients. Boolean.
+        :return: losses + preds + Gradients of the same shape as `x` (for loss) or None + Gradients of the shape
+        (B, N, cls, x.shape) (for preds) or None.
+        """
+
+        import torch  # lgtm [py/repeated-import]
+        from torch.autograd import Variable
+
+        # Check label shape
+        if self._reduce_labels:
+            y = torch.argmax(y, dim=1)
+
+        # Convert the inputs to Variable
+        x = Variable(x, requires_grad=True)
+
+        # Compute the gradient and return
+        model_outputs = self._model(x)
+        preds = model_outputs[-1]['logits']
+        loss_unreduced = self._loss2(model_outputs[-1]['logits'], y)
+
+        if not (wlg or wpg):
+            return loss_unreduced, preds, None, None
+
+        # compute loss grads
+        loss = loss_unreduced.mean()
+
+        # Clean gradients
+        self._model.zero_grad()
+
+        # Compute gradients
+        loss_grads = torch.autograd.grad(loss, x, retain_graph=True)[0]
+        assert loss_grads.shape == x.shape
+
+        if wlg and not wpg:
+            return loss_unreduced, preds, loss_grads, None
+
+        # compute pred grads
+        # clean gradients
+        self._model.zero_grad()
+
+        pred_grads = torch.empty((x.size(0), self.nb_classes) + x.size()[1:], dtype=torch.float32, device=self._device)
+        for c in range(self.nb_classes):
+            pred_grads[:, c] = torch.autograd.grad(preds[:, c], x, grad_outputs=torch.ones(preds.size(0), device=self._device), retain_graph=True)[0]
+
+        return loss_unreduced, preds, loss_grads, pred_grads
+
     def loss_and_loss_gradient_framework(self, x: "torch.Tensor", y: "torch.Tensor", **kwargs) -> \
             Tuple["torch.Tensor", "torch.Tensor"]:
         """

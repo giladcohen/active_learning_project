@@ -10,6 +10,7 @@ import json
 import os
 import argparse
 import sys
+import scipy
 from datetime import datetime
 from sklearn.decomposition import PCA
 
@@ -20,7 +21,7 @@ from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, \
     get_loader_with_specific_inds, get_normalized_tensor
 from active_learning_project.attacks.ball_explorer import BallExplorer
-from active_learning_project.utils import convert_tensor_to_image
+from active_learning_project.utils import convert_tensor_to_image, boolean_string
 
 import matplotlib.pyplot as plt
 
@@ -37,9 +38,10 @@ parser.add_argument('--subset', default=500, type=int, help='attack only subset 
 
 # for exploration
 parser.add_argument('--norm', default='L2', type=str, help='norm or ball distance')
-parser.add_argument('--eps', default=10.0, type=float, help='the ball radius for exploration')
+parser.add_argument('--eps', default=4.0, type=float, help='the ball radius for exploration')
 parser.add_argument('--num_points', default=300, type=int, help='the number of gradients to sample')
-parser.add_argument('--output', default='loss', type=str, help='pred or loss')
+parser.add_argument('--wlg', default=False, type=boolean_string, help='include losses gradients')
+parser.add_argument('--wpg', default=False, type=boolean_string, help='include preds attack')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -200,36 +202,50 @@ explorer = BallExplorer(
     eps=args.eps,
     num_points=args.num_points,
     batch_size=batch_size,
-    output=args.output
+    wlg=args.wlg,
+    wpg=args.wpg
 )
 
 print('calculating original gradients in ball...')
-x_ball, outputs, grads_norm = explorer.generate(X_test)
+# x_ball, losses, preds, losses_grads, preds_grads = explorer.generate(X_test)
+x_ball, losses, preds, _, _ = explorer.generate(X_test)
+
 print('calculating adv gradients in ball...')
-x_ball_adv, outputs_adv, grads_adv = explorer.generate(X_test_adv)
+# x_ball_adv, losses_adv, preds_adv, losses_grads_adv, preds_grads_adv = explorer.generate(X_test_adv)
+x_ball_adv, losses_adv, preds_adv, _, _ = explorer.generate(X_test_adv)
 print('done')
 
 # first, for each image sort all the samples by norm distance from the main
 x_dist     = np.empty((test_size, args.num_points), dtype=np.float32)
-x_adv_dist = np.empty((test_size, args.num_points), dtype=np.float32)
+x_dist_adv = np.empty((test_size, args.num_points), dtype=np.float32)
 for j in range(args.num_points):
     x_dist[:, j]     = np.linalg.norm((x_ball[:, j] - X_test).reshape((test_size, -1)), axis=1, ord=norm)
-    x_adv_dist[:, j] = np.linalg.norm((x_ball_adv[:, j] - X_test_adv).reshape((test_size, -1)), axis=1, ord=norm)
+    x_dist_adv[:, j] = np.linalg.norm((x_ball_adv[:, j] - X_test_adv).reshape((test_size, -1)), axis=1, ord=norm)
 ranks     = x_dist.argsort(axis=1)
-ranks_adv = x_adv_dist.argsort(axis=1)
+ranks_adv = x_dist_adv.argsort(axis=1)
 
 # sorting the points in the ball
 for i in range(test_size):
     rks     = ranks[i]
     rks_adv = ranks_adv[i]
-    x_ball[i]      = x_ball[i, rks]
-    outputs[i]     = outputs[i, rks]
-    grads_norm[i]  = grads_norm[i, rks]
-    x_dist[i]      = x_dist[i, rks]
-    x_ball_adv[i]  = x_ball_adv[i, rks_adv]
-    outputs_adv[i] = outputs_adv[i, rks_adv]
-    grads_adv[i]   = grads_adv[i, rks_adv]
-    x_adv_dist[i]  = x_adv_dist[i, rks_adv]
+
+    x_ball[i]           = x_ball[i, rks]
+    losses[i]           = losses[i, rks]
+    preds[i]            = preds[i, rks]
+    # losses_grads[i]     = losses_grads[i, rks]
+    # preds_grads[i]      = preds_grads[i, rks]
+    x_dist[i]           = x_dist[i, rks]
+
+    x_ball_adv[i]       = x_ball_adv[i, rks_adv]
+    losses_adv[i]       = losses_adv[i, rks_adv]
+    preds_adv[i]        = preds_adv[i, rks_adv]
+    # losses_grads_adv[i] = losses_grads_adv[i, rks_adv]
+    # preds_grads_adv[i]  = preds_grads_adv[i, rks_adv]
+    x_dist_adv[i]       = x_dist_adv[i, rks_adv]
+
+# calculating softmax predictions:
+probs     = scipy.special.softmax(preds, axis=2)
+probs_adv = scipy.special.softmax(preds_adv, axis=2)
 
 # converting everything from 3x32x32 to 32x32x3
 X_test_img     = convert_tensor_to_image(X_test)
@@ -259,72 +275,79 @@ for i in range(n_imgs):
 plt.tight_layout()
 plt.show()
 
-i = inds[4]
+i = inds[1]
 
+# plotting loss
 plt.figure()
-plt.plot(outputs[i])
+plt.plot(100.0 * (losses[i] - losses[i, 0])/losses[i, 0])
 plt.title('Loss for x in ball vs L2 distance from original x. i={}'.format(i))
 plt.show()
 
 plt.figure()
-plt.plot(outputs_adv[i])
+plt.plot(100.0 * (losses_adv[i] - losses_adv[i, 0])/losses_adv[i, 0])
 plt.title('Loss for x in ball vs L2 distance from original x_adv. i={}'.format(i))
+plt.show()
+
+# plotting probabilities raw values
+n_cols = 5
+n_rows = int(np.ceil(len(classes) / n_cols))
+fig = plt.figure(figsize=(10 * n_cols, 10 * n_rows))
+for c in range(len(classes)):
+    loc = c + 1
+    ax1 = fig.add_subplot(n_rows, n_cols, loc)
+    ax1.set_xlabel('noise rank')
+    ax1.set_ylabel('normal probs[{}]'.format(c), color='blue')
+    ax1.set_ylim(-0.05, 1.05)
+    ax1.plot(probs[i, :, c], color='blue')
+    ax1.tick_params(axis='y', labelcolor='blue')
+
+    ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+    ax2.set_ylabel('adv probs[{}]'.format(c), color='red')
+    ax2.set_ylim(-0.05, 1.05)
+    ax2.plot(probs_adv[i, :, c], color='red')
+    ax2.tick_params(axis='y', labelcolor='red')
+plt.tight_layout()
+fig.suptitle('raw probs values for i={}'.format(i))
 plt.show()
 
 
 
+# plotting preds raw values
+n_cols = 5
+n_rows = int(np.ceil(len(classes) / n_cols))
+fig = plt.figure(figsize=(10 * n_cols, 10 * n_rows))
+for c in range(len(classes)):
+    loc = c + 1
+    ax1 = fig.add_subplot(n_rows, n_cols, loc)
+    ax1.set_xlabel('noise rank')
+    ax1.set_ylabel('normal pred[{}]'.format(c), color='blue')
+    ax1.plot(preds[i, :, c], color='blue')
+    ax1.tick_params(axis='y', labelcolor='blue')
 
+    ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+    ax2.set_ylabel('adv pred[{}]'.format(c), color='red')
+    ax2.plot(preds_adv[i, :, c], color='red')
+    ax2.tick_params(axis='y', labelcolor='red')
+plt.tight_layout()
+fig.suptitle('raw preds values for i={}'.format(i))
+plt.show()
 
-# get stats
-grads_norm_mean_abs             = np.abs(grads_norm).mean(axis=(1, 2, 3, 4))
-grads_norm_mean_abs_center      = np.abs(grads_norm)[:, 0].mean(axis=(1, 2, 3))
-grads_norm_diff_center          = grads_norm[:, 1:] - np.expand_dims(grads_norm[:, 0], axis=1)
-grads_norm_diff_center_mean_abs = np.abs(grads_norm_diff_center).mean(axis=(1, 2, 3, 4))
+# plotting preds relative values
+n_cols = 5
+n_rows = int(np.ceil(len(classes) / n_cols))
+fig = plt.figure(figsize=(10 * n_cols, 10 * n_rows))
+for c in range(len(classes)):
+    loc = c + 1
+    ax1 = fig.add_subplot(n_rows, n_cols, loc)
+    ax1.set_xlabel('noise rank')
+    ax1.set_ylabel('normal relative pred[{}]'.format(c), color='blue')
+    ax1.plot(100.0 * (preds[i, :, c] - preds[i, 0, c]) / np.abs(preds[i, 0, c]), color='blue')
+    ax1.tick_params(axis='y', labelcolor='blue')
 
-grads_adv_mean_abs              = np.abs(grads_adv).mean(axis=(1, 2, 3, 4))
-grads_adv_mean_abs_center       = np.abs(grads_adv)[:, 0].mean(axis=(1, 2, 3))
-grads_adv_diff_center           = grads_adv[:, 1:] - np.expand_dims(grads_adv[:, 0], axis=1)
-grads_adv_diff_center_mean_abs  = np.abs(grads_adv_diff_center).mean(axis=(1, 2, 3, 4))
-
-# calculate ratio of adv/norm
-grads_adv_norm_ratio = grads_adv_diff_center_mean_abs / grads_norm_diff_center_mean_abs
-acc = np.mean(grads_adv_norm_ratio[f3_inds] > 1.0)
-grads_adv_norm_ratio_just_center = grads_adv_mean_abs_center / grads_norm_mean_abs_center
-acc_just_center = np.mean(grads_adv_norm_ratio_just_center[f3_inds] > 1.0)
-print('accuracy of adversarial detection. plain: {:.2f}%, with ball: {:.2f}%'.format(100. * acc_just_center, 100. * acc))
-
-
-
-# printing PCA for one sample (from f3 inds).
-i = 40
-plt.close()
-plt.figure()
-pca = PCA(n_components=2, random_state=rand_gen, whiten=False)
-pca.fit(np.abs(grads_norm)[i].reshape(args.num_points, -1))
-grads_norm_proj = pca.transform(np.abs(grads_norm)[i].reshape(args.num_points, -1))
-plt.scatter(grads_norm_proj[1:, 0], grads_norm_proj[1:, 1], s=10, marker='o', c='blue', label='in ball')
-plt.scatter(grads_norm_proj[0, 0], grads_norm_proj[0, 1], s=50, marker='X', c='red', label='original')
-x_min, x_max = grads_norm_proj[:, 0].min(), grads_norm_proj[:, 0].max()
-y_min, y_max = grads_norm_proj[:, 1].min(), grads_norm_proj[:, 1].max()
-x_gap = x_max - x_min
-y_gap = y_max - y_min
-plt.xlim([x_min - 0.04*x_gap, x_max + 0.04*x_gap])
-plt.ylim([y_min - 0.04*y_gap, y_max + 0.04*y_gap])
-plt.legend()
-plt.title('PCA 2D map for normal images. i={}'.format(i))
-
-plt.figure()
-pca = PCA(n_components=2, random_state=rand_gen, whiten=False)
-pca.fit(np.abs(grads_adv)[i].reshape(args.num_points, -1))
-grads_adv_proj = pca.transform(np.abs(grads_adv)[i].reshape(args.num_points, -1))
-plt.scatter(grads_adv_proj[1:, 0], grads_adv_proj[1:, 1], s=10, marker='o', c='blue', label='in ball')
-plt.scatter(grads_adv_proj[0, 0], grads_adv_proj[0, 1], s=50, marker='X', c='red', label='original')
-x_min, x_max = grads_adv_proj[:, 0].min(), grads_adv_proj[:, 0].max()
-y_min, y_max = grads_adv_proj[:, 1].min(), grads_adv_proj[:, 1].max()
-x_gap = x_max - x_min
-y_gap = y_max - y_min
-plt.xlim([x_min - 0.04*x_gap, x_max + 0.04*x_gap])
-plt.ylim([y_min - 0.04*y_gap, y_max + 0.04*y_gap])
-plt.legend()
-plt.title('PCA 2D map for adv images. i={}'.format(i))
+    ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+    ax2.set_ylabel('adv relative pred[{}]'.format(c), color='red')
+    ax2.plot(100.0 * (preds_adv[i, :, c] - preds_adv[i, 0, c]) / np.abs(preds_adv[i, 0, c]), color='red')
+    ax2.tick_params(axis='y', labelcolor='red')
+plt.tight_layout()
+fig.suptitle('relative preds values for i={}'.format(i))
 plt.show()
