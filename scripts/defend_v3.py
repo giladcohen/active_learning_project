@@ -21,7 +21,7 @@ from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, \
     get_loader_with_specific_inds, get_normalized_tensor
 from active_learning_project.attacks.ball_explorer import BallExplorer
-from active_learning_project.utils import convert_tensor_to_image, boolean_string
+from active_learning_project.utils import convert_tensor_to_image, boolean_string, majority_vote
 
 import matplotlib.pyplot as plt
 
@@ -32,14 +32,14 @@ from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchEx
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='deepfool', type=str, help='attack directory')
-parser.add_argument('--save_dir', default='debug', type=str, help='reverse dir')
+parser.add_argument('--save_dir', default='ball_rev_L2_eps_8_n_1000', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--subset', default=500, type=int, help='attack only subset of test set')
+parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
 
 # for exploration
 parser.add_argument('--norm', default='L2', type=str, help='norm or ball distance')
-parser.add_argument('--eps', default=4.0, type=float, help='the ball radius for exploration')
-parser.add_argument('--num_points', default=300, type=int, help='the number of gradients to sample')
+parser.add_argument('--eps', default=8.0, type=float, help='the ball radius for exploration')
+parser.add_argument('--num_points', default=1000, type=int, help='the number of gradients to sample')
 parser.add_argument('--wlg', default=False, type=boolean_string, help='include losses gradients')
 parser.add_argument('--wpg', default=False, type=boolean_string, help='include preds attack')
 
@@ -206,43 +206,64 @@ explorer = BallExplorer(
     wpg=args.wpg
 )
 
-print('calculating original gradients in ball...')
-# x_ball, losses, preds, losses_grads, preds_grads = explorer.generate(X_test)
-x_ball, losses, preds, _, _ = explorer.generate(X_test)
+if not os.path.exists(os.path.join(SAVE_DIR, 'x_ball.npy')):
+    print('calculating original gradients in ball...')
+    # x_ball, losses, preds, losses_grads, preds_grads = explorer.generate(X_test)
+    x_ball, losses, preds = explorer.generate(X_test)
 
-print('calculating adv gradients in ball...')
-# x_ball_adv, losses_adv, preds_adv, losses_grads_adv, preds_grads_adv = explorer.generate(X_test_adv)
-x_ball_adv, losses_adv, preds_adv, _, _ = explorer.generate(X_test_adv)
-print('done')
+    print('calculating adv gradients in ball...')
+    # x_ball_adv, losses_adv, preds_adv, losses_grads_adv, preds_grads_adv = explorer.generate(X_test_adv)
+    x_ball_adv, losses_adv, preds_adv = explorer.generate(X_test_adv)
+    print('done calculating x ball')
 
-# first, for each image sort all the samples by norm distance from the main
-x_dist     = np.empty((test_size, args.num_points), dtype=np.float32)
-x_dist_adv = np.empty((test_size, args.num_points), dtype=np.float32)
-for j in range(args.num_points):
-    x_dist[:, j]     = np.linalg.norm((x_ball[:, j] - X_test).reshape((test_size, -1)), axis=1, ord=norm)
-    x_dist_adv[:, j] = np.linalg.norm((x_ball_adv[:, j] - X_test_adv).reshape((test_size, -1)), axis=1, ord=norm)
-ranks     = x_dist.argsort(axis=1)
-ranks_adv = x_dist_adv.argsort(axis=1)
+    # first, for each image sort all the samples by norm distance from the main
+    x_dist     = np.empty((test_size, args.num_points), dtype=np.float32)
+    x_dist_adv = np.empty((test_size, args.num_points), dtype=np.float32)
+    for j in range(args.num_points):
+        x_dist[:, j]     = np.linalg.norm((x_ball[:, j] - X_test).reshape((test_size, -1)), axis=1, ord=norm)
+        x_dist_adv[:, j] = np.linalg.norm((x_ball_adv[:, j] - X_test_adv).reshape((test_size, -1)), axis=1, ord=norm)
+    ranks     = x_dist.argsort(axis=1)
+    ranks_adv = x_dist_adv.argsort(axis=1)
 
-# sorting the points in the ball
-for i in range(test_size):
-    rks     = ranks[i]
-    rks_adv = ranks_adv[i]
+    # sorting the points in the ball
+    for i in range(test_size):
+        rks     = ranks[i]
+        rks_adv = ranks_adv[i]
 
-    x_ball[i]           = x_ball[i, rks]
-    losses[i]           = losses[i, rks]
-    preds[i]            = preds[i, rks]
-    # losses_grads[i]     = losses_grads[i, rks]
-    # preds_grads[i]      = preds_grads[i, rks]
-    x_dist[i]           = x_dist[i, rks]
+        x_ball[i]           = x_ball[i, rks]
+        losses[i]           = losses[i, rks]
+        preds[i]            = preds[i, rks]
+        # losses_grads[i]     = losses_grads[i, rks]
+        # preds_grads[i]      = preds_grads[i, rks]
+        x_dist[i]           = x_dist[i, rks]
 
-    x_ball_adv[i]       = x_ball_adv[i, rks_adv]
-    losses_adv[i]       = losses_adv[i, rks_adv]
-    preds_adv[i]        = preds_adv[i, rks_adv]
-    # losses_grads_adv[i] = losses_grads_adv[i, rks_adv]
-    # preds_grads_adv[i]  = preds_grads_adv[i, rks_adv]
-    x_dist_adv[i]       = x_dist_adv[i, rks_adv]
+        x_ball_adv[i]       = x_ball_adv[i, rks_adv]
+        losses_adv[i]       = losses_adv[i, rks_adv]
+        preds_adv[i]        = preds_adv[i, rks_adv]
+        # losses_grads_adv[i] = losses_grads_adv[i, rks_adv]
+        # preds_grads_adv[i]  = preds_grads_adv[i, rks_adv]
+        x_dist_adv[i]       = x_dist_adv[i, rks_adv]
 
+    print('start saving to disk ({})...'.format(SAVE_DIR))
+    np.save(os.path.join(SAVE_DIR, 'x_ball.npy'), x_ball)
+    np.save(os.path.join(SAVE_DIR, 'losses.npy'), losses)
+    np.save(os.path.join(SAVE_DIR, 'preds.npy'), preds)
+    np.save(os.path.join(SAVE_DIR, 'x_dist.npy'), x_dist)
+    np.save(os.path.join(SAVE_DIR, 'x_ball_adv.npy'), x_ball_adv)
+    np.save(os.path.join(SAVE_DIR, 'losses_adv.npy'), losses_adv)
+    np.save(os.path.join(SAVE_DIR, 'preds_adv.npy'), preds_adv)
+    np.save(os.path.join(SAVE_DIR, 'x_dist_adv.npy'), x_dist_adv)
+else:
+    x_ball     = np.load(os.path.join(SAVE_DIR, 'x_ball.npy'))
+    losses     = np.load(os.path.join(SAVE_DIR, 'losses.npy'))
+    preds      = np.load(os.path.join(SAVE_DIR, 'preds.npy'))
+    x_dist     = np.load(os.path.join(SAVE_DIR, 'x_dist.npy'))
+    x_ball_adv = np.load(os.path.join(SAVE_DIR, 'x_ball_adv.npy'))
+    losses_adv = np.load(os.path.join(SAVE_DIR, 'losses_adv.npy'))
+    preds_adv  = np.load(os.path.join(SAVE_DIR, 'preds_adv.npy'))
+    x_dist_adv = np.load(os.path.join(SAVE_DIR, 'x_dist_adv.npy'))
+
+exit(0)
 # calculating softmax predictions:
 probs     = scipy.special.softmax(preds, axis=2)
 probs_adv = scipy.special.softmax(preds_adv, axis=2)
@@ -275,79 +296,327 @@ for i in range(n_imgs):
 plt.tight_layout()
 plt.show()
 
-i = inds[1]
+i = inds[3]
+# plotting loss
+plt.figure()
+plt.plot(losses[i])
+plt.title('Raw loss for x in ball vs L2 distance from original normal x. i={}'.format(i))
+plt.show()
+
+plt.figure()
+plt.plot(losses_adv[i], 'red')
+plt.title('Raw loss for x in ball vs L2 distance from original x_adv x. i={}'.format(i))
+plt.show()
+
+plt.figure()
+plt.plot(losses[i], 'blue')
+plt.plot(losses_adv[i], 'red')
+plt.title('Raw losses for x in ball vs L2 distance from original. i={}'.format(i))
+plt.legend(['normal', 'adv'])
+plt.show()
 
 # plotting loss
 plt.figure()
-plt.plot(100.0 * (losses[i] - losses[i, 0])/losses[i, 0])
-plt.title('Loss for x in ball vs L2 distance from original x. i={}'.format(i))
+plt.plot((losses[i] - losses[i, 0])/losses[i, 0])
+plt.title('Relative loss for x in ball vs L2 distance from original x. i={}'.format(i))
 plt.show()
 
 plt.figure()
-plt.plot(100.0 * (losses_adv[i] - losses_adv[i, 0])/losses_adv[i, 0])
-plt.title('Loss for x in ball vs L2 distance from original x_adv. i={}'.format(i))
+plt.plot((losses_adv[i] - losses_adv[i, 0])/losses_adv[i, 0], 'red')
+plt.title('Relative loss for x in ball vs L2 distance from original x_adv. i={}'.format(i))
 plt.show()
 
-# plotting probabilities raw values
-n_cols = 5
-n_rows = int(np.ceil(len(classes) / n_cols))
-fig = plt.figure(figsize=(10 * n_cols, 10 * n_rows))
-for c in range(len(classes)):
-    loc = c + 1
-    ax1 = fig.add_subplot(n_rows, n_cols, loc)
-    ax1.set_xlabel('noise rank')
-    ax1.set_ylabel('normal probs[{}]'.format(c), color='blue')
-    ax1.set_ylim(-0.05, 1.05)
-    ax1.plot(probs[i, :, c], color='blue')
-    ax1.tick_params(axis='y', labelcolor='blue')
+# plotting norm + adv loss on the same plot
+plt.figure()
+plt.plot((losses[i] - losses[i, 0])/losses[i, 0], 'blue')
+plt.plot((losses_adv[i] - losses_adv[i, 0])/losses_adv[i, 0], 'red')
+plt.title('Relative loss for x in ball vs L2 distance from original. i={}'.format(i))
+plt.legend(['normal', 'adv'])
+plt.show()
 
-    ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
-    ax2.set_ylabel('adv probs[{}]'.format(c), color='red')
-    ax2.set_ylim(-0.05, 1.05)
-    ax2.plot(probs_adv[i, :, c], color='red')
-    ax2.tick_params(axis='y', labelcolor='red')
-plt.tight_layout()
-fig.suptitle('raw probs values for i={}'.format(i))
+# Finding a single value to threshold for norm/adv.
+# guess #1: integral(loss)
+intg_losses     = np.sum(losses, axis=1)
+intg_losses_adv = np.sum(losses_adv, axis=1)
+plt.figure()
+plt.hist(intg_losses[f3_inds], alpha=0.5, label='normal', bins=150, density=True)
+plt.hist(intg_losses_adv[f3_inds], alpha=0.5, label='adv', bins=150, density=True)
+plt.legend(loc='upper right')
+plt.ylim(0, 0.005)
+plt.show()
+
+# guess #2: integral(relative loss)
+rel_losses     = np.zeros_like(losses)
+rel_losses_adv = np.zeros_like(losses)
+for i in range(test_size):
+    rel_losses[i]     = (losses[i] - losses[i, 0])/losses[i, 0]
+    rel_losses_adv[i] = (losses_adv[i] - losses_adv[i, 0])/losses_adv[i, 0]
+intg_rel_losses     = np.sum(rel_losses, axis=1)
+intg_rel_losses_adv = np.sum(rel_losses_adv, axis=1)
+
+plt.figure()
+plt.hist(intg_rel_losses[f3_inds], alpha=0.5, label='normal', bins=100, range=[-300, 250000])
+plt.hist(intg_rel_losses_adv[f3_inds], alpha=0.5, label='adv', bins=100, range=[-300, 250000])
+plt.legend(loc='upper right')
+# plt.xlim(-300, 500000)
+plt.ylim(0, 500)
+plt.show()
+
+# guess #3: max(relative loss)
+max_rel_losses     = np.max(rel_losses, axis=1)
+max_rel_losses_adv = np.max(rel_losses_adv, axis=1)
+
+plt.figure()
+plt.hist(max_rel_losses[f3_inds], alpha=0.5, label='normal', range=[0, 10000], bins=100)
+plt.hist(intg_rel_losses_adv[f3_inds], alpha=0.5, label='adv', range=[0, 10000], bins=100)
+plt.legend(loc='upper right')
+# plt.xlim(-300, 500000)
+plt.show()
+
+# guess #4: rank @rel_loss=100*orig rel_loss
+top_rank     = args.num_points * np.ones(test_size)
+top_rank_adv = args.num_points * np.ones(test_size)
+for i in range(test_size):
+    max_val = np.max(rel_losses[i])
+    if max_val == 0.0:
+        continue
+    thd_val = 0.5 * max_val
+    top_rank[i] = np.argmax(rel_losses[i] > thd_val)
+
+    max_val = np.max(rel_losses_adv[i])
+    if max_val == 0.0:
+        continue
+    thd_val = 0.5 * max_val
+    top_rank_adv[i] = np.argmax(rel_losses_adv[i] > thd_val)
+
+plt.figure()
+plt.hist(top_rank[f3_inds], alpha=0.5, label='normal', bins=30)
+plt.hist(top_rank_adv[f3_inds], alpha=0.5, label='adv', bins=30)
+plt.legend(loc='upper right')
+# plt.xlim(-300, 500000)
+plt.show()
+
+# guess 5: detection. integral(loss) from rank=0 until rank=@first pred switch
+switch_rank      = -10 * np.ones(test_size)
+switch_rank_adv  = -10 * np.ones(test_size)
+y_ball_preds     = probs.argmax(axis=2)
+y_ball_adv_preds = probs_adv.argmax(axis=2)
+for i in range(test_size):
+    rk = np.where(y_ball_preds[i] != y_test_preds[i])[0]
+    if rk.size != 0:
+        switch_rank[i] = rk[0]
+    rk = np.where(y_ball_adv_preds[i] != y_test_adv_preds[i])[0]
+    if rk.size != 0:
+        switch_rank_adv[i] = rk[0]
+
+plt.figure()
+plt.hist(switch_rank[f3_inds], alpha=0.5, label='normal', bins=100)
+plt.hist(switch_rank_adv[f3_inds], alpha=0.5, label='adv', bins=100)
+plt.legend(loc='upper right')
+# plt.xlim(-300, 500000)
+plt.show()
+
+# guess 6: detection. rank=@first pred switch
+num_switches     = np.empty(test_size)
+num_switches_adv = np.empty(test_size)
+for i in range(test_size):
+    num_switches[i]     = np.where(y_ball_preds[i] != y_test_preds[i])[0].size
+    num_switches_adv[i] = np.where(y_ball_adv_preds[i] != y_test_adv_preds[i])[0].size
+
+plt.figure()
+plt.hist(num_switches[f3_inds], alpha=0.5, label='normal', bins=100)
+plt.hist(num_switches_adv[f3_inds], alpha=0.5, label='adv', bins=100)
+plt.legend(loc='upper right')
+# plt.xlim(-300, 500000)
+plt.show()
+
+# guess 7: integral(sw) only for switched ranks
+switch_ranks     = []
+switch_ranks_adv = []
+y_ball_preds     = probs.argmax(axis=2)
+y_ball_adv_preds = probs_adv.argmax(axis=2)
+for i in range(test_size):
+    rks = np.where(y_ball_preds[i] != y_test_preds[i])[0]
+    switch_ranks.append(rks)
+    rks = np.where(y_ball_adv_preds[i] != y_test_adv_preds[i])[0]
+    switch_ranks_adv.append(rks)
+
+intg_sw     = np.zeros(test_size)
+intg_sw_adv = np.zeros(test_size)
+for i in range(test_size):
+    for sw in switch_ranks[i]:
+        intg_sw[i] += sw
+    for sw in switch_ranks_adv[i]:
+        intg_sw_adv[i] += sw
+
+plt.figure()
+plt.hist(intg_sw[f3_inds], alpha=0.5, label='normal', bins=100)
+plt.hist(intg_sw_adv[f3_inds], alpha=0.5, label='adv', bins=100)
+plt.legend(loc='upper right')
+# plt.xlim(-300, 500000)
+plt.show()
+
+# guess 8: integral(loss) only for switched ranks
+intg_loss_sw     = np.zeros(test_size)
+intg_loss_sw_adv = np.zeros(test_size)
+for i in range(test_size):
+    for sw in switch_ranks[i]:
+        intg_loss_sw[i] += losses[i, sw]
+    for sw in switch_ranks_adv[i]:
+        intg_loss_sw_adv[i] += losses_adv[i, sw]
+
+plt.figure()
+plt.hist(intg_loss_sw[f3_inds], alpha=0.5, label='normal', bins=100)
+plt.hist(intg_loss_sw_adv[f3_inds], alpha=0.5, label='adv', bins=100)
+plt.legend(loc='upper right')
+# plt.xlim(-300, 500000)
+plt.show()
+
+# guess 9: integral(rel_loss) only for switched ranks
+intg_rel_loss_sw     = np.zeros(test_size)
+intg_rel_loss_sw_adv = np.zeros(test_size)
+for i in range(test_size):
+    for sw in switch_ranks[i]:
+        intg_rel_loss_sw[i] += rel_losses[i, sw]
+    for sw in switch_ranks_adv[i]:
+        intg_rel_loss_sw_adv[i] += rel_losses_adv[i, sw]
+
+plt.figure()
+plt.hist(intg_rel_loss_sw[f3_inds], alpha=0.5, label='normal', bins=100, range=[0.001, 1e7])
+plt.hist(intg_rel_loss_sw_adv[f3_inds], alpha=0.5, label='adv', bins=100, range=[0.001, 1e7])
+plt.legend(loc='upper right')
+# plt.xlim(-300, 500000)
+plt.show()
+
+# guess 10: integral(loss * prob) only for switched ranks
+intg_loss_prob_sw     = np.zeros(test_size)
+intg_loss_prob_sw_adv = np.zeros(test_size)
+for i in range(test_size):
+    orig_pred = y_test_preds[i]
+    for sw in switch_ranks[i]:
+        intg_loss_prob_sw[i] += (losses[i, sw] * probs[i, sw, orig_pred])
+    orig_pred = y_test_adv_preds[i]
+    for sw in switch_ranks_adv[i]:
+        intg_loss_prob_sw_adv[i] += (losses_adv[i, sw] * probs_adv[i, sw, orig_pred])
+
+plt.figure()
+plt.hist(intg_loss_prob_sw[f3_inds], alpha=0.5, label='normal', bins=100, range=[0.001, 60])
+plt.hist(intg_loss_prob_sw_adv[f3_inds], alpha=0.5, label='adv', bins=100, range=[0.001, 60])
+plt.legend(loc='upper right')
+# plt.xlim(-300, 500000)
+plt.show()
+
+# guess 11: integral(rel_loss * prob) only for switched ranks
+intg_rel_loss_prob_sw     = np.zeros(test_size)
+intg_rel_loss_prob_sw_adv = np.zeros(test_size)
+for i in range(test_size):
+    orig_pred = y_test_preds[i]
+    for sw in switch_ranks[i]:
+        intg_rel_loss_prob_sw[i] += (rel_losses[i, sw] * probs[i, sw, orig_pred])
+    orig_pred = y_test_adv_preds[i]
+    for sw in switch_ranks_adv[i]:
+        intg_rel_loss_prob_sw_adv[i] += (rel_losses_adv[i, sw] * probs_adv[i, sw, orig_pred])
+
+plt.figure()
+plt.hist(intg_rel_loss_prob_sw[f3_inds], alpha=0.5, label='normal', bins=100, range=[0.00001, 2000], density=True)
+plt.hist(intg_rel_loss_prob_sw_adv[f3_inds], alpha=0.5, label='adv', bins=100, range=[0.00001, 2000], density=True)
+plt.legend(loc='upper right')
+# plt.xlim(-300, 500000)
+plt.show()
+
+# guess 12: cum_sum loss
+cum_sum_losses     = np.cumsum(losses, axis=1)
+cum_sum_losses_adv = np.cumsum(losses_adv, axis=1)
+
+plt.figure()
+plt.hist(cum_sum_losses[f3_inds], alpha=0.5, label='normal', bins=100)
+plt.hist(cum_sum_losses_adv[f3_inds], alpha=0.5, label='adv', bins=100)
+plt.legend(loc='upper right')
+# plt.xlim(-300, 500000)
 plt.show()
 
 
+
+
+
+
+
+
+
+
+
+
+# guess #6: robustness. find label by integrating probs
+intg_probs     = np.sum(probs, axis=1)
+intg_probs_adv = np.sum(probs_adv, axis=1)
+defense_preds     = intg_probs.argmax(axis=1)
+defense_preds_adv = intg_probs_adv.argmax(axis=1)
+
+# guess #6: robustness. find label by integrating preds
+intg_preds     = np.sum(preds, axis=1)
+intg_preds_adv = np.sum(preds_adv, axis=1)
+defense_preds     = intg_preds.argmax(axis=1)
+defense_preds_adv = intg_preds_adv.argmax(axis=1)
+
+acc_all = np.mean(defense_preds == y_test)
+acc_f1 = np.mean(defense_preds[f1_inds] == y_test[f1_inds])
+acc_f2 = np.mean(defense_preds[f2_inds] == y_test[f2_inds])
+acc_f3 = np.mean(defense_preds[f3_inds] == y_test[f3_inds])
+
+acc_all_adv = np.mean(defense_preds_adv == y_test)
+acc_f1_adv = np.mean(defense_preds_adv[f1_inds] == y_test[f1_inds])
+acc_f2_adv = np.mean(defense_preds_adv[f2_inds] == y_test[f2_inds])
+acc_f3_adv = np.mean(defense_preds_adv[f3_inds] == y_test[f3_inds])
+
+print('Accuracy: all samples: {:.2f}/{:.2f}%, f1 samples: {:.2f}/{:.2f}%, f2 samples: {:.2f}/{:.2f}%, f3 samples: {:.2f}/{:.2f}%'
+      .format(acc_all * 100, acc_all_adv * 100, acc_f1 * 100, acc_f1_adv * 100, acc_f2 * 100, acc_f2_adv * 100, acc_f3 * 100, acc_f3_adv * 100))
+
+
+
+
+
+
+
+
+
+# # plotting probabilities raw values
+# n_cols = 5
+# n_rows = int(np.ceil(len(classes) / n_cols))
+# fig = plt.figure(figsize=(10 * n_cols, 10 * n_rows))
+# for c in range(len(classes)):
+#     loc = c + 1
+#     ax1 = fig.add_subplot(n_rows, n_cols, loc)
+#     ax1.set_xlabel('noise rank')
+#     ax1.set_ylabel('normal probs[{}]'.format(c), color='blue')
+#     ax1.set_ylim(-0.05, 1.05)
+#     ax1.plot(probs[i, :, c], color='blue')
+#     ax1.tick_params(axis='y', labelcolor='blue')
+#
+#     ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+#     ax2.set_ylabel('adv probs[{}]'.format(c), color='red')
+#     ax2.set_ylim(-0.05, 1.05)
+#     ax2.plot(probs_adv[i, :, c], color='red')
+#     ax2.tick_params(axis='y', labelcolor='red')
+# plt.tight_layout()
+# fig.suptitle('raw probs values for i={}'.format(i))
+# plt.show()
 
 # plotting preds raw values
-n_cols = 5
-n_rows = int(np.ceil(len(classes) / n_cols))
-fig = plt.figure(figsize=(10 * n_cols, 10 * n_rows))
-for c in range(len(classes)):
-    loc = c + 1
-    ax1 = fig.add_subplot(n_rows, n_cols, loc)
-    ax1.set_xlabel('noise rank')
-    ax1.set_ylabel('normal pred[{}]'.format(c), color='blue')
-    ax1.plot(preds[i, :, c], color='blue')
-    ax1.tick_params(axis='y', labelcolor='blue')
-
-    ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
-    ax2.set_ylabel('adv pred[{}]'.format(c), color='red')
-    ax2.plot(preds_adv[i, :, c], color='red')
-    ax2.tick_params(axis='y', labelcolor='red')
-plt.tight_layout()
-fig.suptitle('raw preds values for i={}'.format(i))
-plt.show()
-
-# plotting preds relative values
-n_cols = 5
-n_rows = int(np.ceil(len(classes) / n_cols))
-fig = plt.figure(figsize=(10 * n_cols, 10 * n_rows))
-for c in range(len(classes)):
-    loc = c + 1
-    ax1 = fig.add_subplot(n_rows, n_cols, loc)
-    ax1.set_xlabel('noise rank')
-    ax1.set_ylabel('normal relative pred[{}]'.format(c), color='blue')
-    ax1.plot(100.0 * (preds[i, :, c] - preds[i, 0, c]) / np.abs(preds[i, 0, c]), color='blue')
-    ax1.tick_params(axis='y', labelcolor='blue')
-
-    ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
-    ax2.set_ylabel('adv relative pred[{}]'.format(c), color='red')
-    ax2.plot(100.0 * (preds_adv[i, :, c] - preds_adv[i, 0, c]) / np.abs(preds_adv[i, 0, c]), color='red')
-    ax2.tick_params(axis='y', labelcolor='red')
-plt.tight_layout()
-fig.suptitle('relative preds values for i={}'.format(i))
-plt.show()
+# n_cols = 5
+# n_rows = int(np.ceil(len(classes) / n_cols))
+# fig = plt.figure(figsize=(10 * n_cols, 10 * n_rows))
+# for c in range(len(classes)):
+#     loc = c + 1
+#     ax1 = fig.add_subplot(n_rows, n_cols, loc)
+#     ax1.set_xlabel('noise rank')
+#     ax1.set_ylabel('normal pred[{}]'.format(c), color='blue')
+#     ax1.plot(preds[i, :, c], color='blue')
+#     ax1.tick_params(axis='y', labelcolor='blue')
+#
+#     ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+#     ax2.set_ylabel('adv pred[{}]'.format(c), color='red')
+#     ax2.plot(preds_adv[i, :, c], color='red')
+#     ax2.tick_params(axis='y', labelcolor='red')
+# plt.tight_layout()
+# fig.suptitle('raw preds values for i={}'.format(i))
+# plt.show()

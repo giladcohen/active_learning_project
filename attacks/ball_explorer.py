@@ -32,7 +32,12 @@ class BallExplorer(object):
         self.wlg = wlg
         self.wpg = wpg
 
-    def generate(self, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        assert not (self.wpg and not self.wlg)
+
+    def generate(self, x: np.ndarray) -> \
+            Union[Tuple[np.ndarray, np.ndarray, np.ndarray],
+                  Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray],
+                  Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
 
         targets = get_labels_np_array(self.classifier.predict(x, batch_size=self.batch_size))
         num_classes = targets.shape[1]
@@ -49,20 +54,30 @@ class BallExplorer(object):
 
         all_losses = np.empty((x.shape[0], self.num_points))
         all_preds = np.empty((x.shape[0], self.num_points, num_classes))
-        all_losses_grads = np.empty((x.shape[0], self.num_points) + x.shape[1:], dtype=np.float32)
-        all_preds_grads = np.empty((x.shape[0], self.num_points, num_classes) + x.shape[1:], dtype=np.float32)
+
+        if self.wlg:
+            all_losses_grads = np.empty((x.shape[0], self.num_points) + x.shape[1:], dtype=np.float32)
+        if self.wpg:
+            all_preds_grads = np.empty((x.shape[0], self.num_points, num_classes) + x.shape[1:], dtype=np.float32)
 
         for batch_id, batch in tqdm(enumerate(data_loader)):
             batch, batch_labels = batch
             batch_index_1, batch_index_2 = batch_id * self.batch_size, (batch_id + 1) * self.batch_size
+            out_np = self._generate_batch(batch, batch_labels)
+            all_x_adv[batch_index_1:batch_index_2]            = out_np[0]
+            all_losses[batch_index_1:batch_index_2]           = out_np[1]
+            all_preds[batch_index_1:batch_index_2]            = out_np[2]
+            if self.wlg:
+                all_losses_grads[batch_index_1:batch_index_2] = out_np[3]
+            if self.wpg:
+                all_preds_grads[batch_index_1:batch_index_2]  = out_np[4]
 
-            all_x_adv[batch_index_1:batch_index_2], \
-            all_losses[batch_index_1:batch_index_2], \
-            all_preds[batch_index_1:batch_index_2], \
-            all_losses_grads[batch_index_1:batch_index_2], \
-            all_preds_grads[batch_index_1:batch_index_2] = self._generate_batch(batch, batch_labels)
-
-        return all_x_adv, all_losses, all_preds, all_losses_grads, all_preds_grads
+        if not (self.wlg or self.wpg):
+            return all_x_adv, all_losses, all_preds
+        elif self.wlg and not self.wpg:
+            return all_x_adv, all_losses, all_preds, all_losses_grads
+        else:
+            return all_x_adv, all_losses, all_preds, all_losses_grads, all_preds_grads
 
     def random_sphere(self, nb_points: int, nb_dims: int, max_radius: float, norm: Union[int, float]) -> np.ndarray:
         """
@@ -119,8 +134,11 @@ class BallExplorer(object):
 
         losses_batch        = np.empty((self.batch_size, n), dtype=np.float32)
         preds_batch         = np.empty((self.batch_size, n, num_classes), dtype=np.float32)
-        losses_grads_batch  = np.empty((self.batch_size, n) + x.shape[1:], dtype=np.float32)
-        preds_grads_batch   = np.empty((self.batch_size, n, num_classes) + x.shape[1:], dtype=np.float32)
+        if self.wlg:
+            losses_grads_batch  = np.empty((self.batch_size, n) + x.shape[1:], dtype=np.float32)
+        if self.wpg:
+            preds_grads_batch   = np.empty((self.batch_size, n, num_classes) + x.shape[1:], dtype=np.float32)
+
         for i in range(self.num_points):
             out_tensor = self.classifier.loss_preds_gradient_framework(x_adv[:, i], targets, wlg=self.wlg, wpg=self.wpg)
             losses_batch[:, i] = out_tensor[0].data.cpu().numpy()
@@ -130,4 +148,9 @@ class BallExplorer(object):
             if self.wpg:
                 preds_grads_batch[:, i] = out_tensor[3].data.cpu().numpy()
 
-        return x_adv.data.cpu().numpy(), losses_batch, preds_batch, losses_grads_batch, preds_grads_batch
+        if not (self.wlg or self.wpg):
+            return x_adv.data.cpu().numpy(), losses_batch, preds_batch
+        elif self.wlg and not self.wpg:
+            return x_adv.data.cpu().numpy(), losses_batch, preds_batch, losses_grads_batch
+        else:
+            return x_adv.data.cpu().numpy(), losses_batch, preds_batch, losses_grads_batch, preds_grads_batch
