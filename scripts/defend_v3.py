@@ -207,46 +207,46 @@ explorer = BallExplorer(
 )
 
 if not os.path.exists(os.path.join(SAVE_DIR, 'x_ball.npy')):
-    print('calculating normal x in ball...')
-    x_ball, losses, preds = explorer.generate(X_test)
+    # print('calculating normal x in ball...')
+    # x_ball, losses, preds = explorer.generate(X_test)
 
-    # print('calculating adv x in ball...')
-    # x_ball_adv, losses_adv, preds_adv = explorer.generate(X_test_adv)
-    # print('done calculating x ball')
+    print('calculating adv x in ball...')
+    x_ball_adv, losses_adv, preds_adv = explorer.generate(X_test_adv)
+    print('done calculating x ball')
 
     # first, for each image sort all the samples by norm distance from the main
-    x_dist     = np.empty((test_size, args.num_points), dtype=np.float32)
-    # x_dist_adv = np.empty((test_size, args.num_points), dtype=np.float32)
+    # x_dist     = np.empty((test_size, args.num_points), dtype=np.float32)
+    x_dist_adv = np.empty((test_size, args.num_points), dtype=np.float32)
     for j in range(args.num_points):
-        x_dist[:, j]     = np.linalg.norm((x_ball[:, j] - X_test).reshape((test_size, -1)), axis=1, ord=norm)
-        # x_dist_adv[:, j] = np.linalg.norm((x_ball_adv[:, j] - X_test_adv).reshape((test_size, -1)), axis=1, ord=norm)
-    ranks     = x_dist.argsort(axis=1)
-    # ranks_adv = x_dist_adv.argsort(axis=1)
+        # x_dist[:, j]     = np.linalg.norm((x_ball[:, j] - X_test).reshape((test_size, -1)), axis=1, ord=norm)
+        x_dist_adv[:, j] = np.linalg.norm((x_ball_adv[:, j] - X_test_adv).reshape((test_size, -1)), axis=1, ord=norm)
+    # ranks     = x_dist.argsort(axis=1)
+    ranks_adv = x_dist_adv.argsort(axis=1)
 
     # sorting the points in the ball
     for i in range(test_size):
-        rks     = ranks[i]
-        # rks_adv = ranks_adv[i]
+        # rks     = ranks[i]
+        rks_adv = ranks_adv[i]
 
-        x_ball[i]           = x_ball[i, rks]
-        losses[i]           = losses[i, rks]
-        preds[i]            = preds[i, rks]
-        x_dist[i]           = x_dist[i, rks]
+        # x_ball[i]           = x_ball[i, rks]
+        # losses[i]           = losses[i, rks]
+        # preds[i]            = preds[i, rks]
+        # x_dist[i]           = x_dist[i, rks]
 
-        # x_ball_adv[i]       = x_ball_adv[i, rks_adv]
-        # losses_adv[i]       = losses_adv[i, rks_adv]
-        # preds_adv[i]        = preds_adv[i, rks_adv]
-        # x_dist_adv[i]       = x_dist_adv[i, rks_adv]
+        x_ball_adv[i]       = x_ball_adv[i, rks_adv]
+        losses_adv[i]       = losses_adv[i, rks_adv]
+        preds_adv[i]        = preds_adv[i, rks_adv]
+        x_dist_adv[i]       = x_dist_adv[i, rks_adv]
 
     print('start saving to disk ({})...'.format(SAVE_DIR))
-    np.save(os.path.join(SAVE_DIR, 'x_ball.npy'), x_ball)
-    np.save(os.path.join(SAVE_DIR, 'losses.npy'), losses)
-    np.save(os.path.join(SAVE_DIR, 'preds.npy'), preds)
-    np.save(os.path.join(SAVE_DIR, 'x_dist.npy'), x_dist)
-    # np.save(os.path.join(SAVE_DIR, 'x_ball_adv.npy'), x_ball_adv)
-    # np.save(os.path.join(SAVE_DIR, 'losses_adv.npy'), losses_adv)
-    # np.save(os.path.join(SAVE_DIR, 'preds_adv.npy'), preds_adv)
-    # np.save(os.path.join(SAVE_DIR, 'x_dist_adv.npy'), x_dist_adv)
+    # np.save(os.path.join(SAVE_DIR, 'x_ball.npy'), x_ball)
+    # np.save(os.path.join(SAVE_DIR, 'losses.npy'), losses)
+    # np.save(os.path.join(SAVE_DIR, 'preds.npy'), preds)
+    # np.save(os.path.join(SAVE_DIR, 'x_dist.npy'), x_dist)
+    np.save(os.path.join(SAVE_DIR, 'x_ball_adv.npy'), x_ball_adv)
+    np.save(os.path.join(SAVE_DIR, 'losses_adv.npy'), losses_adv)
+    np.save(os.path.join(SAVE_DIR, 'preds_adv.npy'), preds_adv)
+    np.save(os.path.join(SAVE_DIR, 'x_dist_adv.npy'), x_dist_adv)
 else:
     x_ball     = np.load(os.path.join(SAVE_DIR, 'x_ball.npy'))
     losses     = np.load(os.path.join(SAVE_DIR, 'losses.npy'))
@@ -413,7 +413,7 @@ plt.legend(loc='upper right')
 # plt.xlim(-300, 500000)
 plt.show()
 
-# guess 5: detection. integral(loss) from rank=0 until rank=@first pred switch
+# guess 5: detection. rank=@first pred switch
 first_sw_rank     = -10 * np.ones(test_size, dtype=np.int32)
 first_sw_rank_adv = -10 * np.ones(test_size, dtype=np.int32)
 for i in range(test_size):
@@ -429,42 +429,36 @@ plt.legend(loc='upper right')
 # plt.xlim(-300, 500000)
 plt.show()
 
-# guess 6: detection. rank=@first pred switch
-num_switches     = np.empty(test_size)
-num_switches_adv = np.empty(test_size)
+# guess 6: number of prediction switches
+num_switches     = np.zeros(test_size, dtype=np.int32)
+num_switches_adv = np.zeros(test_size, dtype=np.int32)
 for i in range(test_size):
-    num_switches[i]     = np.where(y_ball_preds[i] != y_test_preds[i])[0].size
-    num_switches_adv[i] = np.where(y_ball_adv_preds[i] != y_test_adv_preds[i])[0].size
+    num_switches[i]     = switch_ranks[i].size
+    num_switches_adv[i] = switch_ranks_adv[i].size
+    # num_switches[i]     = np.sum(switch_ranks[i] <= 100)
+    # num_switches_adv[i] = np.sum(switch_ranks_adv[i] <= 100)
 
 plt.figure()
-plt.hist(num_switches[f3_inds], alpha=0.5, label='normal', bins=100)
-plt.hist(num_switches_adv[f3_inds], alpha=0.5, label='adv', bins=100)
+plt.hist(num_switches[f3_inds], alpha=0.5, label='normal', bins=10)
+plt.hist(num_switches_adv[f3_inds], alpha=0.5, label='adv', bins=10)
 plt.legend(loc='upper right')
 # plt.xlim(-300, 500000)
 plt.show()
 
 # guess 7: integral(sw) only for switched ranks
-switch_ranks     = []
-switch_ranks_adv = []
-y_ball_preds     = probs.argmax(axis=2)
-y_ball_adv_preds = probs_adv.argmax(axis=2)
-for i in range(test_size):
-    rks = np.where(y_ball_preds[i] != y_test_preds[i])[0]
-    switch_ranks.append(rks)
-    rks = np.where(y_ball_adv_preds[i] != y_test_adv_preds[i])[0]
-    switch_ranks_adv.append(rks)
-
-intg_sw     = np.zeros(test_size)
-intg_sw_adv = np.zeros(test_size)
+intg_sw     = np.zeros(test_size, dtype=np.int32)
+intg_sw_adv = np.zeros(test_size, dtype=np.int32)
 for i in range(test_size):
     for sw in switch_ranks[i]:
-        intg_sw[i] += sw
+        # if sw <= 100:  # use fewer samples for best seperation
+            intg_sw[i] += sw
     for sw in switch_ranks_adv[i]:
-        intg_sw_adv[i] += sw
+        # if sw <= 100:
+            intg_sw_adv[i] += sw
 
 plt.figure()
-plt.hist(intg_sw[f3_inds], alpha=0.5, label='normal', bins=100)
-plt.hist(intg_sw_adv[f3_inds], alpha=0.5, label='adv', bins=100)
+plt.hist(intg_sw[f3_inds], alpha=0.5, label='normal', bins=10)
+plt.hist(intg_sw_adv[f3_inds], alpha=0.5, label='adv', bins=10)
 plt.legend(loc='upper right')
 # plt.xlim(-300, 500000)
 plt.show()
