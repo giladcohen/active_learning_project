@@ -34,7 +34,7 @@ parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness
 parser.add_argument('--attack_dir', default='deepfool', type=str, help='attack directory')
 parser.add_argument('--save_dir', default='ball_rev_L2_eps_8_n_1000', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
+parser.add_argument('--subset', default=100, type=int, help='attack only subset of test set')
 
 # for exploration
 parser.add_argument('--norm', default='L2', type=str, help='norm or ball distance')
@@ -207,52 +207,46 @@ explorer = BallExplorer(
 )
 
 if not os.path.exists(os.path.join(SAVE_DIR, 'x_ball.npy')):
-    print('calculating original gradients in ball...')
-    # x_ball, losses, preds, losses_grads, preds_grads = explorer.generate(X_test)
+    print('calculating normal x in ball...')
     x_ball, losses, preds = explorer.generate(X_test)
 
-    print('calculating adv gradients in ball...')
-    # x_ball_adv, losses_adv, preds_adv, losses_grads_adv, preds_grads_adv = explorer.generate(X_test_adv)
-    x_ball_adv, losses_adv, preds_adv = explorer.generate(X_test_adv)
-    print('done calculating x ball')
+    # print('calculating adv x in ball...')
+    # x_ball_adv, losses_adv, preds_adv = explorer.generate(X_test_adv)
+    # print('done calculating x ball')
 
     # first, for each image sort all the samples by norm distance from the main
     x_dist     = np.empty((test_size, args.num_points), dtype=np.float32)
-    x_dist_adv = np.empty((test_size, args.num_points), dtype=np.float32)
+    # x_dist_adv = np.empty((test_size, args.num_points), dtype=np.float32)
     for j in range(args.num_points):
         x_dist[:, j]     = np.linalg.norm((x_ball[:, j] - X_test).reshape((test_size, -1)), axis=1, ord=norm)
-        x_dist_adv[:, j] = np.linalg.norm((x_ball_adv[:, j] - X_test_adv).reshape((test_size, -1)), axis=1, ord=norm)
+        # x_dist_adv[:, j] = np.linalg.norm((x_ball_adv[:, j] - X_test_adv).reshape((test_size, -1)), axis=1, ord=norm)
     ranks     = x_dist.argsort(axis=1)
-    ranks_adv = x_dist_adv.argsort(axis=1)
+    # ranks_adv = x_dist_adv.argsort(axis=1)
 
     # sorting the points in the ball
     for i in range(test_size):
         rks     = ranks[i]
-        rks_adv = ranks_adv[i]
+        # rks_adv = ranks_adv[i]
 
         x_ball[i]           = x_ball[i, rks]
         losses[i]           = losses[i, rks]
         preds[i]            = preds[i, rks]
-        # losses_grads[i]     = losses_grads[i, rks]
-        # preds_grads[i]      = preds_grads[i, rks]
         x_dist[i]           = x_dist[i, rks]
 
-        x_ball_adv[i]       = x_ball_adv[i, rks_adv]
-        losses_adv[i]       = losses_adv[i, rks_adv]
-        preds_adv[i]        = preds_adv[i, rks_adv]
-        # losses_grads_adv[i] = losses_grads_adv[i, rks_adv]
-        # preds_grads_adv[i]  = preds_grads_adv[i, rks_adv]
-        x_dist_adv[i]       = x_dist_adv[i, rks_adv]
+        # x_ball_adv[i]       = x_ball_adv[i, rks_adv]
+        # losses_adv[i]       = losses_adv[i, rks_adv]
+        # preds_adv[i]        = preds_adv[i, rks_adv]
+        # x_dist_adv[i]       = x_dist_adv[i, rks_adv]
 
     print('start saving to disk ({})...'.format(SAVE_DIR))
     np.save(os.path.join(SAVE_DIR, 'x_ball.npy'), x_ball)
     np.save(os.path.join(SAVE_DIR, 'losses.npy'), losses)
     np.save(os.path.join(SAVE_DIR, 'preds.npy'), preds)
     np.save(os.path.join(SAVE_DIR, 'x_dist.npy'), x_dist)
-    np.save(os.path.join(SAVE_DIR, 'x_ball_adv.npy'), x_ball_adv)
-    np.save(os.path.join(SAVE_DIR, 'losses_adv.npy'), losses_adv)
-    np.save(os.path.join(SAVE_DIR, 'preds_adv.npy'), preds_adv)
-    np.save(os.path.join(SAVE_DIR, 'x_dist_adv.npy'), x_dist_adv)
+    # np.save(os.path.join(SAVE_DIR, 'x_ball_adv.npy'), x_ball_adv)
+    # np.save(os.path.join(SAVE_DIR, 'losses_adv.npy'), losses_adv)
+    # np.save(os.path.join(SAVE_DIR, 'preds_adv.npy'), preds_adv)
+    # np.save(os.path.join(SAVE_DIR, 'x_dist_adv.npy'), x_dist_adv)
 else:
     x_ball     = np.load(os.path.join(SAVE_DIR, 'x_ball.npy'))
     losses     = np.load(os.path.join(SAVE_DIR, 'losses.npy'))
@@ -296,7 +290,25 @@ for i in range(n_imgs):
 plt.tight_layout()
 plt.show()
 
-i = inds[3]
+i = inds[0]
+
+# get useful stats:
+rel_losses     = np.zeros_like(losses)
+rel_losses_adv = np.zeros_like(losses)
+for i in range(test_size):
+    rel_losses[i]     = (losses[i] - losses[i, 0])/losses[i, 0]
+    rel_losses_adv[i] = (losses_adv[i] - losses_adv[i, 0])/losses_adv[i, 0]
+
+switch_ranks     = []
+switch_ranks_adv = []
+y_ball_preds     = probs.argmax(axis=2)
+y_ball_adv_preds = probs_adv.argmax(axis=2)
+for i in range(test_size):
+    rks = np.where(y_ball_preds[i] != y_test_preds[i])[0]
+    switch_ranks.append(rks)
+    rks = np.where(y_ball_adv_preds[i] != y_test_adv_preds[i])[0]
+    switch_ranks_adv.append(rks)
+
 # plotting loss
 plt.figure()
 plt.plot(losses[i])
@@ -315,21 +327,20 @@ plt.title('Raw losses for x in ball vs L2 distance from original. i={}'.format(i
 plt.legend(['normal', 'adv'])
 plt.show()
 
-# plotting loss
+# plotting relative loss
 plt.figure()
-plt.plot((losses[i] - losses[i, 0])/losses[i, 0])
+plt.plot(rel_losses[i], 'blue')
 plt.title('Relative loss for x in ball vs L2 distance from original x. i={}'.format(i))
 plt.show()
 
 plt.figure()
-plt.plot((losses_adv[i] - losses_adv[i, 0])/losses_adv[i, 0], 'red')
+plt.plot(rel_losses_adv[i], 'red')
 plt.title('Relative loss for x in ball vs L2 distance from original x_adv. i={}'.format(i))
 plt.show()
 
-# plotting norm + adv loss on the same plot
 plt.figure()
-plt.plot((losses[i] - losses[i, 0])/losses[i, 0], 'blue')
-plt.plot((losses_adv[i] - losses_adv[i, 0])/losses_adv[i, 0], 'red')
+plt.plot(rel_losses[i], 'blue')
+plt.plot(rel_losses_adv[i], 'red')
 plt.title('Relative loss for x in ball vs L2 distance from original. i={}'.format(i))
 plt.legend(['normal', 'adv'])
 plt.show()
@@ -339,27 +350,22 @@ plt.show()
 intg_losses     = np.sum(losses, axis=1)
 intg_losses_adv = np.sum(losses_adv, axis=1)
 plt.figure()
-plt.hist(intg_losses[f3_inds], alpha=0.5, label='normal', bins=150, density=True)
-plt.hist(intg_losses_adv[f3_inds], alpha=0.5, label='adv', bins=150, density=True)
+plt.hist(intg_losses[f3_inds], alpha=0.5, label='normal', bins=10)
+plt.hist(intg_losses_adv[f3_inds], alpha=0.5, label='adv', bins=10)
 plt.legend(loc='upper right')
-plt.ylim(0, 0.005)
+# plt.ylim(0, 0.005)
 plt.show()
 
 # guess #2: integral(relative loss)
-rel_losses     = np.zeros_like(losses)
-rel_losses_adv = np.zeros_like(losses)
-for i in range(test_size):
-    rel_losses[i]     = (losses[i] - losses[i, 0])/losses[i, 0]
-    rel_losses_adv[i] = (losses_adv[i] - losses_adv[i, 0])/losses_adv[i, 0]
 intg_rel_losses     = np.sum(rel_losses, axis=1)
 intg_rel_losses_adv = np.sum(rel_losses_adv, axis=1)
 
 plt.figure()
-plt.hist(intg_rel_losses[f3_inds], alpha=0.5, label='normal', bins=100, range=[-300, 250000])
-plt.hist(intg_rel_losses_adv[f3_inds], alpha=0.5, label='adv', bins=100, range=[-300, 250000])
+plt.hist(intg_rel_losses[f3_inds], alpha=0.5, label='normal', bins=10)
+plt.hist(intg_rel_losses_adv[f3_inds], alpha=0.5, label='adv', bins=10)
 plt.legend(loc='upper right')
 # plt.xlim(-300, 500000)
-plt.ylim(0, 500)
+# plt.ylim(0, 500)
 plt.show()
 
 # guess #3: max(relative loss)
@@ -367,51 +373,58 @@ max_rel_losses     = np.max(rel_losses, axis=1)
 max_rel_losses_adv = np.max(rel_losses_adv, axis=1)
 
 plt.figure()
-plt.hist(max_rel_losses[f3_inds], alpha=0.5, label='normal', range=[0, 10000], bins=100)
-plt.hist(intg_rel_losses_adv[f3_inds], alpha=0.5, label='adv', range=[0, 10000], bins=100)
+plt.hist(max_rel_losses[f3_inds], alpha=0.5, label='normal', bins=10)
+plt.hist(max_rel_losses_adv[f3_inds], alpha=0.5, label='adv', bins=10)
 plt.legend(loc='upper right')
 # plt.xlim(-300, 500000)
 plt.show()
 
-# guess #4: rank @rel_loss=100*orig rel_loss
-top_rank     = args.num_points * np.ones(test_size)
-top_rank_adv = args.num_points * np.ones(test_size)
+# guess #3.1: max(loss)
+max_losses     = np.max(losses, axis=1)
+max_losses_adv = np.max(losses_adv, axis=1)
+
+plt.figure()
+plt.hist(max_losses[f3_inds], alpha=0.5, label='normal', bins=10)
+plt.hist(max_losses_adv[f3_inds], alpha=0.5, label='adv', bins=10)
+plt.legend(loc='upper right')
+# plt.xlim(-300, 500000)
+plt.show()
+
+# guess #4: rank @rel_loss= thd * orig rel_loss
+top_rank     = -10 * np.ones(test_size)
+top_rank_adv = -10 * np.ones(test_size)
 for i in range(test_size):
     max_val = np.max(rel_losses[i])
     if max_val == 0.0:
         continue
-    thd_val = 0.5 * max_val
+    thd_val = 0.2 * max_val
     top_rank[i] = np.argmax(rel_losses[i] > thd_val)
 
     max_val = np.max(rel_losses_adv[i])
     if max_val == 0.0:
         continue
-    thd_val = 0.5 * max_val
+    thd_val = 0.2 * max_val
     top_rank_adv[i] = np.argmax(rel_losses_adv[i] > thd_val)
 
 plt.figure()
-plt.hist(top_rank[f3_inds], alpha=0.5, label='normal', bins=30)
-plt.hist(top_rank_adv[f3_inds], alpha=0.5, label='adv', bins=30)
+plt.hist(top_rank[f3_inds], alpha=0.5, label='normal', bins=10)
+plt.hist(top_rank_adv[f3_inds], alpha=0.5, label='adv', bins=10)
 plt.legend(loc='upper right')
 # plt.xlim(-300, 500000)
 plt.show()
 
 # guess 5: detection. integral(loss) from rank=0 until rank=@first pred switch
-switch_rank      = -10 * np.ones(test_size)
-switch_rank_adv  = -10 * np.ones(test_size)
-y_ball_preds     = probs.argmax(axis=2)
-y_ball_adv_preds = probs_adv.argmax(axis=2)
+first_sw_rank     = -10 * np.ones(test_size, dtype=np.int32)
+first_sw_rank_adv = -10 * np.ones(test_size, dtype=np.int32)
 for i in range(test_size):
-    rk = np.where(y_ball_preds[i] != y_test_preds[i])[0]
-    if rk.size != 0:
-        switch_rank[i] = rk[0]
-    rk = np.where(y_ball_adv_preds[i] != y_test_adv_preds[i])[0]
-    if rk.size != 0:
-        switch_rank_adv[i] = rk[0]
+    if switch_ranks[i].size != 0:
+        first_sw_rank[i] = switch_ranks[i][0]
+    if switch_ranks_adv[i].size != 0:
+        first_sw_rank_adv[i] = switch_ranks_adv[i][0]
 
 plt.figure()
-plt.hist(switch_rank[f3_inds], alpha=0.5, label='normal', bins=100)
-plt.hist(switch_rank_adv[f3_inds], alpha=0.5, label='adv', bins=100)
+plt.hist(first_sw_rank[f3_inds], alpha=0.5, label='normal', bins=10)
+plt.hist(first_sw_rank_adv[f3_inds], alpha=0.5, label='adv', bins=10)
 plt.legend(loc='upper right')
 # plt.xlim(-300, 500000)
 plt.show()
