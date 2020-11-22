@@ -34,7 +34,7 @@ parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness
 parser.add_argument('--attack_dir', default='deepfool', type=str, help='attack directory')
 parser.add_argument('--save_dir', default='ball_rev_L2_eps_8_n_1000', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--subset', default=100, type=int, help='attack only subset of test set')
+parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
 
 # for exploration
 parser.add_argument('--norm', default='L2', type=str, help='norm or ball distance')
