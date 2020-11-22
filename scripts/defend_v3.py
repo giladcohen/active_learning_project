@@ -206,7 +206,7 @@ explorer = BallExplorer(
     wpg=args.wpg
 )
 
-if not os.path.exists(os.path.join(SAVE_DIR, 'x_ball.npy')):
+if not os.path.exists(os.path.join(SAVE_DIR, 'x_ball_adv.npy')):
     # print('calculating normal x in ball...')
     # x_ball, losses, preds = explorer.generate(X_test)
 
