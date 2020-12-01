@@ -16,7 +16,7 @@ sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 
 from active_learning_project.models.resnet import ResNet34, ResNet101
-from active_learning_project.utils import boolean_string, majority_vote, get_ensemble_paths
+from active_learning_project.utils import boolean_string, majority_vote, get_ensemble_paths, add_feature
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_normalized_tensor
 from scipy.special import softmax
 from cleverhans.utils import to_categorical, batch_indices
@@ -291,14 +291,6 @@ if load_rev:
 
 # grads
 # not implemented yet.
-
-def add_feature(x, x1):
-    """Adding feature x1 to x"""
-    if x is None:
-        x = x1
-    else:
-        x = np.concatenate((x, x1), axis=1)
-    return x
 
 normal_features = None
 adv_features = None

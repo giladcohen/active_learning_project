@@ -260,3 +260,12 @@ def all_grads(y, x, create_graph=False):
         jac[i] = torch.autograd.grad(flat_y, x, grad_y, retain_graph=True, create_graph=create_graph)[0][i]
         grad_y[i] = 0.
     return jac
+
+def add_feature(x, x1):
+    """Adding feature x1 to x"""
+    if x is None:
+        x = x1
+    else:
+        x = np.concatenate((x, x1), axis=1)
+    return x
+
