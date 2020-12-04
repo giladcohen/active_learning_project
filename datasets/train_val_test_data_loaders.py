@@ -176,7 +176,8 @@ def get_all_data_loader(dataset,
 def get_test_loader(dataset,
                     batch_size,
                     num_workers=4,
-                    pin_memory=False):
+                    pin_memory=False,
+                    transforms=None):
     """
     Utility function for loading and returning a multi-process
     test iterator over the CIFAR-10 dataset.
@@ -193,11 +194,14 @@ def get_test_loader(dataset,
     - data_loader: test set iterator.
     """
 
-    data_dir, database, train_transform, test_transform = dataset_factory(dataset)
+    data_dir, database, _, test_transform = dataset_factory(dataset)
+
+    if transforms is None:
+        transforms = test_transform
 
     dataset = database(
         root=data_dir, train=False,
-        download=True, transform=test_transform,
+        download=True, transform=transforms
     )
 
     data_loader = torch.utils.data.DataLoader(
