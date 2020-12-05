@@ -24,7 +24,7 @@ sys.path.insert(0, "./adversarial_robustness_toolbox")
 from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, \
     get_loader_with_specific_inds, get_normalized_tensor
-from active_learning_project.attacks.ball_explorer import BallExplorer
+from active_learning_project.attacks.tta_ball_explorer import TTABallExplorer
 from active_learning_project.utils import convert_tensor_to_image, boolean_string, majority_vote, add_feature
 
 import matplotlib.pyplot as plt
@@ -35,7 +35,7 @@ from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchEx
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='deepfool', type=str, help='attack directory')
-parser.add_argument('--save_dir', default='ball_rev_L2_eps_8_n_1000', type=str, help='reverse dir')
+parser.add_argument('--save_dir', default='tta_ball_rev_L2_eps_8_n_1000', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
 
@@ -43,8 +43,6 @@ parser.add_argument('--subset', default=-1, type=int, help='attack only subset o
 parser.add_argument('--norm', default='L2', type=str, help='norm or ball distance')
 parser.add_argument('--eps', default=8.0, type=float, help='the ball radius for exploration')
 parser.add_argument('--num_points', default=1000, type=int, help='the number of gradients to sample')
-parser.add_argument('--wlg', default=False, type=boolean_string, help='include losses gradients')
-parser.add_argument('--wpg', default=False, type=boolean_string, help='include preds attack')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -80,40 +78,6 @@ testloader = get_test_loader(
     batch_size=batch_size,
     num_workers=1,
     pin_memory=True
-)
-
-p_hflip = 0.5 if 'cifar' in train_args['dataset'] else 0.0
-# tta_transforms = transforms.Compose([
-#     transforms.RandomHorizontalFlip(p=p_hflip),
-#     transforms.RandomAffine(
-#         degrees=15,
-#         translate=(4.0/32, 4.0/32),
-#         scale=(0.9, 1.1),
-#         shear=None,
-#         resample='Image.BICUBIC'
-#     ),
-#     transforms.ToTensor(),
-# ])
-tta_transforms = transforms.Compose([
-    transforms.Pad(padding=16, padding_mode='edge'),
-    transforms.RandomAffine(
-        degrees=15,
-        translate=(4.0/64, 4.0/64),
-        scale=(0.9, 1.1),
-        shear=None,
-        resample=PIL.Image.BICUBIC
-    ),
-    transforms.CenterCrop(size=32),
-    transforms.RandomHorizontalFlip(p=p_hflip),
-    transforms.ToTensor()
-])
-
-tta_testloader = get_test_loader(
-    dataset=train_args['dataset'],
-    batch_size=batch_size,
-    num_workers=1,
-    pin_memory=True,
-    transforms=tta_transforms
 )
 
 global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
@@ -247,87 +211,81 @@ elif args.norm == 'L2':
 else:
     raise AssertionError('norm {} is not acceptible'.format(args.norm))
 
-# debug: plotting TTA
-def foo(loader, batch_size):
-    size = len(loader.dataset)
-    X = -1.0 * np.ones(shape=(size, 3, 96, 96), dtype=np.float32)
-    for batch_idx, (inputs, targets) in enumerate(loader):
-        b = batch_idx * batch_size
-        e = b + targets.shape[0]
-        X[b:e] = inputs.cpu().numpy()
+# DEBUG:
+# X_test_img     = convert_tensor_to_image(X_test)
+# X_tta_test     = get_normalized_tensor(tta_testloader, batch_size)
+# X_tta_test_img = convert_tensor_to_image(X_tta_test)
+#
+# plt.imshow(X_test_img[14])
+# plt.show()
+# plt.imshow(X_tta_test_img[14])
+# plt.show()
 
-    return X
-
-# X_tta_test = foo(tta_testloader, batch_size)
-X_test_img     = convert_tensor_to_image(X_test)
-X_tta_test     = get_normalized_tensor(tta_testloader, batch_size)
-X_tta_test_img = convert_tensor_to_image(X_tta_test)
-
-plt.imshow(X_test_img[14])
-plt.show()
-plt.imshow(X_tta_test_img[14])
-plt.show()
-
-explorer = BallExplorer(
+explorer = TTABallExplorer(
     classifier=classifier,
+    dataset=train_args['dataset'],
     rand_gen=rand_gen,
     norm=norm,
     eps=args.eps,
     num_points=args.num_points,
     batch_size=batch_size,
-    wlg=args.wlg,
-    wpg=args.wpg
 )
 
 if not os.path.exists(os.path.join(SAVE_DIR, 'x_ball_adv_subset_500.npy')):
     print('calculating normal x in ball...')
-    x_ball, losses, preds = explorer.generate(X_test)
+    x_ball, losses, preds, noise_powers = explorer.generate(X_test)
     print('done calculating x ball')
 
-    x_dist = np.empty((test_size, args.num_points), dtype=np.float32)
-    for j in range(args.num_points):
-        x_dist[:, j] = np.linalg.norm((x_ball[:, j] - X_test).reshape((test_size, -1)), axis=1, ord=norm)
-    ranks = x_dist.argsort(axis=1)
+    ranks = noise_powers.argsort(axis=1)
 
     # sorting the points in the ball
     for i in range(test_size):
         rks = ranks[i]
-        x_ball[i] = x_ball[i, rks]
-        losses[i] = losses[i, rks]
-        preds[i]  = preds[i, rks]
-        x_dist[i] = x_dist[i, rks]
+        x_ball[i]       = x_ball[i, rks]
+        losses[i]       = losses[i, rks]
+        preds[i]        = preds[i, rks]
+        noise_powers[i] = noise_powers[i, rks]
 
     print('start saving to disk ({})...'.format(SAVE_DIR))
     np.save(os.path.join(SAVE_DIR, 'x_ball_subset_500.npy'), x_ball[0:500])
     np.save(os.path.join(SAVE_DIR, 'losses.npy'), losses)
     np.save(os.path.join(SAVE_DIR, 'preds.npy'), preds)
-    np.save(os.path.join(SAVE_DIR, 'x_dist.npy'), x_dist)
+    np.save(os.path.join(SAVE_DIR, 'noise_powers.npy'), noise_powers)
 
     x_ball = x_ball[0:500]  # expensive in memory
 
     print('calculating adv x in ball...')
-    x_ball_adv, losses_adv, preds_adv = explorer.generate(X_test_adv)
+    x_ball_adv, losses_adv, preds_adv, noise_powers_adv = explorer.generate(X_test_adv)
     print('done calculating x adv ball')
 
-    x_dist_adv = np.empty((test_size, args.num_points), dtype=np.float32)
-    for j in range(args.num_points):
-        x_dist_adv[:, j] = np.linalg.norm((x_ball_adv[:, j] - X_test_adv).reshape((test_size, -1)), axis=1, ord=norm)
-    ranks_adv = x_dist_adv.argsort(axis=1)
+    ranks_adv = noise_powers_adv.argsort(axis=1)
+
+    for i in range(test_size):
+        rks_adv = ranks_adv[i]
+        x_ball_adv[i]       = x_ball_adv[i, rks]
+        losses_adv[i]       = losses_adv[i, rks]
+        preds_adv[i]        = preds_adv[i, rks]
+        noise_powers_adv[i] = noise_powers_adv[i, rks]
 
     print('start saving to disk ({})...'.format(SAVE_DIR))
     np.save(os.path.join(SAVE_DIR, 'x_ball_adv_subset_500.npy'), x_ball_adv[0:500])
     np.save(os.path.join(SAVE_DIR, 'losses_adv.npy'), losses_adv)
     np.save(os.path.join(SAVE_DIR, 'preds_adv.npy'), preds_adv)
-    np.save(os.path.join(SAVE_DIR, 'x_dist_adv.npy'), x_dist_adv)
+    np.save(os.path.join(SAVE_DIR, 'noise_powers_adv.npy'), noise_powers_adv)
+
+    x_ball_adv = x_ball_adv[0:500]  # expensive in memory
+
+    print('done')
+    exit(0)
 else:
     x_ball     = np.load(os.path.join(SAVE_DIR, 'x_ball_subset_500.npy'))
     losses     = np.load(os.path.join(SAVE_DIR, 'losses.npy'))
     preds      = np.load(os.path.join(SAVE_DIR, 'preds.npy'))
-    x_dist     = np.load(os.path.join(SAVE_DIR, 'x_dist.npy'))
+    x_dist     = np.load(os.path.join(SAVE_DIR, 'noise_powers.npy'))
     x_ball_adv = np.load(os.path.join(SAVE_DIR, 'x_ball_adv_subset_500.npy'))
     losses_adv = np.load(os.path.join(SAVE_DIR, 'losses_adv.npy'))
     preds_adv  = np.load(os.path.join(SAVE_DIR, 'preds_adv.npy'))
-    x_dist_adv = np.load(os.path.join(SAVE_DIR, 'x_dist_adv.npy'))
+    x_dist_adv = np.load(os.path.join(SAVE_DIR, 'noise_powers_adv.npy'))
 
 # calculating softmax predictions:
 probs     = scipy.special.softmax(preds, axis=2)

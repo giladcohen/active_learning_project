@@ -258,6 +258,15 @@ if not os.path.exists(os.path.join(SAVE_DIR, 'x_ball_adv_subset_500.npy')):
         x_dist_adv[:, j] = np.linalg.norm((x_ball_adv[:, j] - X_test_adv).reshape((test_size, -1)), axis=1, ord=norm)
     ranks_adv = x_dist_adv.argsort(axis=1)
 
+    # sorting the points in the ball
+    for i in range(test_size):
+        # rks     = ranks[i]
+        rks_adv = ranks_adv[i]
+        x_ball_adv[i] = x_ball_adv[i, rks_adv]
+        losses_adv[i] = losses_adv[i, rks_adv]
+        preds_adv[i]  = preds_adv[i, rks_adv]
+        x_dist_adv[i] = x_dist_adv[i, rks_adv]
+
     print('start saving to disk ({})...'.format(SAVE_DIR))
     np.save(os.path.join(SAVE_DIR, 'x_ball_adv_subset_500.npy'), x_ball_adv[0:500])
     np.save(os.path.join(SAVE_DIR, 'losses_adv.npy'), losses_adv)

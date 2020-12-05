@@ -126,7 +126,7 @@ class PyTorchExtClassifier(PyTorchClassifier):  # lgtm [py/missing-call-to-init]
         return grads
 
 
-    def loss_preds_gradient_framework(self, x: "torch.Tensor", y: "torch.Tensor", wlg=True, wpg=True):
+    def loss_preds_gradient_framework(self, x: "torch.Tensor", y: "torch.Tensor", wlg=False, wpg=False):
         """
         Compute the loss + preds + gradient of the loss + preds w.r.t. `x`.
 
@@ -155,7 +155,7 @@ class PyTorchExtClassifier(PyTorchClassifier):  # lgtm [py/missing-call-to-init]
         loss_unreduced = self._loss2(model_outputs[-1]['logits'], y)
 
         if not (wlg or wpg):
-            return loss_unreduced, preds, None, None
+            return loss_unreduced, preds
 
         # compute loss grads
         loss = loss_unreduced.mean()
@@ -168,7 +168,7 @@ class PyTorchExtClassifier(PyTorchClassifier):  # lgtm [py/missing-call-to-init]
         assert loss_grads.shape == x.shape
 
         if wlg and not wpg:
-            return loss_unreduced, preds, loss_grads, None
+            return loss_unreduced, preds, loss_grads
 
         # compute pred grads
         # clean gradients
