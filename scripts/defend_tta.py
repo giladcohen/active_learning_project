@@ -237,48 +237,48 @@ explorer = TTABallExplorer(
 )
 
 if not os.path.exists(os.path.join(SAVE_DIR, 'x_ball_adv_subset_500.npy')):
-    print('calculating normal x in ball...')
-    x_ball, losses, preds, noise_powers = explorer.generate(X_test)
-    print('done calculating x ball')
-
-    ranks = noise_powers.argsort(axis=1)
-
-    # sorting the points in the ball
-    for i in range(test_size):
-        rks = ranks[i]
-        x_ball[i]       = x_ball[i, rks]
-        losses[i]       = losses[i, rks]
-        preds[i]        = preds[i, rks]
-        noise_powers[i] = noise_powers[i, rks]
-
-    print('start saving to disk ({})...'.format(SAVE_DIR))
-    np.save(os.path.join(SAVE_DIR, 'x_ball_subset_500.npy'), x_ball[0:500])
-    np.save(os.path.join(SAVE_DIR, 'losses.npy'), losses)
-    np.save(os.path.join(SAVE_DIR, 'preds.npy'), preds)
-    np.save(os.path.join(SAVE_DIR, 'noise_powers.npy'), noise_powers)
-
-    x_ball = x_ball[0:500]  # expensive in memory
-
-    # print('calculating adv x in ball...')
-    # x_ball_adv, losses_adv, preds_adv, noise_powers_adv = explorer.generate(X_test_adv)
-    # print('done calculating x adv ball')
+    # print('calculating normal x in ball...')
+    # x_ball, losses, preds, noise_powers = explorer.generate(X_test)
+    # print('done calculating x ball')
     #
-    # ranks_adv = noise_powers_adv.argsort(axis=1)
+    # ranks = noise_powers.argsort(axis=1)
     #
+    # # sorting the points in the ball
     # for i in range(test_size):
-    #     rks_adv = ranks_adv[i]
-    #     x_ball_adv[i]       = x_ball_adv[i, rks]
-    #     losses_adv[i]       = losses_adv[i, rks]
-    #     preds_adv[i]        = preds_adv[i, rks]
-    #     noise_powers_adv[i] = noise_powers_adv[i, rks]
+    #     rks = ranks[i]
+    #     x_ball[i]       = x_ball[i, rks]
+    #     losses[i]       = losses[i, rks]
+    #     preds[i]        = preds[i, rks]
+    #     noise_powers[i] = noise_powers[i, rks]
     #
     # print('start saving to disk ({})...'.format(SAVE_DIR))
-    # np.save(os.path.join(SAVE_DIR, 'x_ball_adv_subset_500.npy'), x_ball_adv[0:500])
-    # np.save(os.path.join(SAVE_DIR, 'losses_adv.npy'), losses_adv)
-    # np.save(os.path.join(SAVE_DIR, 'preds_adv.npy'), preds_adv)
-    # np.save(os.path.join(SAVE_DIR, 'noise_powers_adv.npy'), noise_powers_adv)
+    # np.save(os.path.join(SAVE_DIR, 'x_ball_subset_500.npy'), x_ball[0:500])
+    # np.save(os.path.join(SAVE_DIR, 'losses.npy'), losses)
+    # np.save(os.path.join(SAVE_DIR, 'preds.npy'), preds)
+    # np.save(os.path.join(SAVE_DIR, 'noise_powers.npy'), noise_powers)
     #
-    # x_ball_adv = x_ball_adv[0:500]  # expensive in memory
+    # x_ball = x_ball[0:500]  # expensive in memory
+
+    print('calculating adv x in ball...')
+    x_ball_adv, losses_adv, preds_adv, noise_powers_adv = explorer.generate(X_test_adv)
+    print('done calculating x adv ball')
+
+    ranks_adv = noise_powers_adv.argsort(axis=1)
+
+    for i in range(test_size):
+        rks_adv = ranks_adv[i]
+        x_ball_adv[i]       = x_ball_adv[i, rks_adv]
+        losses_adv[i]       = losses_adv[i, rks_adv]
+        preds_adv[i]        = preds_adv[i, rks_adv]
+        noise_powers_adv[i] = noise_powers_adv[i, rks_adv]
+
+    print('start saving to disk ({})...'.format(SAVE_DIR))
+    np.save(os.path.join(SAVE_DIR, 'x_ball_adv_subset_500.npy'), x_ball_adv[0:500])
+    np.save(os.path.join(SAVE_DIR, 'losses_adv.npy'), losses_adv)
+    np.save(os.path.join(SAVE_DIR, 'preds_adv.npy'), preds_adv)
+    np.save(os.path.join(SAVE_DIR, 'noise_powers_adv.npy'), noise_powers_adv)
+
+    x_ball_adv = x_ball_adv[0:500]  # expensive in memory
 
     print('done')
     exit(0)
