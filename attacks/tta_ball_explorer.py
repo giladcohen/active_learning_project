@@ -52,7 +52,8 @@ class TTABallExplorer(object):
                 translate=(4.0 / 64, 4.0 / 64),
                 scale=(0.9, 1.1),
                 shear=None,
-                resample=PIL.Image.BILINEAR
+                resample=PIL.Image.BILINEAR,
+                fillcolor=None
             ),
             transforms.CenterCrop(size=32),
             transforms.RandomHorizontalFlip(p=p_hflip),
