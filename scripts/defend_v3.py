@@ -260,7 +260,6 @@ if not os.path.exists(os.path.join(SAVE_DIR, 'x_ball_adv_subset_500.npy')):
 
     # sorting the points in the ball
     for i in range(test_size):
-        # rks     = ranks[i]
         rks_adv = ranks_adv[i]
         x_ball_adv[i] = x_ball_adv[i, rks_adv]
         losses_adv[i] = losses_adv[i, rks_adv]
