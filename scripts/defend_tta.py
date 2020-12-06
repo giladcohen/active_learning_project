@@ -25,7 +25,8 @@ from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, \
     get_loader_with_specific_inds, get_normalized_tensor
 from active_learning_project.attacks.tta_ball_explorer import TTABallExplorer
-from active_learning_project.utils import convert_tensor_to_image, boolean_string, majority_vote, add_feature
+from active_learning_project.utils import convert_tensor_to_image, boolean_string, majority_vote, add_feature, \
+    convert_image_to_tensor
 
 import matplotlib.pyplot as plt
 
@@ -90,7 +91,11 @@ test_inds = np.arange(test_size)
 X_test           = get_normalized_tensor(testloader, batch_size)
 y_test           = np.asarray(testloader.dataset.targets)
 
+# X_test_adv_raw   = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
+# X_test_adv_img   = convert_tensor_to_image(X_test_adv_raw)  # to impose rounding to uint8, and back to float32
+# X_test_adv       = convert_image_to_tensor(X_test_adv_img)
 X_test_adv       = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
+
 if targeted:
     y_test_adv = np.load(os.path.join(ATTACK_DIR, 'y_test_adv.npy'))
 
@@ -254,26 +259,26 @@ if not os.path.exists(os.path.join(SAVE_DIR, 'x_ball_adv_subset_500.npy')):
 
     x_ball = x_ball[0:500]  # expensive in memory
 
-    print('calculating adv x in ball...')
-    x_ball_adv, losses_adv, preds_adv, noise_powers_adv = explorer.generate(X_test_adv)
-    print('done calculating x adv ball')
-
-    ranks_adv = noise_powers_adv.argsort(axis=1)
-
-    for i in range(test_size):
-        rks_adv = ranks_adv[i]
-        x_ball_adv[i]       = x_ball_adv[i, rks]
-        losses_adv[i]       = losses_adv[i, rks]
-        preds_adv[i]        = preds_adv[i, rks]
-        noise_powers_adv[i] = noise_powers_adv[i, rks]
-
-    print('start saving to disk ({})...'.format(SAVE_DIR))
-    np.save(os.path.join(SAVE_DIR, 'x_ball_adv_subset_500.npy'), x_ball_adv[0:500])
-    np.save(os.path.join(SAVE_DIR, 'losses_adv.npy'), losses_adv)
-    np.save(os.path.join(SAVE_DIR, 'preds_adv.npy'), preds_adv)
-    np.save(os.path.join(SAVE_DIR, 'noise_powers_adv.npy'), noise_powers_adv)
-
-    x_ball_adv = x_ball_adv[0:500]  # expensive in memory
+    # print('calculating adv x in ball...')
+    # x_ball_adv, losses_adv, preds_adv, noise_powers_adv = explorer.generate(X_test_adv)
+    # print('done calculating x adv ball')
+    #
+    # ranks_adv = noise_powers_adv.argsort(axis=1)
+    #
+    # for i in range(test_size):
+    #     rks_adv = ranks_adv[i]
+    #     x_ball_adv[i]       = x_ball_adv[i, rks]
+    #     losses_adv[i]       = losses_adv[i, rks]
+    #     preds_adv[i]        = preds_adv[i, rks]
+    #     noise_powers_adv[i] = noise_powers_adv[i, rks]
+    #
+    # print('start saving to disk ({})...'.format(SAVE_DIR))
+    # np.save(os.path.join(SAVE_DIR, 'x_ball_adv_subset_500.npy'), x_ball_adv[0:500])
+    # np.save(os.path.join(SAVE_DIR, 'losses_adv.npy'), losses_adv)
+    # np.save(os.path.join(SAVE_DIR, 'preds_adv.npy'), preds_adv)
+    # np.save(os.path.join(SAVE_DIR, 'noise_powers_adv.npy'), noise_powers_adv)
+    #
+    # x_ball_adv = x_ball_adv[0:500]  # expensive in memory
 
     print('done')
     exit(0)

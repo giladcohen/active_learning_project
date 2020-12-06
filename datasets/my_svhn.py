@@ -3,7 +3,7 @@ from torchvision.datasets.utils import verify_str_arg
 import os
 import numpy as np
 from PIL import Image
-
+import torch
 
 class MySVHN(SVHN):
 
@@ -67,10 +67,9 @@ class MySVHN(SVHN):
         """
         img, target = self.data[index], int(self.targets[index])
 
-        # doing this so that it is consistent with all other datasets
-        # to return a PIL Image
         # img = Image.fromarray(np.transpose(img, (1, 2, 0)))
-        img = Image.fromarray(img)
+        if type(img) != torch.Tensor:
+            img = Image.fromarray(img)
 
         if self.transform is not None:
             img = self.transform(img)

@@ -6,11 +6,13 @@ import torchvision.transforms as transforms
 from tqdm import tqdm
 import PIL
 
-from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader
+from active_learning_project.datasets.train_val_test_data_loaders import dataset_factory
+from active_learning_project.utils import convert_tensor_to_image
 from art.utils import get_labels_np_array
 # from art.utils import random_sphere
 from typing import Union, Tuple
 from scipy.special import gammainc
+import matplotlib.pyplot as plt  # for debug
 
 logger = logging.getLogger(__name__)
 
@@ -35,10 +37,12 @@ class TTABallExplorer(object):
         self.dataset = dataset
 
     def generate(self, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-
+        x_tensor = torch.from_numpy(x.astype(np.float32))
         targets = get_labels_np_array(self.classifier.predict(x, batch_size=self.batch_size))
         num_classes = targets.shape[1]
         targets_sv = np.argmax(targets, axis=1)
+
+        # test_transforms = transforms.ToTensor()
 
         p_hflip = 0.5 if 'cifar' in self.dataset else 0.0
         tta_transforms = transforms.Compose([
@@ -48,20 +52,39 @@ class TTABallExplorer(object):
                 translate=(4.0 / 64, 4.0 / 64),
                 scale=(0.9, 1.1),
                 shear=None,
-                resample=PIL.Image.BICUBIC
+                resample=PIL.Image.BILINEAR
             ),
             transforms.CenterCrop(size=32),
             transforms.RandomHorizontalFlip(p=p_hflip),
-            transforms.ToTensor()
+            # transforms.ToTensor()
         ])
 
-        data_loader     = get_test_loader(dataset=self.dataset, batch_size=self.batch_size, num_workers=0,
-                                          pin_memory=True)
-        tta_data_loader = get_test_loader(dataset=self.dataset, batch_size=self.batch_size, num_workers=4,
-                                          pin_memory=True, transforms=tta_transforms)
-        # override the targets:
-        data_loader.dataset.targets = targets.astype(np.float32)
-        tta_data_loader.dataset.targets = targets.astype(np.float32)
+        data_dir, database, _, _ = dataset_factory(self.dataset)
+        dataset     = database(root=data_dir, train=False, download=False, transform=None)
+        tta_dataset = database(root=data_dir, train=False, download=False, transform=tta_transforms)
+
+        # overwrite data in case of uint8 image
+
+        # overwrite data in case of float32 image
+        # x_img = np.transpose(x, (0, 2, 3, 1))
+        # dataset.data = x_img
+        # dataset.targets = targets.astype(np.float32)
+        # tta_dataset.data = x_img
+        # tta_dataset.targets = targets.astype(np.float32)
+
+        # overwrite data in case of float32 input tensor
+        dataset.data = x_tensor
+        dataset.targets = targets.astype(np.float32)
+        tta_dataset.data = x_tensor
+        tta_dataset.targets = targets.astype(np.float32)
+
+        # set loaders
+        data_loader = torch.utils.data.DataLoader(
+            dataset, batch_size=self.batch_size, shuffle=False, num_workers=0, pin_memory=True
+        )
+        tta_data_loader = torch.utils.data.DataLoader(
+            tta_dataset, batch_size=self.batch_size, shuffle=False, num_workers=4, pin_memory=True
+        )
 
         all_x_adv = np.empty((x.shape[0], self.num_points) + x.shape[1:], dtype=np.float32)
         all_losses = np.empty((x.shape[0], self.num_points))

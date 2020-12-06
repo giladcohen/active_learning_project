@@ -13,6 +13,9 @@ from torchvision import transforms
 from torch.utils.data.sampler import SubsetRandomSampler, SequentialSampler
 from sklearn.model_selection import train_test_split
 from torch.utils.data.dataset import Subset
+
+from active_learning_project.datasets.my_cifar10 import MyCIFAR10
+from active_learning_project.datasets.my_cifar100 import MyCIFAR100
 from active_learning_project.datasets.my_svhn import MySVHN
 import matplotlib.pyplot as plt
 
@@ -20,10 +23,10 @@ BASE_DATASET_DIR = '/Users/giladcohen/data/dataset'
 def dataset_factory(dataset):
     if dataset == 'cifar10':
         data_dir = os.path.join(BASE_DATASET_DIR, 'cifar10')
-        database = datasets.CIFAR10
+        database = MyCIFAR10
     elif dataset == 'cifar100':
         data_dir = os.path.join(BASE_DATASET_DIR, 'cifar100')
-        database = datasets.CIFAR100
+        database = MyCIFAR100
     elif dataset == 'svhn':
         data_dir = os.path.join(BASE_DATASET_DIR, 'svhn')
         database = MySVHN

@@ -225,6 +225,18 @@ def convert_tensor_to_image(x: np.ndarray):
     X = np.transpose(X, [0, 2, 3, 1])
     return X
 
+def convert_image_to_tensor(x: np.ndarray):
+    """
+    :param X: np.array of size (Batch, H, W, feature_dims) between 0:255, uint8
+    :return: X with (Batch, feature_dims, H, W) float between [0:1]
+    """
+    assert x.dtype == np.uint8
+    X = x.copy()
+    X = X.astype(np.float32)
+    X /= 255.0
+    X = np.transpose(X, [0, 3, 1, 2])
+    return X
+
 def majority_vote(x):
     return np.bincount(x).argmax()
 
