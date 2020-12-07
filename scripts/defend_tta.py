@@ -34,15 +34,15 @@ from art.classifiers import PyTorchClassifier
 from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchExtClassifier
 
 parser = argparse.ArgumentParser(description='PyTorch adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
-parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attack directory')
-parser.add_argument('--save_dir', default='tta_ball_rev_L2_eps_8_n_1000', type=str, help='reverse dir')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
+parser.add_argument('--attack_dir', default='deepfool', type=str, help='attack directory')
+parser.add_argument('--save_dir', default='tta_ball_rev_L2_eps_4_n_1000', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
 
 # for exploration
 parser.add_argument('--norm', default='L2', type=str, help='norm or ball distance')
-parser.add_argument('--eps', default=8.0, type=float, help='the ball radius for exploration')
+parser.add_argument('--eps', default=4.0, type=float, help='the ball radius for exploration')
 parser.add_argument('--num_points', default=1000, type=int, help='the number of gradients to sample')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -236,7 +236,7 @@ explorer = TTABallExplorer(
     batch_size=batch_size,
 )
 
-if not os.path.exists(os.path.join(SAVE_DIR, 'x_ball_subset_500.npy')):
+if not os.path.exists(os.path.join(SAVE_DIR, 'x_ball_adv_subset_500.npy')):
     print('calculating normal x in ball...')
     x_ball, losses, preds, noise_powers = explorer.generate(X_test)
     print('done calculating x ball')
@@ -328,8 +328,6 @@ for i in range(n_imgs):
 plt.tight_layout()
 plt.show()
 
-i = inds[0]
-
 # get useful stats:
 rel_losses     = np.zeros_like(losses)
 rel_losses_adv = np.zeros_like(losses)
@@ -341,6 +339,10 @@ switch_ranks     = []
 switch_ranks_adv = []
 y_ball_preds     = probs.argmax(axis=2)
 y_ball_adv_preds = probs_adv.argmax(axis=2)
+
+assert np.all(y_ball_preds[:, 0] == y_test_preds)
+assert np.all(y_ball_adv_preds[:, 0] == y_test_adv_preds)
+
 for i in range(test_size):
     rks = np.where(y_ball_preds[i] != y_test_preds[i])[0]
     switch_ranks.append(rks)
@@ -355,14 +357,16 @@ no_sw_pred_inds = []
 no_sw_pred_inds_adv = []
 for i in range(test_size):
     if switch_ranks[i].size == 0:
+        print('normal image i={} has no pred switch'.format(i))
         no_sw_pred_inds.append(i)
     if switch_ranks_adv[i].size == 0:
+        print('adv image i={} has no pred switch'.format(i))
         no_sw_pred_inds_adv.append(i)
 
-# setting SVM classifier and init features
+# init features
+features_index = []
 normal_features = []
 adv_features = []
-features_index = []
 
 # plotting loss
 i = inds[0]
@@ -423,8 +427,8 @@ intg_rel_losses     = np.sum(rel_losses, axis=1)
 intg_rel_losses_adv = np.sum(rel_losses_adv, axis=1)
 
 plt.figure()
-plt.hist(intg_rel_losses[f3_inds], alpha=0.5, label='normal', bins=100)#, range=[-950, 1e5])
-plt.hist(intg_rel_losses_adv[f3_inds], alpha=0.5, label='adv', bins=100)#, range=[-950, 1e5])
+plt.hist(intg_rel_losses[f3_inds], alpha=0.5, label='normal', bins=100)#, range=[-900, 1e5])
+plt.hist(intg_rel_losses_adv[f3_inds], alpha=0.5, label='adv', bins=100)#, range=[-900, 1e5])
 plt.legend(loc='upper right')
 plt.title('intg_relative_loss')
 # plt.xlim(-300, 500000)
@@ -440,8 +444,8 @@ max_rel_losses     = np.max(rel_losses, axis=1)
 max_rel_losses_adv = np.max(rel_losses_adv, axis=1)
 
 plt.figure()
-plt.hist(max_rel_losses[f3_inds], alpha=0.5, label='normal', bins=100)#, range=[0, 100])
-plt.hist(max_rel_losses_adv[f3_inds], alpha=0.5, label='adv', bins=100)#, range=[0, 100])
+plt.hist(max_rel_losses[f3_inds], alpha=0.5, label='normal', bins=100, range=[0, 1e2])
+plt.hist(max_rel_losses_adv[f3_inds], alpha=0.5, label='adv', bins=100, range=[0, 1e2])
 plt.legend(loc='upper right')
 plt.title('max_relative_loss')
 # plt.xlim(-300, 500000)
@@ -463,7 +467,7 @@ adv_features.append(max_rel_losses_adv)
 # plt.show()
 
 # guess #4: rank @rel_loss= thd * max_rel_loss
-thd = 0.001
+thd = 0.5
 top_rank     = -1 * np.ones(test_size)
 top_rank_adv = -1 * np.ones(test_size)
 for i in range(test_size):
@@ -482,8 +486,8 @@ for i in range(test_size):
         print('adv image i={} does not have rel_loss > 0'.format(i))
 
 plt.figure()
-plt.hist(top_rank[f3_inds], alpha=0.5, label='normal', bins=100)#, range=[0, 100])
-plt.hist(top_rank_adv[f3_inds], alpha=0.5, label='adv', bins=100)#, range=[0, 100])
+plt.hist(top_rank[f3_inds], alpha=0.5, label='normal', bins=100, range=[0, 100])
+plt.hist(top_rank_adv[f3_inds], alpha=0.5, label='adv', bins=100, range=[0, 100])
 plt.legend(loc='upper right')
 plt.title('rank @ {}*max_rel_loss'.format(thd))
 # plt.xlim(-300, 500000)
@@ -502,12 +506,12 @@ for i in range(test_size):
     if switch_ranks_adv[i].size != 0:
         first_sw_rank_adv[i] = switch_ranks_adv[i][0]
 
-first_sw_rank_features = np.where(first_sw_rank == -1, 3 * args.num_points, first_sw_rank)
-first_sw_rank_adv_features = np.where(first_sw_rank_adv == -1, 3 * args.num_points, first_sw_rank_adv)
+first_sw_rank_features = np.where(first_sw_rank == -1, 2 * args.num_points, first_sw_rank)
+first_sw_rank_adv_features = np.where(first_sw_rank_adv == -1, 2 * args.num_points, first_sw_rank_adv)
 
 plt.figure()
-plt.hist(first_sw_rank_features[f3_inds], alpha=0.5, label='normal', bins=100)
-plt.hist(first_sw_rank_adv_features[f3_inds], alpha=0.5, label='adv', bins=100)
+plt.hist(first_sw_rank_features[f3_inds], alpha=0.5, label='normal', bins=100)#, range=[0, 100])
+plt.hist(first_sw_rank_adv_features[f3_inds], alpha=0.5, label='adv', bins=100)#, range=[0, 100])
 plt.legend(loc='upper right')
 plt.title('rank @ first pred switch')
 # plt.xlim(-300, 500000)
@@ -536,16 +540,17 @@ plt.legend(['normal', 'adv'])
 plt.show()
 
 plt.figure()
-plt.hist(num_switches_cum[f3_inds, 399], alpha=0.5, label='normal', bins=100)#, range=[0, 0.07])
-plt.hist(num_switches_cum_adv[f3_inds, 399], alpha=0.5, label='adv', bins=100)#, range=[0, 0.07])
+plt.hist(num_switches_cum[f3_inds, 199], alpha=0.5, label='normal', bins=100, range=[50, 150])
+plt.hist(num_switches_cum_adv[f3_inds, 199], alpha=0.5, label='adv', bins=100, range=[50, 150])
 plt.legend(loc='upper right')
-plt.title('number of pred switches from orig, until rank 400')
+plt.title('number of pred switches from orig, until rank 200')
 # plt.xlim(-300, 500000)
+# plt.ylim(0, 200)
 plt.show()
 
 features_index.append('number of pred switches from orig, until rank 400')
-normal_features.append(num_switches_cum[:, 399])
-adv_features.append(num_switches_cum_adv[:, 399])
+normal_features.append(num_switches_cum[:, 199])
+adv_features.append(num_switches_cum_adv[:, 199])
 
 # guess 6.1: integral(ranks) only for switched ranks
 # intg_sw     = np.zeros(test_size, dtype=np.int32)
@@ -620,32 +625,77 @@ adv_features.append(num_switches_cum_adv[:, 399])
 # # plt.xlim(-300, 500000)
 # plt.show()
 
-# guess 7: integral(loss) for only correct (as first) prediction.
-intg_rel_loss_orig_pred     = np.zeros(test_size)
-intg_rel_loss_orig_pred_adv = np.zeros(test_size)
+# guess 7: mean(loss) for only correct (not switched) prediction.
+mean_loss_orig_pred     = np.zeros(test_size)
+mean_loss_orig_pred_adv = np.zeros(test_size)
 for i in range(test_size):
+    cnt = 0
     for j in range(args.num_points):
         if j not in switch_ranks[i]:
             # if j <= 400:
-            intg_rel_loss_orig_pred[i] += rel_losses[i, j]
+                cnt += 1
+                mean_loss_orig_pred[i] += losses[i, j]
+    if cnt > 0:
+        mean_loss_orig_pred[i] /= cnt
+
+    cnt = 0
+    for j in range(args.num_points):
         if j not in switch_ranks_adv[i]:
             # if j <= 400:
-            intg_rel_loss_orig_pred_adv[i] += rel_losses_adv[i, j]
+                cnt += 1
+                mean_loss_orig_pred_adv[i] += losses_adv[i, j]
+    if cnt > 0:
+        mean_loss_orig_pred_adv[i] /= cnt
 
 plt.figure()
-plt.hist(intg_rel_loss_orig_pred[f3_inds], alpha=0.5, label='normal', bins=100)#, range=[-1000, 1e4])
-plt.hist(intg_rel_loss_orig_pred_adv[f3_inds], alpha=0.5, label='adv', bins=100)#, range=[-1000, 1e4])
+plt.hist(mean_loss_orig_pred[f3_inds], alpha=0.5, label='normal', bins=100)#, range=[-1000, 1e4])
+plt.hist(mean_loss_orig_pred_adv[f3_inds], alpha=0.5, label='adv', bins=100)#, range=[-1000, 1e4])
 plt.legend(loc='upper right')
-plt.title('intg_relative_loss only for correct (first) prediction')
+plt.title('mean(loss) for only correct (not switched) prediction')
 # plt.ylim([0, 500])
 # plt.xlim(-300, 500000)
 plt.show()
 
-features_index.append('intg_relative_loss only for correct (first) prediction')
-normal_features.append(intg_rel_loss_orig_pred)
-adv_features.append(intg_rel_loss_orig_pred_adv)
+features_index.append('mean(loss) for only correct (not switched) prediction')
+normal_features.append(mean_loss_orig_pred)
+adv_features.append(mean_loss_orig_pred_adv)
 
-# guess 8: confidence === max(prob). overall
+# guess 8: mean(rel_loss) for only correct (not switched) prediction.
+mean_rel_loss_orig_pred     = np.zeros(test_size)
+mean_rel_loss_orig_pred_adv = np.zeros(test_size)
+for i in range(test_size):
+    cnt = 0
+    for j in range(args.num_points):
+        if j not in switch_ranks[i]:
+            # if j <= 400:
+                cnt += 1
+                mean_rel_loss_orig_pred[i] += rel_losses[i, j]
+    if cnt > 0:
+        mean_rel_loss_orig_pred[i] /= cnt
+
+    cnt = 0
+    for j in range(args.num_points):
+        if j not in switch_ranks_adv[i]:
+            # if j <= 400:
+                cnt += 1
+                mean_rel_loss_orig_pred_adv[i] += rel_losses_adv[i, j]
+    if cnt > 0:
+        mean_rel_loss_orig_pred_adv[i] /= cnt
+
+plt.figure()
+plt.hist(mean_rel_loss_orig_pred[f3_inds], alpha=0.5, label='normal', bins=100, range=[-1, 50])
+plt.hist(mean_rel_loss_orig_pred_adv[f3_inds], alpha=0.5, label='adv', bins=100, range=[-1, 50])
+plt.legend(loc='upper right')
+plt.title('mean(rel_loss) for only correct (not switched) prediction')
+# plt.ylim([0, 500])
+# plt.xlim(-300, 500000)
+plt.show()
+
+features_index.append('mean(rel_loss) for only correct (not switched) prediction')
+normal_features.append(mean_rel_loss_orig_pred)
+adv_features.append(mean_rel_loss_orig_pred_adv)
+
+# guess 9: confidence === max(prob). overall
 # plot confidence for one example:
 i = inds[0]
 plt.figure()
@@ -658,7 +708,6 @@ plt.show()
 confidences_cumsum = np.cumsum(confidences, axis=1)
 confidences_cumsum_adv = np.cumsum(confidences_adv, axis=1)
 # plot confidence_cumsum for one example:
-i = inds[0]
 plt.figure()
 plt.plot(confidences_cumsum[i], 'blue')
 plt.plot(confidences_cumsum_adv[i], 'red')
@@ -678,7 +727,7 @@ features_index.append('intg(confidence) for top label. overall. until rank 200')
 normal_features.append(confidences_cumsum[:, 199])
 adv_features.append(confidences_cumsum_adv[:, 199])
 
-# guess 9: intg of confidence === max(prob) for primary only. specific.
+# guess 10: intg of confidence === max(prob) for primary only. specific.
 # plot confidence for one example:
 confidences_primary     = np.empty((test_size, args.num_points))
 confidences_primary_adv = np.empty((test_size, args.num_points))
@@ -690,18 +739,19 @@ confidences_primary_cumsum = np.cumsum(confidences_primary, axis=1)
 confidences_primary_cumsum_adv = np.cumsum(confidences_primary_adv, axis=1)
 
 plt.figure()
-plt.hist(confidences_primary_cumsum[f3_inds, 399], alpha=0.5, label='normal', bins=100)#, range=[399, 400])
-plt.hist(confidences_primary_cumsum_adv[f3_inds, 399], alpha=0.5, label='adv', bins=100)#, range=[399, 400])
+plt.hist(confidences_primary_cumsum[f3_inds, 99], alpha=0.5, label='normal', bins=100)#, range=[399, 400])
+plt.hist(confidences_primary_cumsum_adv[f3_inds, 99], alpha=0.5, label='adv', bins=100)#, range=[399, 400])
 plt.legend(loc='upper right')
-plt.title('intg(confidence) for primary label. specific. until rank 400')
+plt.title('intg(confidence) for primary label. specific. until rank 100')
 # plt.xlim(-300, 500000)
+plt.ylim(0, 100)
 plt.show()
 
-features_index.append('intg(confidence) for primary label. specific. until rank 400')
-normal_features.append(confidences_primary_cumsum[:, 399])
-adv_features.append(confidences_primary_cumsum_adv[:, 399])
+features_index.append('intg(confidence) for primary label. specific. until rank 100')
+normal_features.append(confidences_primary_cumsum[:, 99])
+adv_features.append(confidences_primary_cumsum_adv[:, 99])
 
-# guess 10: confidence === max(prob) for secondary. overall
+# guess 11: confidence === max(prob) for secondary. overall
 confidences_secondary_overall     = np.empty((test_size, args.num_points), dtype=np.float32)
 confidences_secondary_overall_adv = np.empty((test_size, args.num_points), dtype=np.float32)
 
@@ -722,19 +772,19 @@ plt.legend(['normal', 'adv'])
 plt.show()
 
 plt.figure()
-plt.hist(confidences_secondary_overall_cumsum[f3_inds, 399], alpha=0.5, label='normal', bins=100)#, range=[270, 300])
-plt.hist(confidences_secondary_overall_cumsum_adv[f3_inds, 399], alpha=0.5, label='adv', bins=100)#, range=[270, 300])
+plt.hist(confidences_secondary_overall_cumsum[f3_inds, 99], alpha=0.5, label='normal', bins=100)#, range=[270, 300])
+plt.hist(confidences_secondary_overall_cumsum_adv[f3_inds, 99], alpha=0.5, label='adv', bins=100)#, range=[270, 300])
 plt.legend(loc='upper right')
-plt.title('intg(confidence) for secondary label. overall. until rank 400')
+plt.title('intg(confidence) for secondary label. overall. until rank 100')
 # plt.ylim([0, 500])
 # plt.xlim(-300, 500000)
 plt.show()
 
-features_index.append('intg(confidence) for secondary label. overall. until rank 400')
-normal_features.append(confidences_secondary_overall_cumsum[:, 399])
-adv_features.append(confidences_secondary_overall_cumsum_adv[:, 399])
+features_index.append('intg(confidence) for secondary label. overall. until rank 100')
+normal_features.append(confidences_secondary_overall_cumsum[:, 99])
+adv_features.append(confidences_secondary_overall_cumsum_adv[:, 99])
 
-# guess 11: intg confidence === max(prob) for secondary only. specific.
+# guess 12: intg confidence === max(prob) for secondary only. specific.
 # First, find the secondary label
 secondary_preds     = -1 * np.ones(test_size, dtype=np.int32)
 secondary_preds_adv = -1 * np.ones(test_size, dtype=np.int32)
@@ -766,51 +816,88 @@ for i in range(test_size):
         confidences_secondary_cumsum_adv[i] = 0
 
 plt.figure()
-plt.hist(confidences_secondary_cumsum[f3_inds, 399], alpha=0.5, label='normal', bins=100)#, range=[-1, 40])
-plt.hist(confidences_secondary_cumsum_adv[f3_inds, 399], alpha=0.5, label='adv', bins=100)#, range=[-1, 40])
+plt.hist(confidences_secondary_cumsum[f3_inds, 199], alpha=0.5, label='normal', bins=100)#, range=[-1, 40])
+plt.hist(confidences_secondary_cumsum_adv[f3_inds, 199], alpha=0.5, label='adv', bins=100)#, range=[-1, 40])
 plt.legend(loc='upper right')
-plt.title('intg(confidence) for secondary label. specific. until rank 400')
+plt.title('intg(confidence) for secondary label. specific. until rank 200')
 # plt.xlim(-300, 500000)
+plt.ylim(0, 100)
 plt.show()
 
-features_index.append('intg(confidence) for secondary label. specific. until rank 400')
-normal_features.append(confidences_secondary_cumsum[:, 399])
-adv_features.append(confidences_secondary_cumsum_adv[:, 399])
+features_index.append('intg(confidence) for secondary label. specific. until rank 200')
+normal_features.append(confidences_secondary_cumsum[:, 199])
+adv_features.append(confidences_secondary_cumsum_adv[:, 199])
 
-# guess 12: get delta between first and second confidences (overall).
-delta_1st_2nd     = np.empty((test_size, args.num_points), dtype=np.float32)
-delta_1st_2nd_adv = np.empty((test_size, args.num_points), dtype=np.float32)
+# # guess 13: get delta between first and second confidences (overall).
+# delta_1st_2nd     = np.empty((test_size, args.num_points), dtype=np.float32)
+# delta_1st_2nd_adv = np.empty((test_size, args.num_points), dtype=np.float32)
+#
+# for i in range(test_size):
+#     for j in range(args.num_points):
+#         second, first = np.sort(probs[i, j])[-2:]
+#         delta_1st_2nd[i, j] = first - second
+#         second, first = np.sort(probs_adv[i, j])[-2:]
+#         delta_1st_2nd_adv[i, j] = first - second
+#
+# plt.figure()
+# plt.plot(delta_1st_2nd[inds[0]], 'blue')
+# plt.plot(delta_1st_2nd_adv[inds[0]], 'red')
+# plt.title('delta_1st_2nd overall for i={}'.format(inds[0]))
+# plt.legend(['normal', 'adv'])
+# plt.show()
+#
+# delta_1st_2nd_cumsum     = delta_1st_2nd.cumsum(axis=1)
+# delta_1st_2nd_cumsum_adv = delta_1st_2nd_adv.cumsum(axis=1)
+#
+# plt.figure()
+# plt.hist(delta_1st_2nd_cumsum[f3_inds, 99], alpha=0.5, label='normal', bins=100)#, range=[-1, 40])
+# plt.hist(delta_1st_2nd_cumsum_adv[f3_inds, 99], alpha=0.5, label='adv', bins=100)#, range=[-1, 40])
+# plt.legend(loc='upper right')
+# plt.title('intg(first_label_prob - second_label_prob). overall. until rank 100')
+# # plt.xlim(-300, 500000)
+# plt.show()
+#
+# features_index.append('intg(first_label_prob - second_label_prob). overall. until rank 400')
+# normal_features.append(delta_1st_2nd_cumsum[:, 399])
+# adv_features.append(delta_1st_2nd_cumsum_adv[:, 399])
+
+# guess 13: get delta between first and rest of confidences (overall).
+delta_1st_rest     = np.empty((test_size, args.num_points), dtype=np.float32)
+delta_1st_rest_adv = np.empty((test_size, args.num_points), dtype=np.float32)
 
 for i in range(test_size):
     for j in range(args.num_points):
-        second, first = np.sort(probs[i, j])[-2:]
-        delta_1st_2nd[i, j] = first - second
-        second, first = np.sort(probs_adv[i, j])[-2:]
-        delta_1st_2nd_adv[i, j] = first - second
+        probs_sorted = np.sort(probs[i, j])
+        rest, first = probs_sorted[:-1], probs_sorted[-1]
+        delta_1st_rest[i, j] = max(0, first - np.sum(rest))
+
+        probs_sorted = np.sort(probs_adv[i, j])
+        rest, first = probs_sorted[:-1], probs_sorted[-1]
+        delta_1st_rest_adv[i, j] = max(0, first - np.sum(rest))
 
 plt.figure()
-plt.plot(delta_1st_2nd[inds[0]], 'blue')
-plt.plot(delta_1st_2nd_adv[inds[0]], 'red')
+plt.plot(delta_1st_rest[inds[0]], 'blue')
+plt.plot(delta_1st_rest_adv[inds[0]], 'red')
 plt.title('delta_1st_2nd overall for i={}'.format(inds[0]))
 plt.legend(['normal', 'adv'])
 plt.show()
 
-delta_1st_2nd_cumsum     = delta_1st_2nd.cumsum(axis=1)
-delta_1st_2nd_cumsum_adv = delta_1st_2nd_adv.cumsum(axis=1)
+delta_1st_rest_cumsum     = delta_1st_rest.cumsum(axis=1)
+delta_1st_rest_cumsum_adv = delta_1st_rest_adv.cumsum(axis=1)
 
 plt.figure()
-plt.hist(delta_1st_2nd_cumsum[f3_inds, 399], alpha=0.5, label='normal', bins=100)#, range=[-1, 40])
-plt.hist(delta_1st_2nd_cumsum_adv[f3_inds, 399], alpha=0.5, label='adv', bins=100)#, range=[-1, 40])
+plt.hist(delta_1st_rest_cumsum[f3_inds, 199], alpha=0.5, label='normal', bins=100)#, range=[-1, 40])
+plt.hist(delta_1st_rest_cumsum_adv[f3_inds, 199], alpha=0.5, label='adv', bins=100)#, range=[-1, 40])
 plt.legend(loc='upper right')
-plt.title('intg(first_label_prob - second_label_prob). overall. until rank 400')
+plt.title('intg(first_label_prob - rest). overall. until rank 200')
 # plt.xlim(-300, 500000)
 plt.show()
 
-features_index.append('intg(first_label_prob - second_label_prob). overall. until rank 400')
-normal_features.append(delta_1st_2nd_cumsum[:, 399])
-adv_features.append(delta_1st_2nd_cumsum_adv[:, 399])
+features_index.append('intg(first_label_prob - rest). overall. until rank 200')
+normal_features.append(delta_1st_rest_cumsum[:, 199])
+adv_features.append(delta_1st_rest_cumsum_adv[:, 199])
 
-# guess 13: delta between original (primary) label and secondary (first switched) label
+# guess 14: delta between original (primary) label and secondary (first switched) label
 delta_1st_2nd_specific     = -1 * np.ones((test_size, args.num_points), dtype=np.float32)
 delta_1st_2nd_specific_adv = -1 * np.ones((test_size, args.num_points), dtype=np.float32)
 
@@ -831,23 +918,27 @@ plt.show()
 delta_1st_2nd_specific_cumsum     = delta_1st_2nd_specific.cumsum(axis=1)
 delta_1st_2nd_specific_cumsum_adv = delta_1st_2nd_specific_adv.cumsum(axis=1)
 
+confidences_primary_cumsum     = confidences_primary.cumsum(axis=1)
+confidences_primary_cumsum_adv = confidences_primary_adv.cumsum(axis=1)
+
 for i in range(test_size):
     if first_sw_rank[i] == -1:
-        delta_1st_2nd_specific_cumsum[i] = np.arange(args.num_points)
+        delta_1st_2nd_specific_cumsum[i] = confidences_primary_cumsum[i]
     if first_sw_rank_adv[i] == -1:
-        delta_1st_2nd_specific_cumsum_adv[i] = np.arange(args.num_points)
+        delta_1st_2nd_specific_cumsum_adv[i] = confidences_primary_cumsum_adv[i]
 
 plt.figure()
-plt.hist(delta_1st_2nd_specific_cumsum[f3_inds, 499], alpha=0.5, label='normal', bins=100)#, range=[0, 300])
-plt.hist(delta_1st_2nd_specific_cumsum_adv[f3_inds, 499], alpha=0.5, label='adv', bins=100)#, range=[0, 300])
+plt.hist(delta_1st_2nd_specific_cumsum[f3_inds, 199], alpha=0.5, label='normal', bins=100)#, range=[0, 300])
+plt.hist(delta_1st_2nd_specific_cumsum_adv[f3_inds, 199], alpha=0.5, label='adv', bins=100)#, range=[0, 300])
 plt.legend(loc='upper right')
-plt.title('intg(primary_prob - secondary_prob). specific. until rank 500')
+plt.title('intg(primary_prob - secondary_prob). specific. until rank 200')
 #plt.ylim(0, 500)
+plt.ylim(0, 100)
 plt.show()
 
-features_index.append('intg(primary_prob - secondary_prob). specific. until rank 500')
-normal_features.append(delta_1st_2nd_specific_cumsum[:, 499])
-adv_features.append(delta_1st_2nd_specific_cumsum_adv[:, 499])
+features_index.append('intg(primary_prob - secondary_prob). specific. until rank 100')
+normal_features.append(delta_1st_2nd_specific_cumsum[:, 99])
+adv_features.append(delta_1st_2nd_specific_cumsum_adv[:, 99])
 
 # stacking features to numpy
 normal_features = np.stack(normal_features, axis=1)
@@ -856,18 +947,18 @@ adv_features    = np.stack(adv_features, axis=1)
 # adv_features = adv_features.reshape((test_size, -1))
 
 # using simple threshold, for a single feature_ind
-feature_ind = 13
-plt.figure()
-plt.hist(normal_features[f3_inds_val, feature_ind], alpha=0.5, label='normal', bins=100)#, range=[150, 400])
-plt.hist(adv_features[f3_inds_val, feature_ind], alpha=0.5, label='adv', bins=100)#, range=[150, 400])
-plt.legend(loc='upper right')
-plt.title('hist for {}'.format(features_index[feature_ind]))
-plt.ylim(0, 200)
-plt.show()
-
-detection_preds     = normal_features[:, feature_ind] < 200
-detection_preds_adv = adv_features[:, feature_ind] < 200
-
+# feature_ind = 13
+# plt.figure()
+# plt.hist(normal_features[f3_inds_val, feature_ind], alpha=0.5, label='normal', bins=100)#, range=[150, 400])
+# plt.hist(adv_features[f3_inds_val, feature_ind], alpha=0.5, label='adv', bins=100)#, range=[150, 400])
+# plt.legend(loc='upper right')
+# plt.title('hist for {}'.format(features_index[feature_ind]))
+# plt.ylim(0, 200)
+# plt.show()
+#
+# detection_preds     = normal_features[:, feature_ind] < 200
+# detection_preds_adv = adv_features[:, feature_ind] < 200
+#
 # define complete training/testing set for learned models:
 train_features = np.concatenate((normal_features[f3_inds_val], adv_features[f3_inds_val]))
 train_labels   = np.concatenate((np.zeros(len(f3_inds_val)), np.ones(len(f3_inds_val))))
@@ -886,7 +977,7 @@ clf = RandomForestClassifier(
                     # If False, the whole datset is used to build each tree.
     random_state=rand_gen,
     verbose=1000,
-    class_weight={0: 1, 1: 10}
+    # class_weight={0: 1, 1: 10}
 )
 
 clf.fit(train_features, train_labels)
