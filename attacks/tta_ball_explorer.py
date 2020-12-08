@@ -8,6 +8,7 @@ import PIL
 
 from active_learning_project.datasets.train_val_test_data_loaders import dataset_factory
 from active_learning_project.utils import convert_tensor_to_image
+import active_learning_project.datasets.my_transforms as my_transforms
 from art.utils import get_labels_np_array
 # from art.utils import random_sphere
 from typing import Union, Tuple
@@ -42,10 +43,15 @@ class TTABallExplorer(object):
         num_classes = targets.shape[1]
         targets_sv = np.argmax(targets, axis=1)
 
-        # test_transforms = transforms.ToTensor()
-
         p_hflip = 0.5 if 'cifar' in self.dataset else 0.0
         tta_transforms = transforms.Compose([
+            my_transforms.ColorJitterPro(
+                brightness=[0.6, 1.4],
+                contrast=[0.7, 1.3],
+                saturation=[0.5, 1.5],
+                hue=[-0.06, 0.06],
+                gamma=[0.7, 1.3]
+            ),
             transforms.Pad(padding=16, padding_mode='edge'),
             transforms.RandomAffine(
                 degrees=15,
@@ -55,9 +61,9 @@ class TTABallExplorer(object):
                 resample=PIL.Image.BILINEAR,
                 fillcolor=None
             ),
+            transforms.GaussianBlur(kernel_size=5, sigma=[0.001, 0.5]),
             transforms.CenterCrop(size=32),
             transforms.RandomHorizontalFlip(p=p_hflip),
-            # transforms.ToTensor()
         ])
 
         data_dir, database, _, _ = dataset_factory(self.dataset)
@@ -118,6 +124,31 @@ class TTABallExplorer(object):
                 all_noise_power[batch_index_1:batch_index_2, n] = out_np[3]
 
         return all_x_adv, all_losses, all_preds, all_noise_power
+
+        # debug:
+        # img = convert_tensor_to_image(all_x_adv[100*batch_id:100*(batch_id+1), 0])
+        # img_adv = convert_tensor_to_image(batch.data.cpu().numpy())
+        # img_adv_noisy = convert_tensor_to_image(all_x_adv[100*batch_id:100*(batch_id+1), 1])
+        #
+        # n_imgs = 10  # number of images
+        # n_dist = 3  # number of distortions
+        # inds = np.random.choice(np.arange(self.batch_size), n_imgs, replace=False)
+        # fig = plt.figure(figsize=(n_dist, n_imgs))
+        # for i in range(n_imgs):
+        #     loc = 3 * i + 1
+        #     fig.add_subplot(n_imgs, n_dist, loc)
+        #     plt.imshow(img[inds[i]])
+        #     plt.axis('off')
+        #     loc = 3 * i + 2
+        #     fig.add_subplot(n_imgs, n_dist, loc)
+        #     plt.imshow(img_adv[inds[i]])
+        #     plt.axis('off')
+        #     loc = 3 * i + 3
+        #     fig.add_subplot(n_imgs, n_dist, loc)
+        #     plt.imshow(img_adv_noisy[inds[i]])
+        #     plt.axis('off')
+        # plt.tight_layout()
+        # plt.show()
 
     def random_sphere(self, nb_points: int, nb_dims: int, max_radius: float, norm: Union[int, float]) -> np.ndarray:
         """
