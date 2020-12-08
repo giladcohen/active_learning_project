@@ -257,7 +257,8 @@ if not os.path.exists(os.path.join(SAVE_DIR, 'x_ball_adv_subset_500.npy')):
     np.save(os.path.join(SAVE_DIR, 'preds.npy'), preds)
     np.save(os.path.join(SAVE_DIR, 'noise_powers.npy'), noise_powers)
 
-    x_ball = x_ball[0:500]  # expensive in memory
+    # x_ball = x_ball[0:500]  # expensive in memory
+    del x_ball
 
     print('calculating adv x in ball...')
     x_ball_adv, losses_adv, preds_adv, noise_powers_adv = explorer.generate(X_test_adv)
@@ -278,7 +279,8 @@ if not os.path.exists(os.path.join(SAVE_DIR, 'x_ball_adv_subset_500.npy')):
     np.save(os.path.join(SAVE_DIR, 'preds_adv.npy'), preds_adv)
     np.save(os.path.join(SAVE_DIR, 'noise_powers_adv.npy'), noise_powers_adv)
 
-    x_ball_adv = x_ball_adv[0:500]  # expensive in memory
+    # x_ball_adv = x_ball_adv[0:500]  # expensive in memory
+    del x_ball_adv
 
     print('done')
     exit(0)
