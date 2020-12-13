@@ -26,7 +26,7 @@ from active_learning_project.datasets.train_val_test_data_loaders import get_tes
     get_loader_with_specific_inds, get_normalized_tensor
 from active_learning_project.attacks.tta_ball_explorer import TTABallExplorer
 from active_learning_project.utils import convert_tensor_to_image, boolean_string, majority_vote, add_feature, \
-    convert_image_to_tensor
+    convert_image_to_tensor, get_is_adv_prob, calc_prob_wo_l, calc_prob_vec_wo_l
 
 import matplotlib.pyplot as plt
 
@@ -36,13 +36,13 @@ from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchEx
 parser = argparse.ArgumentParser(description='PyTorch adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='deepfool', type=str, help='attack directory')
-parser.add_argument('--save_dir', default='tta_ball_rev_L2_eps_4_n_1000', type=str, help='reverse dir')
+parser.add_argument('--save_dir', default='tta_ball_rev_L2_eps_2_n_1000', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
 
 # for exploration
 parser.add_argument('--norm', default='L2', type=str, help='norm or ball distance')
-parser.add_argument('--eps', default=4.0, type=float, help='the ball radius for exploration')
+parser.add_argument('--eps', default=2.0, type=float, help='the ball radius for exploration')
 parser.add_argument('--num_points', default=1000, type=int, help='the number of gradients to sample')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -968,23 +968,23 @@ test_normal_features = normal_features.copy()
 test_adv_features = adv_features.copy()
 
 # fitting random forest classifier
-clf = RandomForestClassifier(
-    n_estimators=1000,
-    criterion="entropy",  # gini or entropy
-    max_depth=None, # The maximum depth of the tree. If None, then nodes are expanded until all leaves are pure or
-                    # until all leaves contain less than min_samples_split samples.
-    min_samples_split=10,
-    min_samples_leaf=10,
-    bootstrap=True, # Whether bootstrap samples are used when building trees.
-                    # If False, the whole datset is used to build each tree.
-    random_state=rand_gen,
-    verbose=1000,
-    # class_weight={0: 1, 1: 10}
-)
-
-clf.fit(train_features, train_labels)
-detection_preds     = clf.predict(test_normal_features)
-detection_preds_adv = clf.predict(test_adv_features)
+# clf = RandomForestClassifier(
+#     n_estimators=1000,
+#     criterion="entropy",  # gini or entropy
+#     max_depth=None, # The maximum depth of the tree. If None, then nodes are expanded until all leaves are pure or
+#                     # until all leaves contain less than min_samples_split samples.
+#     min_samples_split=10,
+#     min_samples_leaf=10,
+#     bootstrap=True, # Whether bootstrap samples are used when building trees.
+#                     # If False, the whole datset is used to build each tree.
+#     random_state=rand_gen,
+#     verbose=1000,
+#     # class_weight={0: 1, 1: 10}
+# )
+#
+# clf.fit(train_features, train_labels)
+# detection_preds     = clf.predict(test_normal_features)
+# detection_preds_adv = clf.predict(test_adv_features)
 
 # fitting SVM
 # clf = LinearSVC(penalty='l2', loss='hinge', verbose=1, random_state=rand_gen, max_iter=100000)
@@ -992,6 +992,49 @@ detection_preds_adv = clf.predict(test_adv_features)
 # detection_preds     = clf.predict(test_normal_features)
 # detection_preds_adv = clf.predict(test_adv_features)
 
+# applying majority vote over TTA, using y_ball_preds and y_ball_adv_preds
+# robustness_preds     = np.apply_along_axis(majority_vote, axis=1, arr=y_ball_preds)
+# robustness_preds_adv = np.apply_along_axis(majority_vote, axis=1, arr=y_ball_adv_preds)
+
+# summing up the logits for every class, for every TTA sample
+# preds_mean          = preds.mean(axis=1)
+# preds_mean_adv      = preds_adv.mean(axis=1)
+
+# summing up the probs (after softmax) for every class, for every TTA sample
+# probs_mean           = probs.mean(axis=1)
+# probs_mean_adv       = probs_adv.mean(axis=1)
+# robustness_preds     = probs_mean.argmax(axis=1)
+# robustness_preds_adv = probs_mean_adv.argmax(axis=1)
+
+# for each image, and for each i, calculate for l (first pred) the exp(zi)/exp(zj) for each j!=l.
+probs_wo_l     = np.zeros((test_size, args.num_points, len(classes)))
+probs_wo_l_adv = np.zeros((test_size, args.num_points, len(classes)))
+for k in range(test_size):
+    l = preds[k, 0].argmax()
+    for n in range(args.num_points):
+        probs_wo_l[k, n] = calc_prob_wo_l(preds[k, n], l)
+
+    l = preds_adv[k, 0].argmax()
+    for n in range(args.num_points):
+         probs_wo_l_adv[k, n] = calc_prob_wo_l(preds_adv[k, n], l)
+
+probs_wo_l_mean     = probs_wo_l.mean(axis=1)
+probs_wo_l_mean_adv = probs_wo_l_adv.mean(axis=1)
+
+probs_mean     = probs.mean(axis=1)
+probs_mean_adv = probs_adv.mean(axis=1)
+
+confidences_wo_l     = np.max(probs_wo_l, axis=2)
+confidences_wo_l_adv = np.max(probs_wo_l_adv, axis=2)
+
+
+
+
+# Using robustness predictions to get adv predictions
+detection_preds     = robustness_preds != y_ball_preds[:, 0]
+detection_preds_adv = robustness_preds_adv != y_ball_adv_preds[:, 0]
+
+# adv detection metrics
 acc_all = np.mean(detection_preds[test_inds] == 0)
 acc_f1 = np.mean(detection_preds[f1_inds_test] == 0)
 acc_f2 = np.mean(detection_preds[f2_inds_test] == 0)
@@ -1004,4 +1047,19 @@ acc_f3_adv = np.mean(detection_preds_adv[f3_inds_test] == 1)
 
 print('Accuracy for all samples: {:.2f}/{:.2f}%. '
       'f1 samples: {:.2f}/{:.2f}%, f2 samples: {:.2f}/{:.2f}%, f3 samples: {:.2f}/{:.2f}%'
+      .format(acc_all * 100, acc_all_adv * 100, acc_f1 * 100, acc_f1_adv * 100, acc_f2 * 100, acc_f2_adv * 100, acc_f3 * 100, acc_f3_adv * 100))
+
+
+# robustness metrics
+acc_all = np.mean(robustness_preds == y_test)
+acc_f1 = np.mean(robustness_preds[f1_inds] == y_test[f1_inds])
+acc_f2 = np.mean(robustness_preds[f2_inds] == y_test[f2_inds])
+acc_f3 = np.mean(robustness_preds[f3_inds] == y_test[f3_inds])
+
+acc_all_adv = np.mean(robustness_preds_adv == y_test)
+acc_f1_adv = np.mean(robustness_preds_adv[f1_inds] == y_test[f1_inds])
+acc_f2_adv = np.mean(robustness_preds_adv[f2_inds] == y_test[f2_inds])
+acc_f3_adv = np.mean(robustness_preds_adv[f3_inds] == y_test[f3_inds])
+
+print('Accuracy: all samples: {:.2f}/{:.2f}%, f1 samples: {:.2f}/{:.2f}%, f2 samples: {:.2f}/{:.2f}%, f3 samples: {:.2f}/{:.2f}%'
       .format(acc_all * 100, acc_all_adv * 100, acc_f1 * 100, acc_f1_adv * 100, acc_f2 * 100, acc_f2_adv * 100, acc_f3 * 100, acc_f3_adv * 100))

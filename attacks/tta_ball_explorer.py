@@ -23,7 +23,7 @@ class TTABallExplorer(object):
         self,
         classifier,
         dataset: str,
-        rand_gen: np.random.mtrand.RandomState,
+        rand_gen: np.random.RandomState,
         norm: int = np.inf,
         eps: float = 0.3,
         num_points: int = 10,

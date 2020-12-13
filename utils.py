@@ -9,11 +9,17 @@ import time
 import math
 import torch
 import numpy as np
+from tqdm import tqdm
+
+from numba import njit, jit
 
 import torch.nn as nn
 import torch.nn.init as init
 import torch.utils.data as data
+
+import scipy
 from scipy.spatial.distance import pdist, cdist, squareform
+
 
 def get_mean_and_std(dataset):
     '''Compute the mean and std value of dataset.'''
@@ -239,6 +245,59 @@ def convert_image_to_tensor(x: np.ndarray):
 
 def majority_vote(x):
     return np.bincount(x).argmax()
+
+def calc_prob(x: np.ndarray) -> np.ndarray:
+    return scipy.special.softmax(x)
+
+def calc_prob_wo_l(x: np.ndarray, l: int) -> np.ndarray:
+    xx = x.copy()
+    xx[l] = -np.inf
+    return scipy.special.softmax(xx)
+
+def get_is_adv_prob(preds: np.ndarray) -> np.ndarray:
+    # first get all the probs:
+    test_size, num_points, num_classes = preds.shape
+    pi_mat = scipy.special.softmax(preds, axis=2)
+    pil_mat = np.zeros((preds.shape) + (num_classes,)) # (test_size(k), num_points(n), #classes(l), #classes(i))
+    for cls in range(num_classes):
+        tmp_preds = preds.copy()
+        tmp_preds[:, :, cls] = -np.inf
+        pil_mat[:, :, cls] = scipy.special.softmax(tmp_preds, axis=2)
+
+    p_is_adv = np.nan * np.ones(preds.shape)  #shape = (k, n, i) = (test_size, num_points, num_classes)
+    for k in tqdm(range(preds.shape[0])):
+        l = preds[k, 0].argmax()
+        for n in range(num_points):
+            for i in range(num_classes):
+                if i != l:
+                    pi = pi_mat[k, n, i]
+                    pil = pil_mat[k, n, l, i]
+                    p_is_adv[k, n, i] = (1 - pi) / (1 - pi + pil)
+
+    return p_is_adv
+
+def get_is_adv_prob_v2(preds):
+    test_size, num_points, num_classes = preds.shape
+    probs = scipy.special.softmax(preds, axis=2)
+    probs_mean = probs.mean(axis=1)
+
+    probs_wo_l = np.zeros((test_size, num_points, num_classes))
+    for k in range(test_size):
+        l = preds[k, 0].argmax()
+        for n in range(num_points):
+            probs_wo_l[k, n] = calc_prob_wo_l(preds[k, n], l)
+    probs_wo_l_mean = probs_wo_l.mean(axis=1)
+
+    p_is_adv = np.zeros(test_size)
+    for k in range(test_size):
+        l = preds[k, 0].argmax()
+        p = 0.0
+        for i in range(num_classes):
+            if i != l:
+                p += (1 - probs_mean[k, i]) / (1 - probs_mean[k, i] + probs_wo_l_mean[k, i])
+        p_is_adv[k] = p / (num_classes - 1)
+
+    return p_is_adv
 
 def get_ensemble_paths(ensemble_dir):
     ensemble_subdirs = next(os.walk(ensemble_dir))[1]
