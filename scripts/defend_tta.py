@@ -26,7 +26,7 @@ from active_learning_project.datasets.train_val_test_data_loaders import get_tes
     get_loader_with_specific_inds, get_normalized_tensor
 from active_learning_project.attacks.tta_ball_explorer import TTABallExplorer
 from active_learning_project.utils import convert_tensor_to_image, boolean_string, majority_vote, add_feature, \
-    convert_image_to_tensor, get_is_adv_prob, calc_prob_wo_l, calc_prob_vec_wo_l
+    convert_image_to_tensor, get_is_adv_prob, calc_prob_wo_l
 
 import matplotlib.pyplot as plt
 
