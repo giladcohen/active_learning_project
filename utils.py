@@ -10,6 +10,7 @@ import math
 import torch
 import numpy as np
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 from numba import njit, jit
 
@@ -19,7 +20,7 @@ import torch.utils.data as data
 
 import scipy
 from scipy.spatial.distance import pdist, cdist, squareform
-
+from sklearn.metrics import roc_curve, auc, roc_auc_score
 
 def get_mean_and_std(dataset):
     '''Compute the mean and std value of dataset.'''
@@ -298,6 +299,28 @@ def get_is_adv_prob_v2(preds):
         p_is_adv[k] = p / (num_classes - 1)
 
     return p_is_adv
+
+def compute_roc(y_true, y_pred, plot=False):
+    """
+    TODO
+    :param y_true: ground truth
+    :param y_pred: predictions
+    :param plot:
+    :return:
+    """
+    fpr, tpr, _ = roc_curve(y_true, y_pred)
+    auc_score = roc_auc_score(y_true, y_pred)
+    if plot:
+        plt.figure(figsize=(7, 6))
+        plt.plot(fpr, tpr, color='blue',
+                 label='ROC (AUC = %0.4f)' % auc_score)
+        plt.legend(loc='lower right')
+        plt.title("ROC Curve")
+        plt.xlabel("FPR")
+        plt.ylabel("TPR")
+        plt.show()
+
+    return fpr, tpr, auc_score
 
 def get_ensemble_paths(ensemble_dir):
     ensemble_subdirs = next(os.walk(ensemble_dir))[1]
