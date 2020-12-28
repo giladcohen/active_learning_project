@@ -36,6 +36,20 @@ import matplotlib.pyplot as plt
 from art.classifiers import PyTorchClassifier
 from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchExtClassifier
 
+def to_features(func):
+    """Decorator to fetch name of feature, normal features, and adv features"""
+    def inner1(*args, **kwargs):
+        global features_index, normal_features_list, adv_features_list
+        begin = time()
+        f_out = func(*args, **kwargs)
+        features_index.append(f_out[0])
+        normal_features_list.append(f_out[1])
+        adv_features_list.append(f_out[2])
+        end = time()
+        print("Total time taken in {}: {}".format(func.__name__, end - begin))
+
+    return inner1
+
 parser = argparse.ArgumentParser(description='PyTorch adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='deepfool', type=str, help='attack directory')
