@@ -386,6 +386,7 @@ register_delta_probs_prime_secondary_excl_rest(stats, stats_adv, f2_inds_val)
 # stacking features to numpy
 normal_features = np.stack(normal_features_list, axis=1)
 adv_features    = np.stack(adv_features_list, axis=1)
+np.save(os.path.join(SAVE_DIR, 'features_index_hist.npy'), features_index)
 np.save(os.path.join(SAVE_DIR, 'normal_features_hist.npy'), normal_features)
 np.save(os.path.join(SAVE_DIR, 'adv_features_hist.npy'), adv_features)
 print('done')
