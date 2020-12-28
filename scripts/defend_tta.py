@@ -29,7 +29,7 @@ from active_learning_project.attacks.tta_ball_explorer import TTABallExplorer
 from active_learning_project.utils import convert_tensor_to_image, boolean_string, majority_vote, add_feature, \
     convert_image_to_tensor, get_is_adv_prob, calc_prob_wo_l, compute_roc
 
-from active_learning_project.tta_utils import plot_ttas, update_useful_stats
+from active_learning_project.tta_utils import *
 
 import matplotlib.pyplot as plt
 
@@ -324,7 +324,9 @@ stats_adv = {}
 stats_adv['preds'] = preds_adv
 stats_adv['losses'] = losses_adv
 
+print('updating useful stats for normal images...')
 update_useful_stats(stats)
+print('updating useful stats for adv images...')
 update_useful_stats(stats_adv)
 
 assert np.all(stats['y_ball_preds'][:, 0] == y_test_preds)
@@ -360,263 +362,34 @@ print('calculating Feature 8: mean(rel_loss) for only initial label...')
 register_mean_rel_loss_for_initial_label(stats, stats_adv, f2_inds_val)
 
 print('calculating Feature 9: integral(confidence) until a specific rank...')
-register_sum_confidences(stats, stats_adv, f2_inds_val)
+register_intg_confidences_prime(stats, stats_adv, f2_inds_val)
 
-# guess 10: intg of confidence === max(prob) for primary only. specific.
-# plot confidence for one example:
-confidences_primary     = np.empty((test_size, args.num_points))
-confidences_primary_adv = np.empty((test_size, args.num_points))
-for i in range(test_size):
-    confidences_primary[i] = probs[i, :, y_test_preds[i]]
-    confidences_primary_adv[i] = probs_adv[i, :, y_test_adv_preds[i]]
+print('calculating Feature 10: integral(confidence) for primary only. Specific...')
+register_intg_confidences_prime_specific(stats, stats_adv, f2_inds_val)
 
-confidences_primary_cumsum = np.cumsum(confidences_primary, axis=1)
-confidences_primary_cumsum_adv = np.cumsum(confidences_primary_adv, axis=1)
+print('calculating Feature 11: integral(confidence) for secondary label. Overall...')
+register_intg_confidences_secondary(stats, stats_adv, f2_inds_val)
 
-plt.figure()
-plt.hist(confidences_primary_cumsum[f3_inds, 399], alpha=0.5, label='normal', bins=100)#, range=[399, 400])
-plt.hist(confidences_primary_cumsum_adv[f3_inds, 399], alpha=0.5, label='adv', bins=100)#, range=[399, 400])
-plt.legend(loc='upper right')
-plt.title('intg(confidence) for primary label. specific. until rank 400')
-# plt.xlim(-300, 500000)
-# plt.ylim(0, 100)
-plt.show()
+print('calculating Feature 12: integral(confidence) for secondary label. Specific...')
+register_intg_confidences_secondary_specific(stats, stats_adv, f2_inds_val)
 
-features_index.append('intg(confidence) for primary label. specific. until rank 400')
-normal_features_list.append(confidences_primary_cumsum[:, 399])
-adv_features_list.append(confidences_primary_cumsum_adv[:, 399])
+print('calculating Feature 13: integral(delta) for prime - rest. Overall...')
+register_intg_delta_confidences_prime_rest(stats, stats_adv, f2_inds_val)
 
-# guess 11: confidence === max(prob) for secondary. overall
-confidences_secondary_overall     = np.empty((test_size, args.num_points), dtype=np.float32)
-confidences_secondary_overall_adv = np.empty((test_size, args.num_points), dtype=np.float32)
+print('calculating Feature 14: integral(delta) for prime - secondary. Specific...')
+register_intg_delta_confidences_prime_secondary_specific(stats, stats_adv, f2_inds_val)
 
-for i in range(test_size):
-    for j in range(args.num_points):
-        confidences_secondary_overall[i, j]     = np.sort(probs[i, j])[-2]
-        confidences_secondary_overall_adv[i, j] = np.sort(probs_adv[i, j])[-2]
-
-confidences_secondary_overall_cumsum     = np.cumsum(confidences_secondary_overall, axis=1)
-confidences_secondary_overall_cumsum_adv = np.cumsum(confidences_secondary_overall_adv, axis=1)
-
-i = inds[0]
-plt.figure()
-plt.plot(confidences_secondary_overall_cumsum[i], 'blue')
-plt.plot(confidences_secondary_overall_cumsum_adv[i], 'red')
-plt.title('confidences_secondary_cumsum for i={}'.format(i))
-plt.legend(['normal', 'adv'])
-plt.show()
-
-plt.figure()
-plt.hist(confidences_secondary_overall_cumsum[f3_inds, 999], alpha=0.5, label='normal', bins=100)#, range=[270, 300])
-plt.hist(confidences_secondary_overall_cumsum_adv[f3_inds, 999], alpha=0.5, label='adv', bins=100)#, range=[270, 300])
-plt.legend(loc='upper right')
-plt.title('intg(confidence) for secondary label. overall. until rank 1000')
-# plt.ylim([0, 500])
-# plt.xlim(-300, 500000)
-plt.show()
-
-features_index.append('intg(confidence) for secondary label. overall. until rank 1000')
-normal_features_list.append(confidences_secondary_overall_cumsum[:, 999])
-adv_features_list.append(confidences_secondary_overall_cumsum_adv[:, 999])
-
-# guess 12: intg confidence === max(prob) for secondary only. specific.
-# First, find the secondary label
-secondary_preds     = -1 * np.ones(test_size, dtype=np.int32)
-secondary_preds_adv = -1 * np.ones(test_size, dtype=np.int32)
-
-for i in range(test_size):
-    if first_sw_rank[i] != -1:
-        secondary_preds[i] = y_ball_preds[i, first_sw_rank[i]]
-    if first_sw_rank_adv[i] != -1:
-        secondary_preds_adv[i] = y_ball_adv_preds[i, first_sw_rank_adv[i]]
-    else:
-        print('for adv example i={}, there are no prediction switch'.format(i))
-
-confidences_secondary     = -1 * np.ones((test_size, args.num_points))
-confidences_secondary_adv = -1 * np.ones((test_size, args.num_points))
-for i in range(test_size):
-    if first_sw_rank[i] != -1:
-        confidences_secondary[i] = probs[i, :, secondary_preds[i]]
-    if first_sw_rank_adv[i] != -1:
-        confidences_secondary_adv[i] = probs_adv[i, :, secondary_preds_adv[i]]
-
-confidences_secondary_cumsum     = np.cumsum(confidences_secondary, axis=1)
-confidences_secondary_cumsum_adv = np.cumsum(confidences_secondary_adv, axis=1)
-for i in range(test_size):
-    if first_sw_rank[i] == -1:
-        confidences_secondary_cumsum[i] = 0
-    if first_sw_rank_adv[i] == -1:
-        confidences_secondary_cumsum_adv[i] = 0
-
-plt.figure()
-plt.hist(confidences_secondary_cumsum[f3_inds, 499], alpha=0.5, label='normal', bins=100)#, range=[-1, 40])
-plt.hist(confidences_secondary_cumsum_adv[f3_inds, 499], alpha=0.5, label='adv', bins=100)#, range=[-1, 40])
-plt.legend(loc='upper right')
-plt.title('intg(confidence) for secondary label. specific. until rank 500')
-# plt.xlim(-300, 500000)
-# plt.ylim(0, 100)
-plt.show()
-
-features_index.append('intg(confidence) for secondary label. specific. until rank 500')
-normal_features_list.append(confidences_secondary_cumsum[:, 499])
-adv_features_list.append(confidences_secondary_cumsum_adv[:, 499])
-
-# # guess 13: get delta between first and second confidences (overall).
-# delta_1st_2nd     = np.empty((test_size, args.num_points), dtype=np.float32)
-# delta_1st_2nd_adv = np.empty((test_size, args.num_points), dtype=np.float32)
-#
-# for i in range(test_size):
-#     for j in range(args.num_points):
-#         second, first = np.sort(probs[i, j])[-2:]
-#         delta_1st_2nd[i, j] = first - second
-#         second, first = np.sort(probs_adv[i, j])[-2:]
-#         delta_1st_2nd_adv[i, j] = first - second
-#
-# plt.figure()
-# plt.plot(delta_1st_2nd[inds[0]], 'blue')
-# plt.plot(delta_1st_2nd_adv[inds[0]], 'red')
-# plt.title('delta_1st_2nd overall for i={}'.format(inds[0]))
-# plt.legend(['normal', 'adv'])
-# plt.show()
-#
-# delta_1st_2nd_cumsum     = delta_1st_2nd.cumsum(axis=1)
-# delta_1st_2nd_cumsum_adv = delta_1st_2nd_adv.cumsum(axis=1)
-#
-# plt.figure()
-# plt.hist(delta_1st_2nd_cumsum[f3_inds, 99], alpha=0.5, label='normal', bins=100)#, range=[-1, 40])
-# plt.hist(delta_1st_2nd_cumsum_adv[f3_inds, 99], alpha=0.5, label='adv', bins=100)#, range=[-1, 40])
-# plt.legend(loc='upper right')
-# plt.title('intg(first_label_prob - second_label_prob). overall. until rank 100')
-# # plt.xlim(-300, 500000)
-# plt.show()
-#
-# features_index.append('intg(first_label_prob - second_label_prob). overall. until rank 400')
-# normal_features_list.append(delta_1st_2nd_cumsum[:, 399])
-# adv_features_list.append(delta_1st_2nd_cumsum_adv[:, 399])
-
-# guess 13: get delta between first and rest of confidences (overall).
-delta_1st_rest     = np.empty((test_size, args.num_points), dtype=np.float32)
-delta_1st_rest_adv = np.empty((test_size, args.num_points), dtype=np.float32)
-
-for i in range(test_size):
-    for j in range(args.num_points):
-        probs_sorted = np.sort(probs[i, j])
-        rest, first = probs_sorted[:-1], probs_sorted[-1]
-        delta_1st_rest[i, j] = max(0, first - np.sum(rest))
-
-        probs_sorted = np.sort(probs_adv[i, j])
-        rest, first = probs_sorted[:-1], probs_sorted[-1]
-        delta_1st_rest_adv[i, j] = max(0, first - np.sum(rest))
-
-plt.figure()
-plt.plot(delta_1st_rest[inds[0]], 'blue')
-plt.plot(delta_1st_rest_adv[inds[0]], 'red')
-plt.title('delta_1st_2nd overall for i={}'.format(inds[0]))
-plt.legend(['normal', 'adv'])
-plt.show()
-
-delta_1st_rest_cumsum     = delta_1st_rest.cumsum(axis=1)
-delta_1st_rest_cumsum_adv = delta_1st_rest_adv.cumsum(axis=1)
-
-plt.figure()
-plt.hist(delta_1st_rest_cumsum[f3_inds, 499], alpha=0.5, label='normal', bins=100)#, range=[-1, 40])
-plt.hist(delta_1st_rest_cumsum_adv[f3_inds, 499], alpha=0.5, label='adv', bins=100)#, range=[-1, 40])
-plt.legend(loc='upper right')
-plt.title('intg(first_label_prob - rest). overall. until rank 500')
-# plt.xlim(-300, 500000)
-plt.show()
-
-features_index.append('intg(first_label_prob - rest). overall. until rank 500')
-normal_features_list.append(delta_1st_rest_cumsum[:, 499])
-adv_features_list.append(delta_1st_rest_cumsum_adv[:, 499])
-
-# guess 14: delta between original (primary) label and secondary (first switched) label
-delta_1st_2nd_specific     = -1 * np.ones((test_size, args.num_points), dtype=np.float32)
-delta_1st_2nd_specific_adv = -1 * np.ones((test_size, args.num_points), dtype=np.float32)
-
-for i in range(test_size):
-    for j in range(args.num_points):
-        if first_sw_rank[i] != -1:
-            delta_1st_2nd_specific[i, j] = confidences_primary[i, j] - confidences_secondary[i, j]
-        if first_sw_rank_adv[i] != -1:
-            delta_1st_2nd_specific_adv[i, j] = confidences_primary_adv[i, j] - confidences_secondary_adv[i, j]
-
-plt.figure()
-plt.plot(delta_1st_2nd_specific[inds[0]], 'blue')
-plt.plot(delta_1st_2nd_specific_adv[inds[0]], 'red')
-plt.title('delta_1st_2nd specific for i={}'.format(inds[0]))
-plt.legend(['normal', 'adv'])
-plt.show()
-
-delta_1st_2nd_specific_cumsum     = delta_1st_2nd_specific.cumsum(axis=1)
-delta_1st_2nd_specific_cumsum_adv = delta_1st_2nd_specific_adv.cumsum(axis=1)
-
-confidences_primary_cumsum     = confidences_primary.cumsum(axis=1)
-confidences_primary_cumsum_adv = confidences_primary_adv.cumsum(axis=1)
-
-for i in range(test_size):
-    if first_sw_rank[i] == -1:
-        delta_1st_2nd_specific_cumsum[i] = confidences_primary_cumsum[i]
-    if first_sw_rank_adv[i] == -1:
-        delta_1st_2nd_specific_cumsum_adv[i] = confidences_primary_cumsum_adv[i]
-
-plt.figure()
-plt.hist(delta_1st_2nd_specific_cumsum[f3_inds, 399], alpha=0.5, label='normal', bins=100)#, range=[0, 300])
-plt.hist(delta_1st_2nd_specific_cumsum_adv[f3_inds, 399], alpha=0.5, label='adv', bins=100)#, range=[0, 300])
-plt.legend(loc='upper right')
-plt.title('intg(primary_prob - secondary_prob). specific. until rank 400')
-#plt.ylim(0, 500)
-# plt.ylim(0, 100)
-plt.show()
-
-features_index.append('intg(primary_prob - secondary_prob). specific. until rank 400')
-normal_features_list.append(delta_1st_2nd_specific_cumsum[:, 399])
-adv_features_list.append(delta_1st_2nd_specific_cumsum_adv[:, 399])
-
-# guess 15: delta between original (primary) label and secondary (first switched) label, when
-# eliminating all other logits. Meaning, comparing e^z1/(e^z1 + e^z2) with e^z2/(e^z1 + e^z2) where "1" and "2"
-# are the first and second labels, respectively.
-
-probs_first_second     = np.zeros((test_size, 2))
-probs_first_second_adv = np.zeros((test_size, 2))
-for k in range(test_size):
-    first_cls, second_cls = probs[k, 0].argsort()[[-1, -2]]
-    probs_tmp = probs[k].copy()
-    for j in range(len(classes)):
-        if j not in [first_cls, second_cls]:
-            probs_tmp[:, j] = -np.inf
-    probs_new = scipy.special.softmax(probs_tmp, axis=1)
-    probs_first_second[k, 0] = probs_new[:, first_cls].mean()
-    probs_first_second[k, 1] = probs_new[:, second_cls].mean()
-
-    first_cls, second_cls = probs_adv[k, 0].argsort()[[-1, -2]]
-    probs_tmp = probs_adv[k].copy()
-    for j in range(len(classes)):
-        if j not in [first_cls, second_cls]:
-            probs_tmp[:, j] = -np.inf
-    probs_new = scipy.special.softmax(probs_tmp, axis=1)
-    probs_first_second_adv[k, 0] = probs_new[:, first_cls].mean()
-    probs_first_second_adv[k, 1] = probs_new[:, second_cls].mean()
-
-prob_1st_2nd_diff     = probs_first_second[:, 0]     - probs_first_second[:, 1]
-prob_1st_2nd_diff_adv = probs_first_second_adv[:, 0] - probs_first_second_adv[:, 1]
-
-plt.figure()
-plt.hist(prob_1st_2nd_diff, alpha=0.5, label='normal', bins=100)#, range=[0, 300])
-plt.hist(prob_1st_2nd_diff_adv, alpha=0.5, label='adv', bins=100)#, range=[0, 300])
-plt.legend(loc='upper right')
-plt.title('prob_1st_2nd_diff')
-#plt.ylim(0, 500)
-# plt.ylim(0, 100)
-plt.show()
-
-features_index.append('prob_1st_2nd_diff')
-normal_features_list.append(prob_1st_2nd_diff)
-adv_features_list.append(prob_1st_2nd_diff_adv)
+print('calculating Feature 15: integral(delta) for prime - secondary, setting zj=-inf for other labels...')
+register_delta_probs_prime_secondary_excl_rest(stats, stats_adv, f2_inds_val)
 
 # stacking features to numpy
 normal_features = np.stack(normal_features_list, axis=1)
 adv_features    = np.stack(adv_features_list, axis=1)
+np.save(os.path.join(SAVE_DIR, 'normal_features_hist.npy'), normal_features)
+np.save(os.path.join(SAVE_DIR, 'adv_features_hist.npy'), adv_features)
+print('done')
+exit(0)
+
 # normal_features = normal_features.reshape((test_size, -1))
 # adv_features = adv_features.reshape((test_size, -1))
 

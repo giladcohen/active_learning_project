@@ -62,7 +62,7 @@ def update_useful_stats(stats):
     :param stats: dictionary with some stats: 'preds' and 'losses'.
     :return: A dictionary (stats) containing useful statistics to be used to get later features.
     """
-    test_size = len(stats['preds'])
+    test_size, num_points, num_classes = stats['preds'].shape
 
     # get softmax probabilities
     stats['probs'] = scipy.special.softmax(stats['preds'], axis=2)
@@ -78,22 +78,32 @@ def update_useful_stats(stats):
     stats['y_ball_preds'] = stats['probs'].argmax(axis=2)
 
     # get all tta ranks (orders) that yielded different prediction than the original image
-    switch_ranks = []
+    stats['switch_ranks'] = []
     for k in range(test_size):
         rks = np.where(stats['y_ball_preds'][k] != stats['y_ball_preds'][k, 0])[0]
-        switch_ranks.append(rks)
-    stats['switch_ranks'] = switch_ranks
+        stats['switch_ranks'].append(rks)
 
     # get confidences
     stats['confidences'] = np.max(stats['probs'], axis=2)
 
-    # get images index without any switched pred:
-    no_sw_pred_inds = []
+    # get index of first switch rank and the secondary label
+    stats['first_switch_rank'] = -1 * np.ones(test_size, np.int32)
+    stats['secondary_preds']   = -1 * np.ones(test_size, np.int32)  # the second label that was predicted for a noisier sample
+    stats['no_sw_pred_inds'] = []
     for k in range(test_size):
-        if switch_ranks[k].size == 0:
-            print('image i={} has no pred switch'.format(k))
-            no_sw_pred_inds.append(k)
-    stats['no_sw_pred_inds'] = no_sw_pred_inds
+        if stats['switch_ranks'][k].size != 0:
+            stats['first_switch_rank'][k] = stats['switch_ranks'][k][0]
+            stats['secondary_preds'][k] = stats['y_ball_preds'][k, stats['first_switch_rank'][k]]
+        else:
+            print('image {} has no pred switch'.format(k))
+            stats['no_sw_pred_inds'].append(k)
+
+    stats['confidences_prime']     = -1 * np.ones((test_size, num_points))  # for the first label that was predicted for a noisier sample
+    stats['confidences_secondary'] = -1 * np.ones((test_size, num_points))  # for the second label that was predicted for a noisier sample
+    for k in range(test_size):
+        stats['confidences_prime'][k] = stats['probs'][k, :, stats['y_ball_preds'][k, 0]]
+        if k not in stats['no_sw_pred_inds']:
+            stats['confidences_secondary'][k] = stats['probs'][k, :, stats['secondary_preds'][k]]
 
 def histogram_intersection(h1, h2):
     assert len(h1) == len(h2)
@@ -331,10 +341,123 @@ def register_mean_rel_loss_for_initial_label(stats, stats_adv, inds):
     return register_common_feature('mean_rel_loss_for_initial_label', f1, f2, inds)
 
 @to_features
-def register_sum_confidences(stats, stats_adv, inds):
+def register_intg_confidences_prime(stats, stats_adv, inds):
     f1 = np.cumsum(stats['confidences'], axis=1)
     f2 = np.cumsum(stats_adv['confidences'], axis=1)
-    return register_rank_feature('sum_confidences', f1, f2, inds)
+    return register_rank_feature('intg_confidences_prime', f1, f2, inds)
+
+@to_features
+def register_intg_confidences_prime_specific(stats, stats_adv, inds):
+    f1 = stats['confidences_prime']
+    f2 = stats_adv['confidences_prime']
+
+    f1 = np.cumsum(f1, axis=1)
+    f2 = np.cumsum(f2, axis=1)
+    return register_rank_feature('intg_confidences_prime_specific', f1, f2, inds)
+
+@to_features
+def register_intg_confidences_secondary(stats, stats_adv, inds):
+    test_size, num_points = stats['preds'].shape[0:2]
+    f1 = np.zeros((test_size, num_points))
+    f2 = np.zeros((test_size, num_points))
+    for k in range(test_size):
+        for j in range(num_points):
+            f1[k, j] = np.sort(stats['probs'][k, j])[-2]
+            f2[k, j] = np.sort(stats_adv['probs'][k, j])[-2]
+
+    f1 = np.cumsum(f1, axis=1)
+    f2 = np.cumsum(f2, axis=1)
+    return register_rank_feature('intg_confidences_secondary', f1, f2, inds)
+
+@to_features
+def register_intg_confidences_secondary_specific(stats, stats_adv, inds):
+    f1 = stats['confidences_secondary']
+    f2 = stats_adv['confidences_secondary']
+
+    f1 = np.cumsum(f1, axis=1)
+    f2 = np.cumsum(f2, axis=1)
+    f1[stats['no_sw_pred_inds']] = 0.0
+    f2[stats_adv['no_sw_pred_inds']] = 0.0
+    assert (f1 >= 0.0).all()
+    assert (f2 >= 0.0).all()
+    return register_rank_feature('intg_confidences_secondary_specific', f1, f2, inds)
+
+@to_features
+def register_intg_delta_confidences_prime_rest(stats, stats_adv, inds):
+    test_size, num_points = stats['preds'].shape[0:2]
+    f1 = np.empty((test_size, num_points))
+    f2 = np.empty((test_size, num_points))
+    for k in range(test_size):
+        for j in range(num_points):
+            probs_sorted = np.sort(stats['probs'][k, j])
+            rest, first = probs_sorted[:-1], probs_sorted[-1]
+            f1[k, j] = max(0, first - np.sum(rest))
+
+            probs_sorted = np.sort(stats_adv['probs'][k, j])
+            rest, first = probs_sorted[:-1], probs_sorted[-1]
+            f2[k, j] = max(0, first - np.sum(rest))
+
+    f1 = np.cumsum(f1, axis=1)
+    f2 = np.cumsum(f2, axis=1)
+    return register_rank_feature('intg_delta_confidences_prime_rest', f1, f2, inds)
+
+@to_features
+def register_intg_delta_confidences_prime_secondary_specific(stats, stats_adv, inds):
+    test_size, num_points = stats['preds'].shape[0:2]
+    f1 = -1 * np.ones((test_size, num_points))
+    f2 = -1 * np.ones((test_size, num_points))
+    for k in range(test_size):
+        if k not in stats['no_sw_pred_inds']:
+            f1[k] = stats['confidences_prime'][k] - stats['confidences_secondary'][k]
+        else:
+            f1[k] = stats['confidences_prime'][k]
+        if k not in stats_adv['no_sw_pred_inds']:
+            f2[k] = stats_adv['confidences_prime'][k] - stats_adv['confidences_secondary'][k]
+        else:
+            f2[k] = stats_adv['confidences_prime'][k]
+
+    f1 = np.cumsum(f1, axis=1)
+    f2 = np.cumsum(f2, axis=1)
+
+    return register_rank_feature('intg_delta_confidences_prime_secondary_specific', f1, f2, inds)
+
+@to_features
+def register_delta_probs_prime_secondary_excl_rest(stats, stats_adv, inds):
+    test_size, num_points, num_classes = stats['preds'].shape
+    probs_first_second     = np.zeros((test_size, 2))
+    probs_first_second_adv = np.zeros((test_size, 2))
+    for k in range(test_size):
+        first_cls, second_cls = stats['probs'][k, 0].argsort()[[-1, -2]]
+        probs_tmp = stats['probs'][k].copy()
+        for j in range(num_classes):
+            if j not in [first_cls, second_cls]:
+                probs_tmp[:, j] = -np.inf
+        probs_new = scipy.special.softmax(probs_tmp, axis=1)
+        probs_first_second[k, 0] = probs_new[:, first_cls].mean()
+        probs_first_second[k, 1] = probs_new[:, second_cls].mean()
+
+        first_cls, second_cls = stats_adv['probs'][k, 0].argsort()[[-1, -2]]
+        probs_tmp = stats_adv['probs'][k].copy()
+        for j in range(num_classes):
+            if j not in [first_cls, second_cls]:
+                probs_tmp[:, j] = -np.inf
+        probs_new = scipy.special.softmax(probs_tmp, axis=1)
+        probs_first_second_adv[k, 0] = probs_new[:, first_cls].mean()
+        probs_first_second_adv[k, 1] = probs_new[:, second_cls].mean()
+
+    f1 = probs_first_second[:, 0]     - probs_first_second[:, 1]
+    f2 = probs_first_second_adv[:, 0] - probs_first_second_adv[:, 1]
+
+    return register_common_feature('intg_delta_probs_prime_secondary_excl_rest', f1, f2, inds)
+
+
+
+
+
+
+
+
+
 
 
 
