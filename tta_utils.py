@@ -10,12 +10,26 @@ import torch
 import torch.nn as nn
 import scipy
 from time import time
-from active_learning_project.scripts.defend_tta import to_features
+from active_learning_project.global_vars import features_index, normal_features_list, adv_features_list
 
 rand_gen = np.random.RandomState(12345)
 eps = 1e-10
 
-def plot_ttas(x, x_adv, args, f2_inds, n_imgs=5, n_dist=10):
+def to_features(func):
+    """Decorator to fetch name of feature, normal features, and adv features"""
+    def inner1(*args, **kwargs):
+        global features_index, normal_features_list, adv_features_list
+        begin = time()
+        f_out = func(*args, **kwargs)
+        features_index.append(f_out[0])
+        normal_features_list.append(f_out[1])
+        adv_features_list.append(f_out[2])
+        end = time()
+        print("Total time taken in {}: {}".format(func.__name__, end - begin))
+
+    return inner1
+
+def plot_ttas(x, x_adv, f2_inds, n_imgs=5, n_dist=10):
     """
     :param x: np.ndarray images
     :param x_adv: np.ndarray images

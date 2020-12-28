@@ -29,26 +29,18 @@ from active_learning_project.attacks.tta_ball_explorer import TTABallExplorer
 from active_learning_project.utils import convert_tensor_to_image, boolean_string, majority_vote, add_feature, \
     convert_image_to_tensor, get_is_adv_prob, calc_prob_wo_l, compute_roc
 
-from active_learning_project.tta_utils import *
+from active_learning_project.tta_utils import plot_ttas, update_useful_stats, register_intg_loss, \
+    register_intg_rel_loss, register_max_rel_loss, register_rank_at_thd_rel_loss, register_rank_at_first_pred_switch, \
+    register_num_pred_switches, register_mean_loss_for_initial_label, register_mean_rel_loss_for_initial_label, \
+    register_intg_confidences_prime, register_intg_confidences_prime_specific, register_intg_confidences_secondary, \
+    register_intg_confidences_secondary_specific, register_intg_delta_confidences_prime_rest, \
+    register_intg_delta_confidences_prime_secondary_specific, register_delta_probs_prime_secondary_excl_rest
 
+from active_learning_project.global_vars import features_index, normal_features_list, adv_features_list
 import matplotlib.pyplot as plt
 
 from art.classifiers import PyTorchClassifier
 from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchExtClassifier
-
-def to_features(func):
-    """Decorator to fetch name of feature, normal features, and adv features"""
-    def inner1(*args, **kwargs):
-        global features_index, normal_features_list, adv_features_list
-        begin = time()
-        f_out = func(*args, **kwargs)
-        features_index.append(f_out[0])
-        normal_features_list.append(f_out[1])
-        adv_features_list.append(f_out[2])
-        end = time()
-        print("Total time taken in {}: {}".format(func.__name__, end - begin))
-
-    return inner1
 
 parser = argparse.ArgumentParser(description='PyTorch adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
@@ -327,7 +319,7 @@ assert np.all(X_test_img[0]     == x_ball_img[0, 0]), 'first normal image must m
 assert np.all(X_test_adv_img[0] == x_ball_adv_img[0, 0]), 'first adv image must match'
 
 # visualizing the images in the ball
-plot_ttas(x_ball_img, x_ball_adv_img, args, f2_inds)
+plot_ttas(x_ball_img, x_ball_adv_img, f2_inds)
 
 # wrap useful stats in a dictionary:
 stats = {}
@@ -345,11 +337,6 @@ update_useful_stats(stats_adv)
 
 assert np.all(stats['y_ball_preds'][:, 0] == y_test_preds)
 assert np.all(stats_adv['y_ball_preds'][:, 0] == y_test_adv_preds)
-
-# init features
-features_index = []
-normal_features_list = []
-adv_features_list = []
 
 print('calculating Feature 1: integral(loss)...')
 register_intg_loss(stats, stats_adv, f2_inds_val)
