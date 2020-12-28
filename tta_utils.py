@@ -66,6 +66,7 @@ def update_useful_stats(stats):
 
     # get softmax probabilities
     stats['probs'] = scipy.special.softmax(stats['preds'], axis=2)
+    stats['probs_mean'] = stats['probs'].mean(axis=1)
 
     # get relative losses
     losses = stats['losses']
@@ -105,7 +106,34 @@ def update_useful_stats(stats):
         if k not in stats['no_sw_pred_inds']:
             stats['confidences_secondary'][k] = stats['probs'][k, :, stats['secondary_preds'][k]]
 
-def histogram_intersection(h1, h2):
+    # get pil mat
+    stats['pil_mat'] = np.zeros((test_size, num_points, num_classes, num_classes))
+    for cls in range(num_classes):
+        tmp_preds = stats['preds'].copy()
+        tmp_preds[:, :, cls] = -np.inf
+        stats['pil_mat'][:, :, cls] = scipy.special.softmax(tmp_preds, axis=2)
+    stats['pil_mat_mean'] = stats['pil_mat'].max(axis=1)  # mean over TTAs
+
+def histogram_intersection(f1, f2):
+    f1_sorted = np.sort(f1)
+    f2_sorted = np.sort(f2)
+
+    f1_min_excl_outliers = f1_sorted[int(0.02 * len(f1_sorted))]
+    f2_min_excl_outliers = f2_sorted[int(0.02 * len(f2_sorted))]
+    f1_max_excl_outliers = f1_sorted[int(0.98 * len(f1_sorted))]
+    f2_max_excl_outliers = f2_sorted[int(0.98 * len(f2_sorted))]
+    min_edge = max(f1_min_excl_outliers, f2_min_excl_outliers)
+    max_edge = min(f1_max_excl_outliers, f2_max_excl_outliers)
+    bins = np.linspace(min_edge, max_edge + eps, 101)
+
+
+
+
+    min_edge = max(f1.min(), f2.min())
+    max_edge = min(f1.max(), f2.max())
+    bins = np.linspace(min_edge, max_edge + eps, 101)
+    h1 = np.histogram(f1, bins=bins)[0]
+    h2 = np.histogram(f2, bins=bins)[0]
     assert len(h1) == len(h2)
     sm = 0
     for i in range(len(h1)):
@@ -115,8 +143,8 @@ def histogram_intersection(h1, h2):
 def plot_hists(name, f1, f2):
     # plot both
     plt.figure()
-    plt.hist(f1, alpha=0.5, label='normal', bins=100)
-    plt.hist(f2, alpha=0.5, label='adv'   , bins=100)
+    plt.hist(f1, alpha=0.5, label='normal', bins=101)
+    plt.hist(f2, alpha=0.5, label='adv'   , bins=101)
     plt.legend(loc='upper right')
     plt.title(name)
     plt.show()
@@ -125,47 +153,41 @@ def plot_hists(name, f1, f2):
     plt.figure()
     min_edge = max(f1.min(), f2.min())
     max_edge = min(f1.max(), f2.max())
-    plt.hist(f1, alpha=0.5, label='normal', bins=100, range=[min_edge, max_edge + eps])
-    plt.hist(f2, alpha=0.5, label='adv'   , bins=100, range=[min_edge, max_edge + eps])
+    plt.hist(f1, alpha=0.5, label='normal', bins=101, range=[min_edge, max_edge + eps])
+    plt.hist(f2, alpha=0.5, label='adv'   , bins=101, range=[min_edge, max_edge + eps])
     plt.legend(loc='upper right')
     plt.title(name + ' (intersection)')
     plt.show()
 
-def search_for_best_rank(f1, f2):
+def search_for_best_rank(f1, f2, search_func=histogram_intersection):
     num_points = f1.shape[1]
-    best_intersection = np.inf
+    best_separation = np.inf  # lower is better
     best_top_rank = num_points
 
     for top_rank in range(50, num_points + 1, 50):
         top_rank -= 1
-        min_edge = max(f1[:, top_rank].min(), f2[:, top_rank].min())
-        max_edge = min(f1[:, top_rank].max(), f2[:, top_rank].max())
-        bins = np.linspace(min_edge, max_edge + eps, 101)
-        hist1 = np.histogram(f1[:, top_rank], bins=bins)
-        hist2 = np.histogram(f2[:, top_rank], bins=bins)
-        intersection = histogram_intersection(hist1[0], hist2[0])
-        print('top_rank {}: intersection={}'.format(top_rank + 1, intersection))  # debug
-        if intersection <= best_intersection:
-            best_intersection = intersection
+        f1_sel = f1[:, top_rank]
+        f2_sel = f2[:, top_rank]
+        separation = search_func(f1_sel, f2_sel)
+        print('top_rank {}: separation={}'.format(top_rank + 1, separation))  # debug
+        if separation <= best_separation:
+            best_separation = separation
             best_top_rank = top_rank
 
     return best_top_rank
 
-def search_for_best_thd(f1, f2):
+def search_for_best_thd(f1, f2, search_func=histogram_intersection):
     num_thds = f1.shape[1]
-    best_intersection = np.inf
+    best_separation = np.inf
     best_thd_pos = num_thds
 
     for thd_pos in range(num_thds):
-        min_edge = max(f1[:, thd_pos].min(), f2[:, thd_pos].min())
-        max_edge = min(f1[:, thd_pos].max(), f2[:, thd_pos].max())
-        bins = np.linspace(min_edge, max_edge + eps, 101)
-        hist1 = np.histogram(f1[:, thd_pos], bins=bins)
-        hist2 = np.histogram(f2[:, thd_pos], bins=bins)
-        intersection = histogram_intersection(hist1[0], hist2[0])
-        print('thd_pos {}: intersection={}'.format(thd_pos, intersection))  # debug
-        if intersection <= best_intersection:
-            best_intersection = intersection
+        f1_sel = f1[:, thd_pos]
+        f2_sel = f2[:, thd_pos]
+        separation = search_func(f1_sel, f2_sel)
+        print('thd_pos {}: separation={}'.format(thd_pos, separation))  # debug
+        if separation <= best_separation:
+            best_separation = separation
             best_thd_pos = thd_pos
 
     return best_thd_pos

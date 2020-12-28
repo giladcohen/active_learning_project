@@ -338,79 +338,73 @@ update_useful_stats(stats_adv)
 assert np.all(stats['y_ball_preds'][:, 0] == y_test_preds)
 assert np.all(stats_adv['y_ball_preds'][:, 0] == y_test_adv_preds)
 
-print('calculating Feature 1: integral(loss)...')
-register_intg_loss(stats, stats_adv, f2_inds_val)
+features_ready = os.path.exists(os.path.join(SAVE_DIR, 'features_index.npy'))
+if not features_ready:
+    print('calculating Feature 1: integral(loss)...')
+    register_intg_loss(stats, stats_adv, f2_inds_val)
 
-print('calculating Feature 2: integral(rel_loss)...')
-register_intg_rel_loss(stats, stats_adv, f2_inds_val)
+    print('calculating Feature 2: integral(rel_loss)...')
+    register_intg_rel_loss(stats, stats_adv, f2_inds_val)
 
-print('calculating Feature 3: max(rel_loss)...')
-register_max_rel_loss(stats, stats_adv, f2_inds_val)
+    print('calculating Feature 3: max(rel_loss)...')
+    register_max_rel_loss(stats, stats_adv, f2_inds_val)
 
-print('calculating Feature 4: rank @rel_loss= thd * max_rel_loss...')
-register_rank_at_thd_rel_loss(stats, stats_adv, f2_inds_val)
+    print('calculating Feature 4: rank @rel_loss= thd * max_rel_loss...')
+    register_rank_at_thd_rel_loss(stats, stats_adv, f2_inds_val)
 
-print('calculating Feature 5: rank @first pred switch...')
-register_rank_at_first_pred_switch(stats, stats_adv, f2_inds_val)
+    print('calculating Feature 5: rank @first pred switch...')
+    register_rank_at_first_pred_switch(stats, stats_adv, f2_inds_val)
 
-print('calculating Feature 6: number of switches until a specific rank...')
-register_num_pred_switches(stats, stats_adv, f2_inds_val)
+    print('calculating Feature 6: number of switches until a specific rank...')
+    register_num_pred_switches(stats, stats_adv, f2_inds_val)
 
-print('calculating Feature 7: mean(loss) for only initial label...')
-register_mean_loss_for_initial_label(stats, stats_adv, f2_inds_val)
+    print('calculating Feature 7: mean(loss) for only initial label...')
+    register_mean_loss_for_initial_label(stats, stats_adv, f2_inds_val)
 
-print('calculating Feature 8: mean(rel_loss) for only initial label...')
-register_mean_rel_loss_for_initial_label(stats, stats_adv, f2_inds_val)
+    print('calculating Feature 8: mean(rel_loss) for only initial label...')
+    register_mean_rel_loss_for_initial_label(stats, stats_adv, f2_inds_val)
 
-print('calculating Feature 9: integral(confidence) until a specific rank...')
-register_intg_confidences_prime(stats, stats_adv, f2_inds_val)
+    print('calculating Feature 9: integral(confidence) until a specific rank...')
+    register_intg_confidences_prime(stats, stats_adv, f2_inds_val)
 
-print('calculating Feature 10: integral(confidence) for primary only. Specific...')
-register_intg_confidences_prime_specific(stats, stats_adv, f2_inds_val)
+    print('calculating Feature 10: integral(confidence) for primary only. Specific...')
+    register_intg_confidences_prime_specific(stats, stats_adv, f2_inds_val)
 
-print('calculating Feature 11: integral(confidence) for secondary label. Overall...')
-register_intg_confidences_secondary(stats, stats_adv, f2_inds_val)
+    print('calculating Feature 11: integral(confidence) for secondary label. Overall...')
+    register_intg_confidences_secondary(stats, stats_adv, f2_inds_val)
 
-print('calculating Feature 12: integral(confidence) for secondary label. Specific...')
-register_intg_confidences_secondary_specific(stats, stats_adv, f2_inds_val)
+    print('calculating Feature 12: integral(confidence) for secondary label. Specific...')
+    register_intg_confidences_secondary_specific(stats, stats_adv, f2_inds_val)
 
-print('calculating Feature 13: integral(delta) for prime - rest. Overall...')
-register_intg_delta_confidences_prime_rest(stats, stats_adv, f2_inds_val)
+    print('calculating Feature 13: integral(delta) for prime - rest. Overall...')
+    register_intg_delta_confidences_prime_rest(stats, stats_adv, f2_inds_val)
 
-print('calculating Feature 14: integral(delta) for prime - secondary. Specific...')
-register_intg_delta_confidences_prime_secondary_specific(stats, stats_adv, f2_inds_val)
+    print('calculating Feature 14: integral(delta) for prime - secondary. Specific...')
+    register_intg_delta_confidences_prime_secondary_specific(stats, stats_adv, f2_inds_val)
 
-print('calculating Feature 15: integral(delta) for prime - secondary, setting zj=-inf for other labels...')
-register_delta_probs_prime_secondary_excl_rest(stats, stats_adv, f2_inds_val)
+    print('calculating Feature 15: integral(delta) for prime - secondary, setting zj=-inf for other labels...')
+    register_delta_probs_prime_secondary_excl_rest(stats, stats_adv, f2_inds_val)
 
-# stacking features to numpy
-normal_features = np.stack(normal_features_list, axis=1)
-adv_features    = np.stack(adv_features_list, axis=1)
-np.save(os.path.join(SAVE_DIR, 'features_index_hist.npy'), features_index)
-np.save(os.path.join(SAVE_DIR, 'normal_features_hist.npy'), normal_features)
-np.save(os.path.join(SAVE_DIR, 'adv_features_hist.npy'), adv_features)
-print('done')
-exit(0)
+    # stacking features to numpy
+    features_index = np.asarray(features_index)
+    normal_features = np.stack(normal_features_list, axis=1)
+    adv_features    = np.stack(adv_features_list, axis=1)
+    np.save(os.path.join(SAVE_DIR, 'features_index_hist.npy'), features_index)
+    np.save(os.path.join(SAVE_DIR, 'normal_features_hist.npy'), normal_features)
+    np.save(os.path.join(SAVE_DIR, 'adv_features_hist.npy'), adv_features)
+    print('done')
+    exit(0)
+else:
+    features_index  = np.load(os.path.join(SAVE_DIR, 'features_index_hist.npy'))
+    normal_features = np.load(os.path.join(SAVE_DIR, 'normal_features_hist.npy'))
+    adv_features    = np.load(os.path.join(SAVE_DIR, 'adv_features_hist.npy'))
 
 # normal_features = normal_features.reshape((test_size, -1))
 # adv_features = adv_features.reshape((test_size, -1))
 
-# using simple threshold, for a single feature_ind
-# feature_ind = 13
-# plt.figure()
-# plt.hist(normal_features[f3_inds_val, feature_ind], alpha=0.5, label='normal', bins=100)#, range=[150, 400])
-# plt.hist(adv_features[f3_inds_val, feature_ind], alpha=0.5, label='adv', bins=100)#, range=[150, 400])
-# plt.legend(loc='upper right')
-# plt.title('hist for {}'.format(features_index[feature_ind]))
-# plt.ylim(0, 200)
-# plt.show()
-#
-# detection_preds     = normal_features[:, feature_ind] < 200
-# detection_preds_adv = adv_features[:, feature_ind] < 200
-#
 # define complete training/testing set for learned models:
-train_features = np.concatenate((normal_features[f3_inds_val], adv_features[f3_inds_val]))
-train_labels   = np.concatenate((np.zeros(len(f3_inds_val)), np.ones(len(f3_inds_val))))
+train_features = np.concatenate((normal_features[f2_inds_val], adv_features[f2_inds_val]))
+train_labels   = np.concatenate((np.zeros(len(f2_inds_val)), np.ones(len(f2_inds_val))))
 test_normal_features = normal_features.copy()
 test_adv_features = adv_features.copy()
 
@@ -441,20 +435,118 @@ detection_preds_prob_adv = clf.predict_proba(test_adv_features)[:, 1]
 # detection_preds     = clf.predict(test_normal_features)
 # detection_preds_adv = clf.predict(test_adv_features)
 
-# applying majority vote over TTA, using y_ball_preds and y_ball_adv_preds
-# robustness_preds     = np.apply_along_axis(majority_vote, axis=1, arr=y_ball_preds)
-# robustness_preds_adv = np.apply_along_axis(majority_vote, axis=1, arr=y_ball_adv_preds)
+# adv detection metrics:
+print('Calculating adv detection metrics...')
+acc_all = np.mean(detection_preds[test_inds] == 0)
+acc_f1 = np.mean(detection_preds[f1_inds_test] == 0)
+acc_f2 = np.mean(detection_preds[f2_inds_test] == 0)
+acc_f3 = np.mean(detection_preds[f3_inds_test] == 0)
 
-# summing up the logits for every class, for every TTA sample
-# preds_mean          = preds.mean(axis=1)
-# preds_mean_adv      = preds_adv.mean(axis=1)
+acc_all_adv = np.mean(detection_preds_adv[test_inds] == 1)
+acc_f1_adv = np.mean(detection_preds_adv[f1_inds_test] == 1)
+acc_f2_adv = np.mean(detection_preds_adv[f2_inds_test] == 1)
+acc_f3_adv = np.mean(detection_preds_adv[f3_inds_test] == 1)
 
+f2_test_preds_all = np.concatenate((detection_preds_prob[f2_inds_test], detection_preds_prob_adv[f2_inds_test]), axis=0)
+f2_test_gt_all    = np.concatenate((np.zeros(len(f2_inds_test)), np.ones(len(f2_inds_test))), axis=0)
+_, _, auc_score = compute_roc(f2_test_gt_all, f2_test_preds_all, plot=True)
+
+print('Accuracy for all samples: {:.2f}/{:.2f}%. '
+      'f1 samples: {:.2f}/{:.2f}%, f2 samples: {:.2f}/{:.2f}%, f3 samples: {:.2f}/{:.2f}%. '
+      'AUC score: {:.5f}'
+      .format(acc_all * 100, acc_all_adv * 100, acc_f1 * 100, acc_f1_adv * 100, acc_f2 * 100, acc_f2_adv * 100,
+              acc_f3 * 100, acc_f3_adv * 100, auc_score))
+
+# debugging misclassification
+false_positive_inds = [i for i in np.where(detection_preds     == 1)[0] if i in f2_inds_test]
+false_negative_inds = [i for i in np.where(detection_preds_adv == 0)[0] if i in f2_inds_test]
+
+print('Calculating robustness metrics...')
 # summing up the probs (after softmax) for every class, for every TTA sample
-probs_mean           = probs.mean(axis=1)
-probs_mean_adv       = probs_adv.mean(axis=1)
-robustness_preds     = probs_mean.argmax(axis=1)
-robustness_preds_adv = probs_mean_adv.argmax(axis=1)
+# robustness_preds     = stats['probs_mean'].argmax(axis=1)
+# robustness_preds_adv = stats_adv['probs_mean'].argmax(axis=1)
 
+# confining ourself to only the first and second most likely classes in the original image:
+# robustness_preds     = np.empty(test_size)
+# robustness_preds_adv = np.empty(test_size)
+# for k in range(test_size):
+#     candidates = stats['probs'][k, 0].argsort()[[-1, -2]]
+#     first_score = stats['probs_mean'][k, candidates[0]]
+#     second_score = stats['probs_mean'][k, candidates[1]]
+#     robustness_preds[k] = candidates[0] if first_score >= second_score else candidates[1]
+#
+#     candidates = stats_adv['probs'][k, 0].argsort()[[-1, -2]]
+#     first_score = stats_adv['probs_mean'][k, candidates[0]]
+#     second_score = stats_adv['probs_mean'][k, candidates[1]]
+#     robustness_preds_adv[k] = candidates[0] if first_score >= second_score else candidates[1]
+
+# confining ourself to only the first and second most likely classes in the original image, with pil_mat
+# robustness_preds     = np.empty(test_size)
+# robustness_preds_adv = np.empty(test_size)
+# for k in range(test_size):
+#     candidates = stats['probs'][k, 0].argsort()[[-1, -2]]
+#     first_score = stats['pil_mat_mean'][k, candidates[1], candidates[0]]
+#     second_score = stats['pil_mat_mean'][k, candidates[0], candidates[1]]
+#     robustness_preds[k] = candidates[0] if first_score >= second_score else candidates[1]
+#
+#     candidates = stats['probs'][k, 0].argsort()[[-1, -2]]
+#     first_score = stats_adv['pil_mat_mean'][k, candidates[1], candidates[0]]
+#     second_score = stats_adv['pil_mat_mean'][k, candidates[0], candidates[1]]
+#     robustness_preds_adv[k] = candidates[0] if first_score >= second_score else candidates[1]
+
+# converting detection_preds to robustness_preds
+robustness_probs     = np.empty((test_size, len(classes)))
+robustness_probs_adv = np.empty((test_size, len(classes)))
+for k in range(test_size):
+    l = stats['y_ball_preds'][k, 0]
+    p_is_adv = detection_preds_prob[k]
+    p_vec_norm = stats['probs'][k, 0]
+    p_vec_adv = calc_prob_wo_l(stats['preds'][k, 0], l=l)
+    robustness_probs[k] = p_vec_adv * p_is_adv + p_vec_norm * (1 - p_is_adv)
+
+    l = stats_adv['y_ball_preds'][k, 0]
+    p_is_adv = detection_preds_prob_adv[k]
+    p_vec_norm = stats_adv['probs'][k, 0]
+    p_vec_adv = calc_prob_wo_l(stats_adv['preds'][k, 0], l=l)
+    robustness_probs_adv[k] = p_vec_adv * p_is_adv + p_vec_norm * (1 - p_is_adv)
+
+robustness_preds     = robustness_probs.argmax(axis=1)
+robustness_preds_adv = robustness_probs_adv.argmax(axis=1)
+
+# try with mean
+# robustness_probs     = np.empty((test_size, len(classes)))
+# robustness_probs_adv = np.empty((test_size, len(classes)))
+# for k in range(test_size):
+#     l = stats['y_ball_preds'][k, 0]
+#     p_is_adv = detection_preds_prob[k]
+#     p_vec_norm = stats['probs'][k].mean(axis=0)
+#     p_vec_adv = stats['pil_mat_mean'][k, l]
+#     robustness_probs[k] = p_vec_adv * p_is_adv + p_vec_norm * (1 - p_is_adv)
+#
+#     l = stats_adv['y_ball_preds'][k, 0]
+#     p_is_adv = detection_preds_prob_adv[k]
+#     p_vec_norm = stats_adv['probs'][k].mean(axis=0)
+#     p_vec_adv = stats_adv['pil_mat_mean'][k, l]
+#     robustness_probs_adv[k] = p_vec_adv * p_is_adv + p_vec_norm * (1 - p_is_adv)
+# robustness_preds     = robustness_probs.argmax(axis=1)
+# robustness_preds_adv = robustness_probs_adv.argmax(axis=1)
+
+# robustness metrics
+acc_all = np.mean(robustness_preds[test_inds] == y_test[test_inds])
+acc_f1 = np.mean(robustness_preds[f1_inds_test] == y_test[f1_inds_test])
+acc_f2 = np.mean(robustness_preds[f2_inds_test] == y_test[f2_inds_test])
+acc_f3 = np.mean(robustness_preds[f3_inds_test] == y_test[f3_inds_test])
+
+acc_all_adv = np.mean(robustness_preds_adv[test_inds] == y_test[test_inds])
+acc_f1_adv = np.mean(robustness_preds_adv[f1_inds_test] == y_test[f1_inds_test])
+acc_f2_adv = np.mean(robustness_preds_adv[f2_inds_test] == y_test[f2_inds_test])
+acc_f3_adv = np.mean(robustness_preds_adv[f3_inds_test] == y_test[f3_inds_test])
+
+print('Accuracy: all samples: {:.2f}/{:.2f}%, f1 samples: {:.2f}/{:.2f}%, f2 samples: {:.2f}/{:.2f}%, f3 samples: {:.2f}/{:.2f}%'
+      .format(acc_all * 100, acc_all_adv * 100, acc_f1 * 100, acc_f1_adv * 100, acc_f2 * 100, acc_f2_adv * 100, acc_f3 * 100, acc_f3_adv * 100))
+
+# debugging robustness:
+# plotting probabilities mean values
 # for each image, and for each i, calculate for l (first pred) the exp(zi)/exp(zj) for each j!=l.
 probs_wo_l     = np.zeros((test_size, args.num_points, len(classes)))
 probs_wo_l_adv = np.zeros((test_size, args.num_points, len(classes)))
@@ -473,7 +565,6 @@ probs_wo_l_mean_adv = probs_wo_l_adv.mean(axis=1)
 confidences_wo_l     = np.max(probs_wo_l, axis=2)
 confidences_wo_l_adv = np.max(probs_wo_l_adv, axis=2)
 
-# plotting probabilities mean values
 plt.close('all')
 i = 125
 n_cols = len(classes)
@@ -487,7 +578,7 @@ ax1.set_xticklabels(classes, fontdict={'size': 12})
 ax1.set_xticks(np.arange(len(classes)))
 ax1.set_ylabel('normal <probs>', color='blue', fontdict={'size': 12})
 ax1.set_ylim(-0.05, 1.05)
-ax1.bar(np.arange(len(classes)), probs_mean[i], color=color_vec)
+ax1.bar(np.arange(len(classes)), stats['probs_mean'][i], color=color_vec)
 ax1.tick_params(axis='y', labelcolor='blue')
 
 loc = 2
@@ -504,19 +595,19 @@ ax2.tick_params(axis='y', labelcolor='blue')
 loc = 3
 color_vec = ['blue'] * len(classes)
 color_vec[y_test[i]] = 'green'
-color_vec[y_ball_adv_preds[i, 0]] = 'red'
+color_vec[stats['y_ball_preds'][i, 0]] = 'red'
 ax3 = fig.add_subplot(n_rows, 1, loc)
 ax3.set_xticklabels(classes, fontdict={'size': 12})
 ax3.set_xticks(np.arange(len(classes)))
 ax3.set_ylabel('adv <probs>', color='red', fontdict={'size': 12})
 ax3.set_ylim(-0.05, 1.05)
-ax3.bar(np.arange(len(classes)), probs_mean_adv[i], color=color_vec)
+ax3.bar(np.arange(len(classes)), stats_adv['probs_mean'][i], color=color_vec)
 ax3.tick_params(axis='y', labelcolor='blue')
 
 loc = 4
 color_vec = ['blue'] * len(classes)
 color_vec[y_test[i]] = 'green'
-color_vec[y_ball_adv_preds[i, 0]] = 'red'
+color_vec[stats_adv['y_ball_preds'][i, 0]] = 'red'
 ax4 = fig.add_subplot(n_rows, 1, loc)
 ax4.set_xticklabels(classes, fontdict={'size': 12})
 ax4.set_xticks(np.arange(len(classes)))
@@ -527,130 +618,3 @@ ax4.tick_params(axis='y', labelcolor='blue')
 
 plt.tight_layout()
 plt.show()
-
-# robustness_preds     = np.empty(test_size)
-# robustness_preds_adv = np.empty(test_size)
-# for k in range(test_size):
-#     candidates = probs[k, 0].argsort()[[-1, -2]]
-#     first_score = probs_mean[k, candidates[0]]
-#     second_score = probs_mean[k, candidates[1]]
-#     robustness_preds[k] = candidates[0] if first_score >= second_score else candidates[1]
-#
-#     candidates = probs_adv[k, 0].argsort()[[-1, -2]]
-#     first_score = probs_mean_adv[k, candidates[0]]
-#     second_score = probs_mean_adv[k, candidates[1]]
-#     robustness_preds_adv[k] = candidates[0] if first_score >= second_score else candidates[1]
-
-# get pil_mat
-pil_mat     = np.zeros((preds.shape) + (len(classes),))  # (test_size(k), num_points(n), #classes(l), #classes(i))
-pil_mat_adv = np.zeros_like(pil_mat)  # (test_size(k), num_points(n), #classes(l), #classes(i))
-for cls in range(len(classes)):
-    tmp_preds = preds.copy()
-    tmp_preds[:, :, cls] = -np.inf
-    pil_mat[:, :, cls] = scipy.special.softmax(tmp_preds, axis=2)
-
-    tmp_preds = preds_adv.copy()
-    tmp_preds[:, :, cls] = -np.inf
-    pil_mat_adv[:, :, cls] = scipy.special.softmax(tmp_preds, axis=2)
-
-pil_mat_mean     = pil_mat.mean(axis=1)
-pil_mat_mean_adv = pil_mat_adv.mean(axis=1)
-
-robustness_preds     = np.empty(test_size)
-robustness_preds_adv = np.empty(test_size)
-for k in range(test_size):
-    candidates = probs[k, 0].argsort()[[-1, -2]]
-    first_score = pil_mat_mean[k, candidates[1], candidates[0]]
-    second_score = pil_mat_mean[k, candidates[0], candidates[1]]
-    robustness_preds[k] = candidates[0] if first_score >= second_score else candidates[1]
-
-    candidates = probs_adv[k, 0].argsort()[[-1, -2]]
-    first_score = pil_mat_mean_adv[k, candidates[1], candidates[0]]
-    second_score = pil_mat_mean_adv[k, candidates[0], candidates[1]]
-    robustness_preds_adv[k] = candidates[0] if first_score >= second_score else candidates[1]
-
-# Using robustness predictions to get adv predictions
-detection_preds     = robustness_preds != y_ball_preds[:, 0]
-detection_preds_adv = robustness_preds_adv != y_ball_adv_preds[:, 0]
-
-
-
-
-
-
-
-# adv detection metrics
-acc_all = np.mean(detection_preds[test_inds] == 0)
-acc_f1 = np.mean(detection_preds[f1_inds_test] == 0)
-acc_f2 = np.mean(detection_preds[f2_inds_test] == 0)
-acc_f3 = np.mean(detection_preds[f3_inds_test] == 0)
-
-acc_all_adv = np.mean(detection_preds_adv[test_inds] == 1)
-acc_f1_adv = np.mean(detection_preds_adv[f1_inds_test] == 1)
-acc_f2_adv = np.mean(detection_preds_adv[f2_inds_test] == 1)
-acc_f3_adv = np.mean(detection_preds_adv[f3_inds_test] == 1)
-
-f3_test_preds_all = np.concatenate((detection_preds_prob[f3_inds_test], detection_preds_prob_adv[f3_inds_test]), axis=0)
-f3_test_gt_all    = np.concatenate((np.zeros(len(f3_inds_test)), np.ones(len(f3_inds_test))), axis=0)
-_, _, auc_score = compute_roc(f3_test_gt_all, f3_test_preds_all, plot=True)
-
-print('Accuracy for all samples: {:.2f}/{:.2f}%. '
-      'f1 samples: {:.2f}/{:.2f}%, f2 samples: {:.2f}/{:.2f}%, f3 samples: {:.2f}/{:.2f}%. '
-      'AUC score: {:.5f}'
-      .format(acc_all * 100, acc_all_adv * 100, acc_f1 * 100, acc_f1_adv * 100, acc_f2 * 100, acc_f2_adv * 100,
-              acc_f3 * 100, acc_f3_adv * 100, auc_score))
-
-# debugging misclassification
-false_positive_inds = [i for i in np.where(detection_preds == 1)[0] if i in f3_inds_test]
-
-# converting detection_preds to robustness_preds
-robustness_probs     = np.empty((test_size, len(classes)))
-robustness_probs_adv = np.empty((test_size, len(classes)))
-for k in range(test_size):
-    l = y_ball_preds[k, 0]
-    p_is_adv = detection_preds_prob[k]
-    p_vec_norm = probs[k, 0]
-    p_vec_adv = calc_prob_wo_l(preds[k, 0], l=l)
-    robustness_probs[k] = p_vec_adv * p_is_adv + p_vec_norm * (1 - p_is_adv)
-
-    l = y_ball_adv_preds[k, 0]
-    p_is_adv = detection_preds_prob_adv[k]
-    p_vec_norm = probs_adv[k, 0]
-    p_vec_adv = calc_prob_wo_l(preds_adv[k, 0], l=l)
-    robustness_probs_adv[k] = p_vec_adv * p_is_adv + p_vec_norm * (1 - p_is_adv)
-
-robustness_preds     = robustness_probs.argmax(axis=1)
-robustness_preds_adv = robustness_probs_adv.argmax(axis=1)
-
-# try with mean
-robustness_probs     = np.empty((test_size, len(classes)))
-robustness_probs_adv = np.empty((test_size, len(classes)))
-for k in range(test_size):
-    l = y_ball_preds[k, 0]
-    p_is_adv = detection_preds_prob[k]
-    p_vec_norm = probs[k].mean(axis=0)
-    p_vec_adv = pil_mat_mean[k, l]
-    robustness_probs[k] = p_vec_adv * p_is_adv + p_vec_norm * (1 - p_is_adv)
-
-    l = y_ball_adv_preds[k, 0]
-    p_is_adv = detection_preds_prob_adv[k]
-    p_vec_norm = probs_adv[k].mean(axis=0)
-    p_vec_adv = pil_mat_mean_adv[k, l]
-    robustness_probs_adv[k] = p_vec_adv * p_is_adv + p_vec_norm * (1 - p_is_adv)
-
-robustness_preds     = robustness_probs.argmax(axis=1)
-robustness_preds_adv = robustness_probs_adv.argmax(axis=1)
-
-# robustness metrics
-acc_all = np.mean(robustness_preds[test_inds] == y_test[test_inds])
-acc_f1 = np.mean(robustness_preds[f1_inds_test] == y_test[f1_inds_test])
-acc_f2 = np.mean(robustness_preds[f2_inds_test] == y_test[f2_inds_test])
-acc_f3 = np.mean(robustness_preds[f3_inds_test] == y_test[f3_inds_test])
-
-acc_all_adv = np.mean(robustness_preds_adv[test_inds] == y_test[test_inds])
-acc_f1_adv = np.mean(robustness_preds_adv[f1_inds_test] == y_test[f1_inds_test])
-acc_f2_adv = np.mean(robustness_preds_adv[f2_inds_test] == y_test[f2_inds_test])
-acc_f3_adv = np.mean(robustness_preds_adv[f3_inds_test] == y_test[f3_inds_test])
-
-print('Accuracy: all samples: {:.2f}/{:.2f}%, f1 samples: {:.2f}/{:.2f}%, f2 samples: {:.2f}/{:.2f}%, f3 samples: {:.2f}/{:.2f}%'
-      .format(acc_all * 100, acc_all_adv * 100, acc_f1 * 100, acc_f1_adv * 100, acc_f2 * 100, acc_f2_adv * 100, acc_f3 * 100, acc_f3_adv * 100))
