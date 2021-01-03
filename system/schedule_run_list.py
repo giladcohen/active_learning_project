@@ -11,6 +11,7 @@ def run_cmd(cmd):
 
 # buffer time for running different commands on the same GPU
 SAFE_TIME = 40
+ALLOWED_GPUS_INDS = [1, 3]
 # yml_command_file = os.path.join(os.path.dirname(__file__), 'commands.yml')
 #debug:
 yml_command_file = 'active_learning_project/system/commands.yml'
@@ -50,7 +51,7 @@ def wait_for_idle_gpu():
 
     memory_free_list = get_gpu_memory()
     for gpu_id, mem in enumerate(memory_free_list):
-        if required_mem <= mem and is_safe_gpu(gpu_id):
+        if required_mem <= mem and is_safe_gpu(gpu_id) and gpu_id in ALLOWED_GPUS_INDS:
             return gpu_id
 
     return -1
