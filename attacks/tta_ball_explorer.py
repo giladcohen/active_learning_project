@@ -90,7 +90,7 @@ class TTABallExplorer(object):
             dataset, batch_size=self.batch_size, shuffle=False, num_workers=0, pin_memory=True
         )
         tta_data_loader = torch.utils.data.DataLoader(
-            tta_dataset, batch_size=self.batch_size, shuffle=False, num_workers=1, pin_memory=True
+            tta_dataset, batch_size=self.batch_size, shuffle=False, num_workers=2, pin_memory=True
         )
 
         all_x_adv = np.empty((x.shape[0], self.num_points) + x.shape[1:], dtype=np.float32)
