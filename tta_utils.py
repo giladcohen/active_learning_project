@@ -98,8 +98,10 @@ def update_useful_stats(stats):
             stats['first_switch_rank'][k] = stats['switch_ranks'][k][0]
             stats['secondary_preds'][k] = stats['y_ball_preds'][k, stats['first_switch_rank'][k]]
         else:
-            print('image {} has no pred switch'.format(k))
             stats['no_sw_pred_inds'].append(k)
+
+    if len(stats['no_sw_pred_inds']) > 0:
+        print('These images have no pred switch: {}'.format(stats['no_sw_pred_inds']))
 
     stats['confidences_prime']     = -1 * np.ones((test_size, num_points))  # for the first label that was predicted for a noisier sample
     stats['confidences_secondary'] = -1 * np.ones((test_size, num_points))  # for the second label that was predicted for a noisier sample

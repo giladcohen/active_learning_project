@@ -432,6 +432,7 @@ clf = RandomForestClassifier(
                     # If False, the whole datset is used to build each tree.
     random_state=rand_gen,
     verbose=1000,
+    n_jobs=20
     # class_weight={0: 1, 1: 10}
 )
 
