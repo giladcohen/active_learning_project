@@ -290,6 +290,8 @@ else:
     preds_adv  = np.load(os.path.join(SAVE_DIR, 'preds_adv.npy'))
     x_dist_adv = np.load(os.path.join(SAVE_DIR, 'noise_powers_adv.npy'))
 
+print('done')
+exit(0)
 # converting everything from 3x32x32 to 32x32x3
 X_test_img     = convert_tensor_to_image(X_test)
 X_test_adv_img = convert_tensor_to_image(X_test_adv)
