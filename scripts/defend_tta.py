@@ -2,32 +2,20 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
 import torch.nn as nn
-from torchsummary import summary
-from torchvision import transforms
-
-import PIL
-from tqdm import tqdm
 import numpy as np
 import json
 import os
 import argparse
 import sys
-import scipy
-from datetime import datetime
-from time import time
-from sklearn.svm import LinearSVC
-from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier
 
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 
 from active_learning_project.models.resnet import ResNet34, ResNet101
-from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, \
-    get_loader_with_specific_inds, get_normalized_tensor
+from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_normalized_tensor
 from active_learning_project.attacks.tta_ball_explorer import TTABallExplorer
-from active_learning_project.utils import convert_tensor_to_image, boolean_string, majority_vote, add_feature, \
-    convert_image_to_tensor, get_is_adv_prob, calc_prob_wo_l, compute_roc
+from active_learning_project.utils import convert_tensor_to_image, calc_prob_wo_l, compute_roc, boolean_string
 
 from active_learning_project.tta_utils import plot_ttas, update_useful_stats, register_intg_loss, \
     register_intg_rel_loss, register_max_rel_loss, register_rank_at_thd_rel_loss, register_rank_at_first_pred_switch, \
@@ -50,6 +38,7 @@ parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
 
 # for exploration
+parser.add_argument('--collect_normal_ball', default=False, type=boolean_string, help='norm or ball distance')
 parser.add_argument('--norm', default='L2', type=str, help='norm or ball distance')
 parser.add_argument('--eps', default=2.0, type=float, help='the ball radius for exploration')
 parser.add_argument('--num_points', default=1000, type=int, help='the number of gradients to sample')
@@ -71,14 +60,17 @@ with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'r') as f:
 targeted = attack_args['targeted']
 
 assert args.save_dir != ''
+NORMAL_SAVE_DIR = os.path.join(args.checkpoint_dir, 'normal', args.save_dir)
+os.makedirs(os.path.join(NORMAL_SAVE_DIR), exist_ok=True)
+
 SAVE_DIR = os.path.join(ATTACK_DIR, args.save_dir)
+os.makedirs(os.path.join(SAVE_DIR, 'inds'), exist_ok=True)
+
 # saving current args:
-os.makedirs(SAVE_DIR, exist_ok=True)
 with open(os.path.join(SAVE_DIR, 'run_args.txt'), 'w') as f:
     json.dump(args.__dict__, f, indent=2)
 
 batch_size = args.batch_size
-
 rand_gen = np.random.RandomState(seed=12345)
 
 # Data
@@ -99,10 +91,6 @@ test_inds = np.arange(test_size)
 
 X_test           = get_normalized_tensor(testloader, batch_size)
 y_test           = np.asarray(testloader.dataset.targets)
-
-# X_test_adv_raw   = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
-# X_test_adv_img   = convert_tensor_to_image(X_test_adv_raw)  # to impose rounding to uint8, and back to float32
-# X_test_adv       = convert_image_to_tensor(X_test_adv_img)
 X_test_adv       = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
 
 if targeted:
@@ -245,7 +233,7 @@ explorer = TTABallExplorer(
     batch_size=batch_size,
 )
 
-if not os.path.exists(os.path.join(SAVE_DIR, 'x_ball_adv_subset_500.npy')):
+if args.collect_normal_ball and not os.path.exists(os.path.join(NORMAL_SAVE_DIR, 'x_ball_subset_100.npy')):
     print('calculating normal x in ball...')
     x_ball, losses, preds, noise_powers = explorer.generate(X_test)
     print('done calculating x ball')
@@ -260,15 +248,22 @@ if not os.path.exists(os.path.join(SAVE_DIR, 'x_ball_adv_subset_500.npy')):
         preds[i]        = preds[i, rks]
         noise_powers[i] = noise_powers[i, rks]
 
-    print('start saving to disk ({})...'.format(SAVE_DIR))
-    np.save(os.path.join(SAVE_DIR, 'x_ball_subset_500.npy'), x_ball[0:500])
-    np.save(os.path.join(SAVE_DIR, 'losses.npy'), losses)
-    np.save(os.path.join(SAVE_DIR, 'preds.npy'), preds)
-    np.save(os.path.join(SAVE_DIR, 'noise_powers.npy'), noise_powers)
+    print('start saving to disk ({})...'.format(NORMAL_SAVE_DIR))
+    np.save(os.path.join(NORMAL_SAVE_DIR, 'x_ball_subset_100.npy'), x_ball[0:100])
+    np.save(os.path.join(NORMAL_SAVE_DIR, 'losses.npy'), losses)
+    np.save(os.path.join(NORMAL_SAVE_DIR, 'preds.npy'), preds)
+    np.save(os.path.join(NORMAL_SAVE_DIR, 'noise_powers.npy'), noise_powers)
+    with open(os.path.join(NORMAL_SAVE_DIR, 'run_args.txt'), 'w') as f:  # save args to normal dir only once.
+        json.dump(args.__dict__, f, indent=2)
 
-    # x_ball = x_ball[0:500]  # expensive in memory
-    del x_ball
+    x_ball = x_ball[0:100]  # expensive in memory
+else:
+    x_ball     = np.load(os.path.join(NORMAL_SAVE_DIR, 'x_ball_subset_100.npy'))
+    losses     = np.load(os.path.join(NORMAL_SAVE_DIR, 'losses.npy'))
+    preds      = np.load(os.path.join(NORMAL_SAVE_DIR, 'preds.npy'))
+    x_dist     = np.load(os.path.join(NORMAL_SAVE_DIR, 'noise_powers.npy'))
 
+if not os.path.exists(os.path.join(SAVE_DIR, 'x_ball_adv_subset_100.npy')):
     print('calculating adv x in ball...')
     x_ball_adv, losses_adv, preds_adv, noise_powers_adv = explorer.generate(X_test_adv)
     print('done calculating x adv ball')
@@ -283,22 +278,14 @@ if not os.path.exists(os.path.join(SAVE_DIR, 'x_ball_adv_subset_500.npy')):
         noise_powers_adv[i] = noise_powers_adv[i, rks_adv]
 
     print('start saving to disk ({})...'.format(SAVE_DIR))
-    np.save(os.path.join(SAVE_DIR, 'x_ball_adv_subset_500.npy'), x_ball_adv[0:500])
+    np.save(os.path.join(SAVE_DIR, 'x_ball_adv_subset_100.npy'), x_ball_adv[0:100])
     np.save(os.path.join(SAVE_DIR, 'losses_adv.npy'), losses_adv)
     np.save(os.path.join(SAVE_DIR, 'preds_adv.npy'), preds_adv)
     np.save(os.path.join(SAVE_DIR, 'noise_powers_adv.npy'), noise_powers_adv)
 
-    # x_ball_adv = x_ball_adv[0:500]  # expensive in memory
-    del x_ball_adv
-
-    print('done')
-    exit(0)
+    x_ball_adv = x_ball_adv[0:100]  # expensive in memory
 else:
-    x_ball     = np.load(os.path.join(SAVE_DIR, 'x_ball_subset_500.npy'))
-    losses     = np.load(os.path.join(SAVE_DIR, 'losses.npy'))
-    preds      = np.load(os.path.join(SAVE_DIR, 'preds.npy'))
-    x_dist     = np.load(os.path.join(SAVE_DIR, 'noise_powers.npy'))
-    x_ball_adv = np.load(os.path.join(SAVE_DIR, 'x_ball_adv_subset_500.npy'))
+    x_ball_adv = np.load(os.path.join(SAVE_DIR, 'x_ball_adv_subset_100.npy'))
     losses_adv = np.load(os.path.join(SAVE_DIR, 'losses_adv.npy'))
     preds_adv  = np.load(os.path.join(SAVE_DIR, 'preds_adv.npy'))
     x_dist_adv = np.load(os.path.join(SAVE_DIR, 'noise_powers_adv.npy'))
@@ -308,12 +295,12 @@ X_test_img     = convert_tensor_to_image(X_test)
 X_test_adv_img = convert_tensor_to_image(X_test_adv)
 # x_ball_img     = convert_tensor_to_image(x_ball.reshape((test_size * args.num_points, ) + X_test.shape[1:])) \
 #                 .reshape((test_size, args.num_points) + X_test_img.shape[1:])
-x_ball_img     = convert_tensor_to_image(x_ball.reshape((500 * args.num_points, ) + X_test.shape[1:])) \
-                .reshape((500, args.num_points) + X_test_img.shape[1:])
+x_ball_img     = convert_tensor_to_image(x_ball.reshape((100 * args.num_points, ) + X_test.shape[1:])) \
+                .reshape((100, args.num_points) + X_test_img.shape[1:])
 # x_ball_adv_img = convert_tensor_to_image(x_ball_adv.reshape((test_size * args.num_points, ) + X_test.shape[1:])) \
 #                 .reshape((test_size, args.num_points) + X_test_img.shape[1:])
-x_ball_adv_img = convert_tensor_to_image(x_ball_adv.reshape((500 * args.num_points, ) + X_test.shape[1:])) \
-                .reshape((500, args.num_points) + X_test_img.shape[1:])
+x_ball_adv_img = convert_tensor_to_image(x_ball_adv.reshape((100 * args.num_points, ) + X_test.shape[1:])) \
+                .reshape((100, args.num_points) + X_test_img.shape[1:])
 
 assert np.all(X_test_img[0]     == x_ball_img[0, 0]), 'first normal image must match'
 assert np.all(X_test_adv_img[0] == x_ball_adv_img[0, 0]), 'first adv image must match'
@@ -338,69 +325,94 @@ update_useful_stats(stats_adv)
 assert np.all(stats['y_ball_preds'][:, 0] == y_test_preds)
 assert np.all(stats_adv['y_ball_preds'][:, 0] == y_test_adv_preds)
 
-features_ready = os.path.exists(os.path.join(SAVE_DIR, 'features_index.npy'))
-if not features_ready:
-    print('calculating Feature 1: integral(loss)...')
-    register_intg_loss(stats, stats_adv, f2_inds_val)
+print('calculating Feature 1: integral(loss)...')
+register_intg_loss(stats, stats_adv, f2_inds_val)
 
-    print('calculating Feature 2: integral(rel_loss)...')
-    register_intg_rel_loss(stats, stats_adv, f2_inds_val)
+print('calculating Feature 2: integral(rel_loss)...')
+register_intg_rel_loss(stats, stats_adv, f2_inds_val)
 
-    print('calculating Feature 3: max(rel_loss)...')
-    register_max_rel_loss(stats, stats_adv, f2_inds_val)
+print('calculating Feature 3: max(rel_loss)...')
+register_max_rel_loss(stats, stats_adv, f2_inds_val)
 
-    print('calculating Feature 4: rank @rel_loss= thd * max_rel_loss...')
-    register_rank_at_thd_rel_loss(stats, stats_adv, f2_inds_val)
+print('calculating Feature 4: rank @rel_loss= thd * max_rel_loss...')
+register_rank_at_thd_rel_loss(stats, stats_adv, f2_inds_val)
 
-    print('calculating Feature 5: rank @first pred switch...')
-    register_rank_at_first_pred_switch(stats, stats_adv, f2_inds_val)
+print('calculating Feature 5: rank @first pred switch...')
+register_rank_at_first_pred_switch(stats, stats_adv, f2_inds_val)
 
-    print('calculating Feature 6: number of switches until a specific rank...')
-    register_num_pred_switches(stats, stats_adv, f2_inds_val)
+print('calculating Feature 6: number of switches until a specific rank...')
+register_num_pred_switches(stats, stats_adv, f2_inds_val)
 
-    print('calculating Feature 7: mean(loss) for only initial label...')
-    register_mean_loss_for_initial_label(stats, stats_adv, f2_inds_val)
+print('calculating Feature 7: mean(loss) for only initial label...')
+register_mean_loss_for_initial_label(stats, stats_adv, f2_inds_val)
 
-    print('calculating Feature 8: mean(rel_loss) for only initial label...')
-    register_mean_rel_loss_for_initial_label(stats, stats_adv, f2_inds_val)
+print('calculating Feature 8: mean(rel_loss) for only initial label...')
+register_mean_rel_loss_for_initial_label(stats, stats_adv, f2_inds_val)
 
-    print('calculating Feature 9: integral(confidence) until a specific rank...')
-    register_intg_confidences_prime(stats, stats_adv, f2_inds_val)
+print('calculating Feature 9: integral(confidence) until a specific rank...')
+register_intg_confidences_prime(stats, stats_adv, f2_inds_val)
 
-    print('calculating Feature 10: integral(confidence) for primary only. Specific...')
-    register_intg_confidences_prime_specific(stats, stats_adv, f2_inds_val)
+print('calculating Feature 10: integral(confidence) for primary only. Specific...')
+register_intg_confidences_prime_specific(stats, stats_adv, f2_inds_val)
 
-    print('calculating Feature 11: integral(confidence) for secondary label. Overall...')
-    register_intg_confidences_secondary(stats, stats_adv, f2_inds_val)
+print('calculating Feature 11: integral(confidence) for secondary label. Overall...')
+register_intg_confidences_secondary(stats, stats_adv, f2_inds_val)
 
-    print('calculating Feature 12: integral(confidence) for secondary label. Specific...')
-    register_intg_confidences_secondary_specific(stats, stats_adv, f2_inds_val)
+print('calculating Feature 12: integral(confidence) for secondary label. Specific...')
+register_intg_confidences_secondary_specific(stats, stats_adv, f2_inds_val)
 
-    print('calculating Feature 13: integral(delta) for prime - rest. Overall...')
-    register_intg_delta_confidences_prime_rest(stats, stats_adv, f2_inds_val)
+print('calculating Feature 13: integral(delta) for prime - rest. Overall...')
+register_intg_delta_confidences_prime_rest(stats, stats_adv, f2_inds_val)
 
-    print('calculating Feature 14: integral(delta) for prime - secondary. Specific...')
-    register_intg_delta_confidences_prime_secondary_specific(stats, stats_adv, f2_inds_val)
+print('calculating Feature 14: integral(delta) for prime - secondary. Specific...')
+register_intg_delta_confidences_prime_secondary_specific(stats, stats_adv, f2_inds_val)
 
-    print('calculating Feature 15: integral(delta) for prime - secondary, setting zj=-inf for other labels...')
-    register_delta_probs_prime_secondary_excl_rest(stats, stats_adv, f2_inds_val)
+print('calculating Feature 15: integral(delta) for prime - secondary, setting zj=-inf for other labels...')
+register_delta_probs_prime_secondary_excl_rest(stats, stats_adv, f2_inds_val)
 
-    # stacking features to numpy
-    features_index = np.asarray(features_index)
-    normal_features = np.stack(normal_features_list, axis=1)
-    adv_features    = np.stack(adv_features_list, axis=1)
-    np.save(os.path.join(SAVE_DIR, 'features_index_hist.npy'), features_index)
-    np.save(os.path.join(SAVE_DIR, 'normal_features_hist.npy'), normal_features)
-    np.save(os.path.join(SAVE_DIR, 'adv_features_hist.npy'), adv_features)
-    print('done')
-    exit(0)
-else:
-    features_index  = np.load(os.path.join(SAVE_DIR, 'features_index_hist.npy'))
-    normal_features = np.load(os.path.join(SAVE_DIR, 'normal_features_hist.npy'))
-    adv_features    = np.load(os.path.join(SAVE_DIR, 'adv_features_hist.npy'))
+# debug - get all ranks
+# with open(os.path.join(SAVE_DIR, 'features_index_hist_all.pkl'), 'wb') as f:
+#     pickle.dump(features_index, f)
+# with open(os.path.join(SAVE_DIR, 'normal_features_list_all.pkl'), 'wb') as f:
+#     pickle.dump(normal_features_list, f)
+# with open(os.path.join(SAVE_DIR, 'adv_features_hist_all.pkl'), 'wb') as f:
+#     pickle.dump(adv_features_list, f)
 
+# feature_ind = 0
+# plt.figure()
+# plt.hist(normal_features_list[feature_ind][f2_inds_val], alpha=0.5, label='normal', bins=100)#, range=[150, 400])
+# plt.hist(adv_features[f2_inds_val, feature_ind], alpha=0.5, label='adv', bins=100)#, range=[150, 400])
+# plt.legend(loc='upper right')
+# plt.title('hist for {}'.format(features_index[feature_ind]))
+# plt.ylim(0, 200)
+# plt.show()
+
+# stacking features to numpy
+features_index = np.asarray(features_index)
+normal_features = np.stack(normal_features_list, axis=1)
+adv_features    = np.stack(adv_features_list, axis=1)
 # normal_features = normal_features.reshape((test_size, -1))
 # adv_features = adv_features.reshape((test_size, -1))
+
+# saving everything
+np.save(os.path.join(SAVE_DIR, 'features_index_hist.npy'), features_index)
+np.save(os.path.join(SAVE_DIR, 'normal_features_hist.npy'), normal_features)
+np.save(os.path.join(SAVE_DIR, 'adv_features_hist.npy'), adv_features)
+
+np.save(os.path.join(SAVE_DIR, 'inds', 'val_inds.npy'), val_inds)
+np.save(os.path.join(SAVE_DIR, 'inds', 'f0_inds_val.npy'), f0_inds_val)
+np.save(os.path.join(SAVE_DIR, 'inds', 'f1_inds_val.npy'), f1_inds_val)
+np.save(os.path.join(SAVE_DIR, 'inds', 'f2_inds_val.npy'), f2_inds_val)
+np.save(os.path.join(SAVE_DIR, 'inds', 'f3_inds_val.npy'), f3_inds_val)
+
+np.save(os.path.join(SAVE_DIR, 'inds', 'test_inds.npy'), test_inds)
+np.save(os.path.join(SAVE_DIR, 'inds', 'f0_inds_test.npy'), f0_inds_test)
+np.save(os.path.join(SAVE_DIR, 'inds', 'f1_inds_test.npy'), f1_inds_test)
+np.save(os.path.join(SAVE_DIR, 'inds', 'f2_inds_test.npy'), f2_inds_test)
+np.save(os.path.join(SAVE_DIR, 'inds', 'f3_inds_test.npy'), f3_inds_test)
+
+print('done')
+exit(0)
 
 # define complete training/testing set for learned models:
 train_features = np.concatenate((normal_features[f2_inds_val], adv_features[f2_inds_val]))

@@ -10,10 +10,12 @@ import torch
 import torch.nn as nn
 import scipy
 from time import time
+import inspect
 from active_learning_project.global_vars import features_index, normal_features_list, adv_features_list
 
 rand_gen = np.random.RandomState(12345)
 eps = 1e-10
+PLOT = False
 
 def to_features(func):
     """Decorator to fetch name of feature, normal features, and adv features"""
@@ -41,7 +43,7 @@ def plot_ttas(x, x_adv, f2_inds, n_imgs=5, n_dist=10):
     num_points = x.shape[1]
     assert num_points % n_dist == 0
     p_delta = int(num_points / n_dist)
-    inds = rand_gen.choice([si for si in f2_inds if si < 500], n_imgs, replace=False)
+    inds = rand_gen.choice([si for si in f2_inds if si < 100], n_imgs, replace=False)
     fig = plt.figure(figsize=(n_dist, 2 * n_imgs))
     for i in range(n_imgs):
         for p in range(n_dist):
@@ -114,24 +116,10 @@ def update_useful_stats(stats):
         stats['pil_mat'][:, :, cls] = scipy.special.softmax(tmp_preds, axis=2)
     stats['pil_mat_mean'] = stats['pil_mat'].max(axis=1)  # mean over TTAs
 
-def histogram_intersection(f1, f2):
-    f1_sorted = np.sort(f1)
-    f2_sorted = np.sort(f2)
-
-    f1_min_excl_outliers = f1_sorted[int(0.02 * len(f1_sorted))]
-    f2_min_excl_outliers = f2_sorted[int(0.02 * len(f2_sorted))]
-    f1_max_excl_outliers = f1_sorted[int(0.98 * len(f1_sorted))]
-    f2_max_excl_outliers = f2_sorted[int(0.98 * len(f2_sorted))]
-    min_edge = max(f1_min_excl_outliers, f2_min_excl_outliers)
-    max_edge = min(f1_max_excl_outliers, f2_max_excl_outliers)
-    bins = np.linspace(min_edge, max_edge + eps, 101)
-
-
-
-
-    min_edge = max(f1.min(), f2.min())
-    max_edge = min(f1.max(), f2.max())
-    bins = np.linspace(min_edge, max_edge + eps, 101)
+def histogram_intersection(f1, f2, num_bins=100, range_limit=(-np.inf, np.inf)):
+    min_edge = max(f1.min(), f2.min(), range_limit[0])
+    max_edge = min(f1.max(), f2.max(), range_limit[1])
+    bins = np.linspace(min_edge, max_edge + eps, num_bins + 1)
     h1 = np.histogram(f1, bins=bins)[0]
     h2 = np.histogram(f2, bins=bins)[0]
     assert len(h1) == len(h2)
@@ -140,26 +128,26 @@ def histogram_intersection(f1, f2):
         sm += min(h1[i], h2[i])
     return sm
 
-def plot_hists(name, f1, f2):
+def plot_hists(name, f1, f2, range_limit=(-np.inf, np.inf)):
     # plot both
     plt.figure()
-    plt.hist(f1, alpha=0.5, label='normal', bins=101)
-    plt.hist(f2, alpha=0.5, label='adv'   , bins=101)
+    plt.hist(f1, alpha=0.5, label='normal', bins=100)
+    plt.hist(f2, alpha=0.5, label='adv'   , bins=100)
     plt.legend(loc='upper right')
     plt.title(name)
     plt.show()
 
     # plot intersection only
     plt.figure()
-    min_edge = max(f1.min(), f2.min())
-    max_edge = min(f1.max(), f2.max())
-    plt.hist(f1, alpha=0.5, label='normal', bins=101, range=[min_edge, max_edge + eps])
-    plt.hist(f2, alpha=0.5, label='adv'   , bins=101, range=[min_edge, max_edge + eps])
+    min_edge = max(f1.min(), f2.min(), range_limit[0])
+    max_edge = min(f1.max(), f2.max(), range_limit[1])
+    plt.hist(f1, alpha=0.5, label='normal', bins=100, range=[min_edge, max_edge + eps])
+    plt.hist(f2, alpha=0.5, label='adv'   , bins=100, range=[min_edge, max_edge + eps])
     plt.legend(loc='upper right')
     plt.title(name + ' (intersection)')
     plt.show()
 
-def search_for_best_rank(f1, f2, search_func=histogram_intersection):
+def search_for_best_rank(f1, f2, num_bins=100, range_limit=(-np.inf, np.inf)):
     num_points = f1.shape[1]
     best_separation = np.inf  # lower is better
     best_top_rank = num_points
@@ -168,7 +156,8 @@ def search_for_best_rank(f1, f2, search_func=histogram_intersection):
         top_rank -= 1
         f1_sel = f1[:, top_rank]
         f2_sel = f2[:, top_rank]
-        separation = search_func(f1_sel, f2_sel)
+        # separation = search_func(f1_sel, f2_sel, num_bins, range_limit)
+        separation = histogram_intersection(f1_sel, f2_sel, num_bins, range_limit)
         print('top_rank {}: separation={}'.format(top_rank + 1, separation))  # debug
         if separation <= best_separation:
             best_separation = separation
@@ -192,25 +181,28 @@ def search_for_best_thd(f1, f2, search_func=histogram_intersection):
 
     return best_thd_pos
 
-def register_rank_feature(base_name, f1, f2, inds, plot=True):
-    best_top_rank = search_for_best_rank(f1[inds], f2[inds])
+def register_rank_feature(base_name, f1, f2, inds, rank=None, num_bins=100, range_limit=(-np.inf, np.inf), plot=PLOT):
+    if rank is not None:
+        best_top_rank = rank - 1
+    else:
+        best_top_rank = search_for_best_rank(f1[inds], f2[inds], num_bins, range_limit)
     feature_name = base_name + '_up_to_rank_{}'.format(best_top_rank + 1)
     if plot:
-        plot_hists(feature_name, f1[inds, best_top_rank], f2[inds, best_top_rank])
+        plot_hists(feature_name, f1[inds, best_top_rank], f2[inds, best_top_rank], range_limit)
     return feature_name, f1[:, best_top_rank], f2[:, best_top_rank]
 
-def register_thd_feature(base_name, f1, f2, inds, thds, plot=True):
+def register_thd_feature(base_name, f1, f2, inds, thds, range_limit=(-np.inf, np.inf), plot=PLOT):
     best_thd_pos = search_for_best_thd(f1[inds], f2[inds])
     top_thd = thds[best_thd_pos]
-    feature_name = base_name + '_up_to_thd_{}'.format(top_thd)
+    feature_name = base_name + 'w_thd_{}'.format(top_thd)
     if plot:
-        plot_hists(feature_name, f1[inds, best_thd_pos], f2[inds, best_thd_pos])
+        plot_hists(feature_name, f1[inds, best_thd_pos], f2[inds, best_thd_pos], range_limit)
     return feature_name, f1[:, best_thd_pos], f2[:, best_thd_pos]
 
-def register_common_feature(base_name, f1, f2, inds, plot=True):
+def register_common_feature(base_name, f1, f2, inds, range_limit=(-np.inf, np.inf), plot=PLOT):
     feature_name = base_name
     if plot:
-        plot_hists(feature_name, f1[inds], f2[inds])
+        plot_hists(feature_name, f1[inds], f2[inds], range_limit)
     return feature_name, f1, f2
 
 @to_features
@@ -219,7 +211,7 @@ def register_intg_loss(stats, stats_adv, inds):
     Feature: integral loss up until a certain top rank
     :return: top_rank, normal features, and adv features
     """
-
+    # name = inspect.stack()[0][3].split('register_')[1]
     f1 = np.cumsum(stats['losses']    , axis=1)
     f2 = np.cumsum(stats_adv['losses'], axis=1)
     return register_rank_feature('intg_loss', f1, f2, inds)
@@ -230,10 +222,9 @@ def register_intg_rel_loss(stats, stats_adv, inds):
     Feature: integral loss up until a certain top rank
     :return: top_rank, normal features, and adv features
     """
-
     f1 = np.cumsum(stats['rel_losses']    , axis=1)
     f2 = np.cumsum(stats_adv['rel_losses'], axis=1)
-    return register_rank_feature('intg_rel_loss', f1, f2, inds)
+    return register_rank_feature('intg_rel_loss', f1, f2, inds, num_bins=1000, range_limit=(-np.inf, 2e5))
 
 @to_features
 def register_max_rel_loss(stats, stats_adv, inds):
@@ -247,8 +238,7 @@ def register_max_rel_loss(stats, stats_adv, inds):
     for j in range(num_points):
         f1[:, j] = stats['rel_losses'][:, 0:j+1].max(axis=1)
         f2[:, j] = stats_adv['rel_losses'][:, 0:j+1].max(axis=1)
-
-    return register_rank_feature('max_relative_loss', f1, f2, inds)
+    return register_rank_feature('max_rel_loss', f1, f2, inds)
 
 @to_features
 def register_rank_at_thd_rel_loss(stats, stats_adv, inds):
@@ -273,7 +263,7 @@ def register_rank_at_thd_rel_loss(stats, stats_adv, inds):
         for k in range(test_size):
             f2[k, t] = np.argmax(rel_losses[k] > thd_vals[k])
 
-    return register_thd_feature('max_relative_loss', f1, f2, inds, thds)
+    return register_thd_feature('rank_at_thd_rel_loss', f1, f2, inds, thds)
 
 @to_features
 def register_rank_at_first_pred_switch(stats, stats_adv, inds):
@@ -334,7 +324,6 @@ def register_mean_loss_for_initial_label(stats, stats_adv, inds):
                 f2[k] += stats_adv['losses'][k, j]
         if cnt > 0:
             f2[k] /= cnt
-
     return register_common_feature('mean_loss_for_initial_label', f1, f2, inds)
 
 @to_features
@@ -359,7 +348,6 @@ def register_mean_rel_loss_for_initial_label(stats, stats_adv, inds):
                 f2[k] += stats_adv['rel_losses'][k, j]
         if cnt > 0:
             f2[k] /= cnt
-
     return register_common_feature('mean_rel_loss_for_initial_label', f1, f2, inds)
 
 @to_features
@@ -470,21 +458,4 @@ def register_delta_probs_prime_secondary_excl_rest(stats, stats_adv, inds):
     f1 = probs_first_second[:, 0]     - probs_first_second[:, 1]
     f2 = probs_first_second_adv[:, 0] - probs_first_second_adv[:, 1]
 
-    return register_common_feature('intg_delta_probs_prime_secondary_excl_rest', f1, f2, inds)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    return register_common_feature('delta_probs_prime_secondary_excl_rest', f1, f2, inds)
