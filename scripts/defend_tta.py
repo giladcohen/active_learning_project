@@ -233,9 +233,10 @@ explorer = TTABallExplorer(
     batch_size=batch_size,
 )
 
-if args.collect_normal_ball and not os.path.exists(os.path.join(NORMAL_SAVE_DIR, 'x_ball_subset_100.npy')):
+if args.collect_normal_ball and not os.path.exists(os.path.join(NORMAL_SAVE_DIR, 'preds.npy')):
     print('calculating normal x in ball...')
-    x_ball, losses, preds, noise_powers = explorer.generate(X_test)
+    # x_ball, losses, preds, noise_powers = explorer.generate(X_test)
+    _, losses, preds, noise_powers = explorer.generate(X_test)
     print('done calculating x ball')
 
     ranks = noise_powers.argsort(axis=1)
@@ -243,49 +244,50 @@ if args.collect_normal_ball and not os.path.exists(os.path.join(NORMAL_SAVE_DIR,
     # sorting the points in the ball
     for i in range(test_size):
         rks = ranks[i]
-        x_ball[i]       = x_ball[i, rks]
+        # x_ball[i]       = x_ball[i, rks]
         losses[i]       = losses[i, rks]
         preds[i]        = preds[i, rks]
         noise_powers[i] = noise_powers[i, rks]
 
     print('start saving to disk ({})...'.format(NORMAL_SAVE_DIR))
-    np.save(os.path.join(NORMAL_SAVE_DIR, 'x_ball_subset_100.npy'), x_ball[0:100])
+    # np.save(os.path.join(NORMAL_SAVE_DIR, 'x_ball_subset_100.npy'), x_ball[0:100])
     np.save(os.path.join(NORMAL_SAVE_DIR, 'losses.npy'), losses)
     np.save(os.path.join(NORMAL_SAVE_DIR, 'preds.npy'), preds)
     np.save(os.path.join(NORMAL_SAVE_DIR, 'noise_powers.npy'), noise_powers)
     with open(os.path.join(NORMAL_SAVE_DIR, 'run_args.txt'), 'w') as f:  # save args to normal dir only once.
         json.dump(args.__dict__, f, indent=2)
 
-    x_ball = x_ball[0:100]  # expensive in memory
+    # x_ball = x_ball[0:100]  # expensive in memory
 else:
-    x_ball     = np.load(os.path.join(NORMAL_SAVE_DIR, 'x_ball_subset_100.npy'))
+    # x_ball     = np.load(os.path.join(NORMAL_SAVE_DIR, 'x_ball_subset_100.npy'))
     losses     = np.load(os.path.join(NORMAL_SAVE_DIR, 'losses.npy'))
     preds      = np.load(os.path.join(NORMAL_SAVE_DIR, 'preds.npy'))
     x_dist     = np.load(os.path.join(NORMAL_SAVE_DIR, 'noise_powers.npy'))
 
-if not os.path.exists(os.path.join(SAVE_DIR, 'x_ball_adv_subset_100.npy')):
+if not os.path.exists(os.path.join(SAVE_DIR, 'preds_adv.npy')):
     print('calculating adv x in ball...')
-    x_ball_adv, losses_adv, preds_adv, noise_powers_adv = explorer.generate(X_test_adv)
+    # x_ball_adv, losses_adv, preds_adv, noise_powers_adv = explorer.generate(X_test_adv)
+    _, losses_adv, preds_adv, noise_powers_adv = explorer.generate(X_test_adv)
     print('done calculating x adv ball')
 
     ranks_adv = noise_powers_adv.argsort(axis=1)
 
     for i in range(test_size):
         rks_adv = ranks_adv[i]
-        x_ball_adv[i]       = x_ball_adv[i, rks_adv]
+        # x_ball_adv[i]       = x_ball_adv[i, rks_adv]
         losses_adv[i]       = losses_adv[i, rks_adv]
         preds_adv[i]        = preds_adv[i, rks_adv]
         noise_powers_adv[i] = noise_powers_adv[i, rks_adv]
 
     print('start saving to disk ({})...'.format(SAVE_DIR))
-    np.save(os.path.join(SAVE_DIR, 'x_ball_adv_subset_100.npy'), x_ball_adv[0:100])
+    # np.save(os.path.join(SAVE_DIR, 'x_ball_adv_subset_100.npy'), x_ball_adv[0:100])
     np.save(os.path.join(SAVE_DIR, 'losses_adv.npy'), losses_adv)
     np.save(os.path.join(SAVE_DIR, 'preds_adv.npy'), preds_adv)
     np.save(os.path.join(SAVE_DIR, 'noise_powers_adv.npy'), noise_powers_adv)
 
-    x_ball_adv = x_ball_adv[0:100]  # expensive in memory
+    # x_ball_adv = x_ball_adv[0:100]  # expensive in memory
 else:
-    x_ball_adv = np.load(os.path.join(SAVE_DIR, 'x_ball_adv_subset_100.npy'))
+    # x_ball_adv = np.load(os.path.join(SAVE_DIR, 'x_ball_adv_subset_100.npy'))
     losses_adv = np.load(os.path.join(SAVE_DIR, 'losses_adv.npy'))
     preds_adv  = np.load(os.path.join(SAVE_DIR, 'preds_adv.npy'))
     x_dist_adv = np.load(os.path.join(SAVE_DIR, 'noise_powers_adv.npy'))
