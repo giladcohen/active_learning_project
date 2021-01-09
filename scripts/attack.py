@@ -29,7 +29,6 @@ from art.attacks.evasion.carlini import CarliniL2Method
 from art.attacks.evasion.elastic_net import ElasticNet
 from art.classifiers import PyTorchClassifier
 from active_learning_project.attacks.zero_grad_cw_try import ZeroGrad
-from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchExtClassifier
 
 from cleverhans.utils import random_targets, to_categorical
 
@@ -57,8 +56,9 @@ else:
     ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack)
     if args.targeted:
         ATTACK_DIR = ATTACK_DIR + '_targeted'
-os.makedirs(ATTACK_DIR, exist_ok=True)
+os.makedirs(os.path.join(ATTACK_DIR, 'inds'), exist_ok=True)
 batch_size = args.batch_size
+rand_gen = np.random.RandomState(seed=12345)
 
 # Data
 print('==> Preparing data..')
@@ -127,7 +127,7 @@ if __name__ == "__main__":
     y_test = np.asarray(testloader.dataset.targets)
 
     net.eval()
-    classifier = PyTorchExtClassifier(model=net, clip_values=(0, 1), loss=criterion,
+    classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
                                    optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 
     y_val_preds = classifier.predict(X_val, batch_size=batch_size)
@@ -235,15 +235,19 @@ if __name__ == "__main__":
         json.dump(dump_args, f, indent=2)
 
     # attack val set
-    if args.subset == -1:  # not debug
-        X_val_adv = attack.generate(x=X_val, y=y_val_targets)
-        val_adv_logits = classifier.predict(X_val_adv, batch_size=batch_size)
-        y_val_adv_preds = np.argmax(val_adv_logits, axis=1)
-        val_adv_accuracy = np.mean(y_val_adv_preds == y_val)
+    if args.subset == -1:  # not debug, then attack val
+        if not os.path.exists(os.path.join(ATTACK_DIR, 'X_val_adv.npy')):
+            X_val_adv = attack.generate(x=X_val, y=y_val_targets)
+            val_adv_logits = classifier.predict(X_val_adv, batch_size=batch_size)
+            y_val_adv_preds = np.argmax(val_adv_logits, axis=1)
+            np.save(os.path.join(ATTACK_DIR, 'X_val_adv.npy'), X_val_adv)
+            np.save(os.path.join(ATTACK_DIR, 'y_val_adv_preds.npy'), y_val_adv_preds)
+        else:
+            X_val_adv       = np.load(os.path.join(ATTACK_DIR, 'X_val_adv.npy'))
+            y_val_adv_preds = np.load(os.path.join(ATTACK_DIR, 'y_val_adv_preds.npy'))
 
+        val_adv_accuracy = np.mean(y_val_adv_preds == y_val)
         print('Accuracy on adversarial val examples: {}%'.format(val_adv_accuracy * 100))
-        np.save(os.path.join(ATTACK_DIR, 'X_val_adv.npy'), X_val_adv)
-        np.save(os.path.join(ATTACK_DIR, 'y_val_adv_preds.npy'), y_val_adv_preds)
 
     # attack test set
     if args.subset != -1:  # debug
@@ -251,11 +255,73 @@ if __name__ == "__main__":
         y_test = y_test[:args.subset]
         if y_test_targets is not None:
             y_test_targets = y_test_targets[:args.subset]
-    X_test_adv = attack.generate(x=X_test, y=y_test_targets)
-    test_adv_logits = classifier.predict(X_test_adv, batch_size=batch_size)
-    y_test_adv_preds = np.argmax(test_adv_logits, axis=1)
-    test_adv_accuracy = np.mean(y_test_adv_preds == y_test)
 
+    if not os.path.exists(os.path.join(ATTACK_DIR, 'X_test_adv.npy')):
+        X_test_adv = attack.generate(x=X_test, y=y_test_targets)
+        test_adv_logits = classifier.predict(X_test_adv, batch_size=batch_size)
+        y_test_adv_preds = np.argmax(test_adv_logits, axis=1)
+        np.save(os.path.join(ATTACK_DIR, 'X_test_adv.npy'), X_test_adv)
+        np.save(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'), y_test_adv_preds)
+    else:
+        X_test_adv       = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
+        y_test_adv_preds = np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'))
+
+    test_adv_accuracy = np.mean(y_test_adv_preds == y_test)
     print('Accuracy on adversarial test examples: {}% (subset={})'.format(test_adv_accuracy * 100, args.subset))
-    np.save(os.path.join(ATTACK_DIR, 'X_test_adv.npy'), X_test_adv)
-    np.save(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'), y_test_adv_preds)
+
+    # dividing the official test set to a val set and to a test set
+    y_test_adv_preds = np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'))
+    f0_inds = []  # net_fail
+    f1_inds = []  # net_succ
+    f2_inds = []  # net_succ AND attack_flip
+    f3_inds = []  # net_succ AND attack_flip AND attack_succ
+
+    for i in range(test_size):
+        f1 = y_test_preds[i] == y_test[i]
+        f2 = f1 and y_test_preds[i] != y_test_adv_preds[i]
+        if args.targeted:
+            f3 = f2 and y_test_adv_preds[i] == y_test_adv[i]
+        else:
+            f3 = f2
+        if f1:
+            f1_inds.append(i)
+        else:
+            f0_inds.append(i)
+        if f2:
+            f2_inds.append(i)
+        if f3:
+            f3_inds.append(i)
+
+    f0_inds = np.asarray(f0_inds)
+    f1_inds = np.asarray(f1_inds)
+    f2_inds = np.asarray(f2_inds)
+    f3_inds = np.asarray(f3_inds)
+    all_inds = np.arange(test_size)
+
+    print("Number of test samples: {}. #net_succ: {}. #net_succ_attack_flip: {}. # net_succ_attack_succ: {}"
+          .format(test_size, len(f1_inds), len(f2_inds), len(f3_inds)))
+
+    val_inds = rand_gen.choice(all_inds, int(0.5 * test_size), replace=False)
+    val_inds.sort()
+    f0_inds_val = np.asarray([ind for ind in f0_inds if ind in val_inds])
+    f1_inds_val = np.asarray([ind for ind in f1_inds if ind in val_inds])
+    f2_inds_val = np.asarray([ind for ind in f2_inds if ind in val_inds])
+    f3_inds_val = np.asarray([ind for ind in f3_inds if ind in val_inds])
+
+    test_inds = np.asarray([ind for ind in all_inds if ind not in val_inds])
+    f0_inds_test = np.asarray([ind for ind in f0_inds if ind in test_inds])
+    f1_inds_test = np.asarray([ind for ind in f1_inds if ind in test_inds])
+    f2_inds_test = np.asarray([ind for ind in f2_inds if ind in test_inds])
+    f3_inds_test = np.asarray([ind for ind in f3_inds if ind in test_inds])
+
+    np.save(os.path.join(ATTACK_DIR, 'inds', 'val_inds.npy'), val_inds)
+    np.save(os.path.join(ATTACK_DIR, 'inds', 'f0_inds_val.npy'), f0_inds_val)
+    np.save(os.path.join(ATTACK_DIR, 'inds', 'f1_inds_val.npy'), f1_inds_val)
+    np.save(os.path.join(ATTACK_DIR, 'inds', 'f2_inds_val.npy'), f2_inds_val)
+    np.save(os.path.join(ATTACK_DIR, 'inds', 'f3_inds_val.npy'), f3_inds_val)
+
+    np.save(os.path.join(ATTACK_DIR, 'inds', 'test_inds.npy'), test_inds)
+    np.save(os.path.join(ATTACK_DIR, 'inds', 'f0_inds_test.npy'), f0_inds_test)
+    np.save(os.path.join(ATTACK_DIR, 'inds', 'f1_inds_test.npy'), f1_inds_test)
+    np.save(os.path.join(ATTACK_DIR, 'inds', 'f2_inds_test.npy'), f2_inds_test)
+    np.save(os.path.join(ATTACK_DIR, 'inds', 'f3_inds_test.npy'), f3_inds_test)
