@@ -11,7 +11,7 @@ import torch.nn as nn
 import scipy
 from time import time
 import inspect
-from active_learning_project.global_vars import features_index, normal_features_list, adv_features_list
+from active_learning_project.global_vars import features_index, normal_features_list, adv_features_list, FEATURES_RANKS
 
 rand_gen = np.random.RandomState(12345)
 eps = 1e-10
@@ -193,9 +193,13 @@ def register_rank_feature(base_name, f1, f2, inds, rank=None, num_bins=100, rang
         plot_hists(feature_name, f1[inds, best_top_rank], f2[inds, best_top_rank], range_limit)
     return feature_name, f1[:, best_top_rank], f2[:, best_top_rank]
 
-def register_thd_feature(base_name, f1, f2, inds, thds, range_limit=(-np.inf, np.inf), plot=PLOT):
-    best_thd_pos = search_for_best_thd(f1[inds], f2[inds])
-    top_thd = thds[best_thd_pos]
+def register_thd_feature(base_name, f1, f2, inds, thds, thd=None, range_limit=(-np.inf, np.inf), plot=PLOT):
+    if thd is not None:
+        best_thd_pos = thds.index(thd)
+        top_thd = thd
+    else:
+        best_thd_pos = search_for_best_thd(f1[inds], f2[inds])
+        top_thd = thds[best_thd_pos]
     feature_name = base_name + 'w_thd_{}'.format(top_thd)
     if plot:
         plot_hists(feature_name, f1[inds, best_thd_pos], f2[inds, best_thd_pos], range_limit)
@@ -208,42 +212,46 @@ def register_common_feature(base_name, f1, f2, inds, range_limit=(-np.inf, np.in
     return feature_name, f1, f2
 
 @to_features
-def register_intg_loss(stats, stats_adv, inds):
+def register_intg_loss(dataset, stats, stats_adv, inds):
     """
     Feature: integral loss up until a certain top rank
     :return: top_rank, normal features, and adv features
     """
     # name = inspect.stack()[0][3].split('register_')[1]
+    name = 'intg_loss'
     f1 = np.cumsum(stats['losses']    , axis=1)
     f2 = np.cumsum(stats_adv['losses'], axis=1)
-    return register_rank_feature('intg_loss', f1, f2, inds)
+    return register_rank_feature(name, f1, f2, inds, FEATURES_RANKS[name][dataset])
 
 @to_features
-def register_intg_rel_loss(stats, stats_adv, inds):
+def register_intg_rel_loss(dataset, stats, stats_adv, inds):
     """
     Feature: integral loss up until a certain top rank
     :return: top_rank, normal features, and adv features
     """
+    name = 'intg_rel_loss'
     f1 = np.cumsum(stats['rel_losses']    , axis=1)
     f2 = np.cumsum(stats_adv['rel_losses'], axis=1)
-    return register_rank_feature('intg_rel_loss', f1, f2, inds, num_bins=1000, range_limit=(-np.inf, 2e5))
+    return register_rank_feature(name, f1, f2, inds, FEATURES_RANKS[name][dataset], num_bins=1000, range_limit=(-np.inf, 2e5))
 
 @to_features
-def register_max_rel_loss(stats, stats_adv, inds):
+def register_max_rel_loss(dataset, stats, stats_adv, inds):
     """
     Feature: integral loss up until a certain top rank
     :return: top_rank, normal features, and adv features
     """
+    name = 'max_rel_loss'
     num_points = stats['preds'].shape[1]
     f1 = np.zeros_like(stats['rel_losses'])
     f2 = np.zeros_like(stats_adv['rel_losses'])
     for j in range(num_points):
         f1[:, j] = stats['rel_losses'][:, 0:j+1].max(axis=1)
         f2[:, j] = stats_adv['rel_losses'][:, 0:j+1].max(axis=1)
-    return register_rank_feature('max_rel_loss', f1, f2, inds)
+    return register_rank_feature(name, f1, f2, inds, FEATURES_RANKS[name][dataset])
 
 @to_features
-def register_rank_at_thd_rel_loss(stats, stats_adv, inds):
+def register_rank_at_thd_rel_loss(dataset, stats, stats_adv, inds):
+    name = 'rank_at_thd_rel_loss'
     thds = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99]
     test_size = stats['preds'].shape[0]
     f1 = np.zeros((test_size, len(thds)))
@@ -265,10 +273,11 @@ def register_rank_at_thd_rel_loss(stats, stats_adv, inds):
         for k in range(test_size):
             f2[k, t] = np.argmax(rel_losses[k] > thd_vals[k])
 
-    return register_thd_feature('rank_at_thd_rel_loss', f1, f2, inds, thds)
+    return register_thd_feature(name, f1, f2, inds, thds, FEATURES_RANKS[name][dataset])
 
 @to_features
-def register_rank_at_first_pred_switch(stats, stats_adv, inds):
+def register_rank_at_first_pred_switch(dataset, stats, stats_adv, inds):
+    name = 'rank_at_first_pred_switch'
     test_size, num_points = stats['preds'].shape[0:2]
     f1 = -1 * np.ones(test_size, dtype=np.int32)
     f2 = -1 * np.ones(test_size, dtype=np.int32)
@@ -286,14 +295,15 @@ def register_rank_at_first_pred_switch(stats, stats_adv, inds):
     if unswitched_adv_inds.size != 0:
         print('WARNING: these adversarial indices are never switched:\n{}'.format(unswitched_adv_inds))
     f2 = np.where(f2 == -1, 2 * num_points, f2)
-    return register_common_feature('rank_at_first_pred_switch', f1, f2, inds)
+    return register_common_feature(name, f1, f2, inds)
 
 @to_features
-def register_num_pred_switches(stats, stats_adv, inds):
+def register_num_pred_switches(dataset, stats, stats_adv, inds):
     """
     Feature: number of prediction switches until a specific rank
     :return: top_rank, normal features, and adv features
     """
+    name = 'num_pred_switches'
     test_size, num_points = stats['preds'].shape[0:2]
     f1 = np.zeros((test_size, num_points), dtype=np.int32)
     f2 = np.zeros((test_size, num_points), dtype=np.int32)
@@ -302,10 +312,11 @@ def register_num_pred_switches(stats, stats_adv, inds):
             f1[k, sw_rnk:] += 1
         for sw_rnk in stats_adv['switch_ranks'][k]:
             f2[k, sw_rnk:] += 1
-    return register_rank_feature('num_pred_switches', f1, f2, inds)
+    return register_rank_feature(name, f1, f2, inds, FEATURES_RANKS[name][dataset])
 
 @to_features
-def register_mean_loss_for_initial_label(stats, stats_adv, inds):
+def register_mean_loss_for_initial_label(dataset, stats, stats_adv, inds):
+    name = 'mean_loss_for_initial_label'
     test_size, num_points = stats['preds'].shape[0:2]
     f1 = np.zeros(test_size)
     f2 = np.zeros(test_size)
@@ -326,10 +337,11 @@ def register_mean_loss_for_initial_label(stats, stats_adv, inds):
                 f2[k] += stats_adv['losses'][k, j]
         if cnt > 0:
             f2[k] /= cnt
-    return register_common_feature('mean_loss_for_initial_label', f1, f2, inds)
+    return register_common_feature(name, f1, f2, inds)
 
 @to_features
-def register_mean_rel_loss_for_initial_label(stats, stats_adv, inds):
+def register_mean_rel_loss_for_initial_label(dataset, stats, stats_adv, inds):
+    name = 'mean_rel_loss_for_initial_label'
     test_size, num_points = stats['preds'].shape[0:2]
     f1 = np.zeros(test_size)
     f2 = np.zeros(test_size)
@@ -350,25 +362,28 @@ def register_mean_rel_loss_for_initial_label(stats, stats_adv, inds):
                 f2[k] += stats_adv['rel_losses'][k, j]
         if cnt > 0:
             f2[k] /= cnt
-    return register_common_feature('mean_rel_loss_for_initial_label', f1, f2, inds)
+    return register_common_feature(name, f1, f2, inds)
 
 @to_features
-def register_intg_confidences_prime(stats, stats_adv, inds):
+def register_intg_confidences_prime(dataset, stats, stats_adv, inds):
+    name = 'intg_confidences_prime'
     f1 = np.cumsum(stats['confidences'], axis=1)
     f2 = np.cumsum(stats_adv['confidences'], axis=1)
-    return register_rank_feature('intg_confidences_prime', f1, f2, inds)
+    return register_rank_feature(name, f1, f2, inds, FEATURES_RANKS[name][dataset])
 
 @to_features
-def register_intg_confidences_prime_specific(stats, stats_adv, inds):
+def register_intg_confidences_prime_specific(dataset, stats, stats_adv, inds):
+    name = 'intg_confidences_prime_specific'
     f1 = stats['confidences_prime']
     f2 = stats_adv['confidences_prime']
 
     f1 = np.cumsum(f1, axis=1)
     f2 = np.cumsum(f2, axis=1)
-    return register_rank_feature('intg_confidences_prime_specific', f1, f2, inds)
+    return register_rank_feature(name, f1, f2, inds, FEATURES_RANKS[name][dataset])
 
 @to_features
-def register_intg_confidences_secondary(stats, stats_adv, inds):
+def register_intg_confidences_secondary(dataset, stats, stats_adv, inds):
+    name = 'intg_confidences_secondary'
     test_size, num_points = stats['preds'].shape[0:2]
     f1 = np.zeros((test_size, num_points))
     f2 = np.zeros((test_size, num_points))
@@ -379,10 +394,11 @@ def register_intg_confidences_secondary(stats, stats_adv, inds):
 
     f1 = np.cumsum(f1, axis=1)
     f2 = np.cumsum(f2, axis=1)
-    return register_rank_feature('intg_confidences_secondary', f1, f2, inds)
+    return register_rank_feature(name, f1, f2, inds, FEATURES_RANKS[name][dataset])
 
 @to_features
-def register_intg_confidences_secondary_specific(stats, stats_adv, inds):
+def register_intg_confidences_secondary_specific(dataset, stats, stats_adv, inds):
+    name = 'intg_confidences_secondary_specific'
     f1 = stats['confidences_secondary']
     f2 = stats_adv['confidences_secondary']
 
@@ -392,10 +408,11 @@ def register_intg_confidences_secondary_specific(stats, stats_adv, inds):
     f2[stats_adv['no_sw_pred_inds']] = 0.0
     assert (f1 >= 0.0).all()
     assert (f2 >= 0.0).all()
-    return register_rank_feature('intg_confidences_secondary_specific', f1, f2, inds)
+    return register_rank_feature(name, f1, f2, inds, FEATURES_RANKS[name][dataset])
 
 @to_features
-def register_intg_delta_confidences_prime_rest(stats, stats_adv, inds):
+def register_intg_delta_confidences_prime_rest(dataset, stats, stats_adv, inds):
+    name = 'intg_delta_confidences_prime_rest'
     test_size, num_points = stats['preds'].shape[0:2]
     f1 = np.empty((test_size, num_points))
     f2 = np.empty((test_size, num_points))
@@ -411,10 +428,11 @@ def register_intg_delta_confidences_prime_rest(stats, stats_adv, inds):
 
     f1 = np.cumsum(f1, axis=1)
     f2 = np.cumsum(f2, axis=1)
-    return register_rank_feature('intg_delta_confidences_prime_rest', f1, f2, inds)
+    return register_rank_feature(name, f1, f2, inds, FEATURES_RANKS[name][dataset])
 
 @to_features
-def register_intg_delta_confidences_prime_secondary_specific(stats, stats_adv, inds):
+def register_intg_delta_confidences_prime_secondary_specific(dataset, stats, stats_adv, inds):
+    name = 'intg_delta_confidences_prime_secondary_specific'
     test_size, num_points = stats['preds'].shape[0:2]
     f1 = -1 * np.ones((test_size, num_points))
     f2 = -1 * np.ones((test_size, num_points))
@@ -431,10 +449,11 @@ def register_intg_delta_confidences_prime_secondary_specific(stats, stats_adv, i
     f1 = np.cumsum(f1, axis=1)
     f2 = np.cumsum(f2, axis=1)
 
-    return register_rank_feature('intg_delta_confidences_prime_secondary_specific', f1, f2, inds)
+    return register_rank_feature(name, f1, f2, inds, FEATURES_RANKS[name][dataset])
 
 @to_features
-def register_delta_probs_prime_secondary_excl_rest(stats, stats_adv, inds):
+def register_delta_probs_prime_secondary_excl_rest(dataset, stats, stats_adv, inds):
+    name = 'delta_probs_prime_secondary_excl_rest'
     test_size, num_points, num_classes = stats['preds'].shape
     probs_first_second     = np.zeros((test_size, 2))
     probs_first_second_adv = np.zeros((test_size, 2))
@@ -460,4 +479,4 @@ def register_delta_probs_prime_secondary_excl_rest(stats, stats_adv, inds):
     f1 = probs_first_second[:, 0]     - probs_first_second[:, 1]
     f2 = probs_first_second_adv[:, 0] - probs_first_second_adv[:, 1]
 
-    return register_common_feature('delta_probs_prime_secondary_excl_rest', f1, f2, inds)
+    return register_common_feature(name, f1, f2, inds, FEATURES_RANKS[name][dataset])

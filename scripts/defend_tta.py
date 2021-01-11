@@ -32,7 +32,7 @@ from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchEx
 
 parser = argparse.ArgumentParser(description='PyTorch adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
-parser.add_argument('--attack_dir', default='fgsm_targeted', type=str, help='attack directory')
+parser.add_argument('--attack_dir', default='deepfool', type=str, help='attack directory')
 parser.add_argument('--save_dir', default='tta_ball_rev_L2_eps_2_n_1000', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
@@ -160,49 +160,16 @@ if subset != -1:  # if debug run
     test_size = subset
 
 # what are the samples we care about? net_succ (not attack_succ. it is irrelevant)
-f0_inds = []  # net_fail
-f1_inds = []  # net_succ
-f2_inds = []  # net_succ AND attack_flip
-f3_inds = []  # net_succ AND attack_flip AND attack_succ
-
-for i in range(test_size):
-    f1 = y_test_preds[i] == y_test[i]
-    f2 = f1 and y_test_preds[i] != y_test_adv_preds[i]
-    if targeted:
-        f3 = f2 and y_test_adv_preds[i] == y_test_adv[i]
-    else:
-        f3 = f2
-    if f1:
-        f1_inds.append(i)
-    else:
-        f0_inds.append(i)
-    if f2:
-        f2_inds.append(i)
-    if f3:
-        f3_inds.append(i)
-
-f0_inds = np.asarray(f0_inds)
-f1_inds = np.asarray(f1_inds)
-f2_inds = np.asarray(f2_inds)
-f3_inds = np.asarray(f3_inds)
-all_inds = np.arange(test_size)
-
-print("Number of test samples: {}. #net_succ: {}. #net_succ_attack_flip: {}. # net_succ_attack_succ: {}"
-      .format(test_size, len(f1_inds), len(f2_inds), len(f3_inds)))
-
-# dividing the official test set to a val set and to a test set
-val_inds = rand_gen.choice(all_inds, int(0.5*test_size), replace=False)
-val_inds.sort()
-f0_inds_val = np.asarray([ind for ind in f0_inds if ind in val_inds])
-f1_inds_val = np.asarray([ind for ind in f1_inds if ind in val_inds])
-f2_inds_val = np.asarray([ind for ind in f2_inds if ind in val_inds])
-f3_inds_val = np.asarray([ind for ind in f3_inds if ind in val_inds])
-
-test_inds = np.asarray([ind for ind in all_inds if ind not in val_inds])
-f0_inds_test = np.asarray([ind for ind in f0_inds if ind in test_inds])
-f1_inds_test = np.asarray([ind for ind in f1_inds if ind in test_inds])
-f2_inds_test = np.asarray([ind for ind in f2_inds if ind in test_inds])
-f3_inds_test = np.asarray([ind for ind in f3_inds if ind in test_inds])
+val_inds     = np.load(os.path.join(ATTACK_DIR, 'inds', 'val_inds.npy'))
+f0_inds_val  = np.load(os.path.join(ATTACK_DIR, 'inds', 'f0_inds_val.npy'))
+f1_inds_val  = np.load(os.path.join(ATTACK_DIR, 'inds', 'f1_inds_val.npy'))
+f2_inds_val  = np.load(os.path.join(ATTACK_DIR, 'inds', 'f2_inds_val.npy'))
+f3_inds_val  = np.load(os.path.join(ATTACK_DIR, 'inds', 'f3_inds_val.npy'))
+test_inds    = np.load(os.path.join(ATTACK_DIR, 'inds', 'test_inds.npy'))
+f0_inds_test = np.load(os.path.join(ATTACK_DIR, 'inds', 'f0_inds_test.npy'))
+f1_inds_test = np.load(os.path.join(ATTACK_DIR, 'inds', 'f1_inds_test.npy'))
+f2_inds_test = np.load(os.path.join(ATTACK_DIR, 'inds', 'f2_inds_test.npy'))
+f3_inds_test = np.load(os.path.join(ATTACK_DIR, 'inds', 'f3_inds_test.npy'))
 
 if args.norm == 'L_inf':
     norm = np.inf
@@ -292,25 +259,18 @@ else:
     preds_adv  = np.load(os.path.join(SAVE_DIR, 'preds_adv.npy'))
     x_dist_adv = np.load(os.path.join(SAVE_DIR, 'noise_powers_adv.npy'))
 
-print('done')
-exit(0)
-# converting everything from 3x32x32 to 32x32x3
-X_test_img     = convert_tensor_to_image(X_test)
-X_test_adv_img = convert_tensor_to_image(X_test_adv)
-# x_ball_img     = convert_tensor_to_image(x_ball.reshape((test_size * args.num_points, ) + X_test.shape[1:])) \
-#                 .reshape((test_size, args.num_points) + X_test_img.shape[1:])
-x_ball_img     = convert_tensor_to_image(x_ball.reshape((100 * args.num_points, ) + X_test.shape[1:])) \
-                .reshape((100, args.num_points) + X_test_img.shape[1:])
-# x_ball_adv_img = convert_tensor_to_image(x_ball_adv.reshape((test_size * args.num_points, ) + X_test.shape[1:])) \
-#                 .reshape((test_size, args.num_points) + X_test_img.shape[1:])
-x_ball_adv_img = convert_tensor_to_image(x_ball_adv.reshape((100 * args.num_points, ) + X_test.shape[1:])) \
-                .reshape((100, args.num_points) + X_test_img.shape[1:])
+# DEBUG: converting everything from 3x32x32 to 32x32x3
+# X_test_img     = convert_tensor_to_image(X_test)
+# X_test_adv_img = convert_tensor_to_image(X_test_adv)
+# x_ball_img     = convert_tensor_to_image(x_ball.reshape((100 * args.num_points, ) + X_test.shape[1:])) \
+#                 .reshape((100, args.num_points) + X_test_img.shape[1:])
+# x_ball_adv_img = convert_tensor_to_image(x_ball_adv.reshape((100 * args.num_points, ) + X_test.shape[1:])) \
+#                 .reshape((100, args.num_points) + X_test_img.shape[1:])
+# assert np.all(X_test_img[0]     == x_ball_img[0, 0]), 'first normal image must match'
+# assert np.all(X_test_adv_img[0] == x_ball_adv_img[0, 0]), 'first adv image must match'
 
-assert np.all(X_test_img[0]     == x_ball_img[0, 0]), 'first normal image must match'
-assert np.all(X_test_adv_img[0] == x_ball_adv_img[0, 0]), 'first adv image must match'
-
-# visualizing the images in the ball
-plot_ttas(x_ball_img, x_ball_adv_img, f2_inds)
+# DEBUG visualizing the images in the ball
+# plot_ttas(x_ball_img, x_ball_adv_img, f2_inds)
 
 # wrap useful stats in a dictionary:
 stats = {}
@@ -330,49 +290,49 @@ assert np.all(stats['y_ball_preds'][:, 0] == y_test_preds)
 assert np.all(stats_adv['y_ball_preds'][:, 0] == y_test_adv_preds)
 
 print('calculating Feature 1: integral(loss)...')
-register_intg_loss(stats, stats_adv, f2_inds_val)
+register_intg_loss(train_args['dataset'], stats, stats_adv, f2_inds_val)
 
 print('calculating Feature 2: integral(rel_loss)...')
-register_intg_rel_loss(stats, stats_adv, f2_inds_val)
+register_intg_rel_loss(train_args['dataset'], stats, stats_adv, f2_inds_val)
 
 print('calculating Feature 3: max(rel_loss)...')
-register_max_rel_loss(stats, stats_adv, f2_inds_val)
+register_max_rel_loss(train_args['dataset'], stats, stats_adv, f2_inds_val)
 
 print('calculating Feature 4: rank @rel_loss= thd * max_rel_loss...')
-register_rank_at_thd_rel_loss(stats, stats_adv, f2_inds_val)
+register_rank_at_thd_rel_loss(train_args['dataset'], stats, stats_adv, f2_inds_val)
 
 print('calculating Feature 5: rank @first pred switch...')
-register_rank_at_first_pred_switch(stats, stats_adv, f2_inds_val)
+register_rank_at_first_pred_switch(train_args['dataset'], stats, stats_adv, f2_inds_val)
 
 print('calculating Feature 6: number of switches until a specific rank...')
-register_num_pred_switches(stats, stats_adv, f2_inds_val)
+register_num_pred_switches(train_args['dataset'], stats, stats_adv, f2_inds_val)
 
 print('calculating Feature 7: mean(loss) for only initial label...')
-register_mean_loss_for_initial_label(stats, stats_adv, f2_inds_val)
+register_mean_loss_for_initial_label(train_args['dataset'], stats, stats_adv, f2_inds_val)
 
 print('calculating Feature 8: mean(rel_loss) for only initial label...')
-register_mean_rel_loss_for_initial_label(stats, stats_adv, f2_inds_val)
+register_mean_rel_loss_for_initial_label(train_args['dataset'], stats, stats_adv, f2_inds_val)
 
 print('calculating Feature 9: integral(confidence) until a specific rank...')
-register_intg_confidences_prime(stats, stats_adv, f2_inds_val)
+register_intg_confidences_prime(train_args['dataset'], stats, stats_adv, f2_inds_val)
 
 print('calculating Feature 10: integral(confidence) for primary only. Specific...')
-register_intg_confidences_prime_specific(stats, stats_adv, f2_inds_val)
+register_intg_confidences_prime_specific(train_args['dataset'], stats, stats_adv, f2_inds_val)
 
 print('calculating Feature 11: integral(confidence) for secondary label. Overall...')
-register_intg_confidences_secondary(stats, stats_adv, f2_inds_val)
+register_intg_confidences_secondary(train_args['dataset'], stats, stats_adv, f2_inds_val)
 
 print('calculating Feature 12: integral(confidence) for secondary label. Specific...')
-register_intg_confidences_secondary_specific(stats, stats_adv, f2_inds_val)
+register_intg_confidences_secondary_specific(train_args['dataset'], stats, stats_adv, f2_inds_val)
 
 print('calculating Feature 13: integral(delta) for prime - rest. Overall...')
-register_intg_delta_confidences_prime_rest(stats, stats_adv, f2_inds_val)
+register_intg_delta_confidences_prime_rest(train_args['dataset'], stats, stats_adv, f2_inds_val)
 
 print('calculating Feature 14: integral(delta) for prime - secondary. Specific...')
-register_intg_delta_confidences_prime_secondary_specific(stats, stats_adv, f2_inds_val)
+register_intg_delta_confidences_prime_secondary_specific(train_args['dataset'], stats, stats_adv, f2_inds_val)
 
 print('calculating Feature 15: integral(delta) for prime - secondary, setting zj=-inf for other labels...')
-register_delta_probs_prime_secondary_excl_rest(stats, stats_adv, f2_inds_val)
+register_delta_probs_prime_secondary_excl_rest(train_args['dataset'], stats, stats_adv, f2_inds_val)
 
 # debug - get all ranks
 # with open(os.path.join(SAVE_DIR, 'features_index_hist_all.pkl'), 'wb') as f:
@@ -402,18 +362,6 @@ adv_features    = np.stack(adv_features_list, axis=1)
 np.save(os.path.join(SAVE_DIR, 'features_index_hist.npy'), features_index)
 np.save(os.path.join(SAVE_DIR, 'normal_features_hist.npy'), normal_features)
 np.save(os.path.join(SAVE_DIR, 'adv_features_hist.npy'), adv_features)
-
-np.save(os.path.join(SAVE_DIR, 'inds', 'val_inds.npy'), val_inds)
-np.save(os.path.join(SAVE_DIR, 'inds', 'f0_inds_val.npy'), f0_inds_val)
-np.save(os.path.join(SAVE_DIR, 'inds', 'f1_inds_val.npy'), f1_inds_val)
-np.save(os.path.join(SAVE_DIR, 'inds', 'f2_inds_val.npy'), f2_inds_val)
-np.save(os.path.join(SAVE_DIR, 'inds', 'f3_inds_val.npy'), f3_inds_val)
-
-np.save(os.path.join(SAVE_DIR, 'inds', 'test_inds.npy'), test_inds)
-np.save(os.path.join(SAVE_DIR, 'inds', 'f0_inds_test.npy'), f0_inds_test)
-np.save(os.path.join(SAVE_DIR, 'inds', 'f1_inds_test.npy'), f1_inds_test)
-np.save(os.path.join(SAVE_DIR, 'inds', 'f2_inds_test.npy'), f2_inds_test)
-np.save(os.path.join(SAVE_DIR, 'inds', 'f3_inds_test.npy'), f3_inds_test)
 
 print('done')
 exit(0)
