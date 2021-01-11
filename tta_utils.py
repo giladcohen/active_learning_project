@@ -200,7 +200,7 @@ def register_thd_feature(base_name, f1, f2, inds, thds, thd=None, range_limit=(-
     else:
         best_thd_pos = search_for_best_thd(f1[inds], f2[inds])
         top_thd = thds[best_thd_pos]
-    feature_name = base_name + 'w_thd_{}'.format(top_thd)
+    feature_name = base_name + '_w_thd_{}'.format(top_thd)
     if plot:
         plot_hists(feature_name, f1[inds, best_thd_pos], f2[inds, best_thd_pos], range_limit)
     return feature_name, f1[:, best_thd_pos], f2[:, best_thd_pos]

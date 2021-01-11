@@ -366,6 +366,11 @@ np.save(os.path.join(SAVE_DIR, 'adv_features_hist.npy'), adv_features)
 print('done')
 exit(0)
 
+# DEBUG - load features:
+features_index  = np.load(os.path.join(SAVE_DIR, 'features_index_hist.npy'))
+normal_features = np.load(os.path.join(SAVE_DIR, 'normal_features_hist.npy'))
+adv_features    = np.load(os.path.join(SAVE_DIR, 'adv_features_hist.npy'))
+
 # define complete training/testing set for learned models:
 train_features = np.concatenate((normal_features[f2_inds_val], adv_features[f2_inds_val]))
 train_labels   = np.concatenate((np.zeros(len(f2_inds_val)), np.ones(len(f2_inds_val))))
@@ -416,7 +421,7 @@ f2_test_preds_all = np.concatenate((detection_preds_prob[f2_inds_test], detectio
 f2_test_gt_all    = np.concatenate((np.zeros(len(f2_inds_test)), np.ones(len(f2_inds_test))), axis=0)
 _, _, auc_score = compute_roc(f2_test_gt_all, f2_test_preds_all, plot=True)
 
-print('Accuracy for all samples: {:.2f}/{:.2f}%. '
+print('Accuracy: all samples: {:.2f}/{:.2f}%. '
       'f1 samples: {:.2f}/{:.2f}%, f2 samples: {:.2f}/{:.2f}%, f3 samples: {:.2f}/{:.2f}%. '
       'AUC score: {:.5f}'
       .format(acc_all * 100, acc_all_adv * 100, acc_f1 * 100, acc_f1_adv * 100, acc_f2 * 100, acc_f2_adv * 100,
