@@ -217,12 +217,6 @@ if args.collect_normal_ball and not os.path.exists(os.path.join(NORMAL_SAVE_DIR,
         preds[i]        = preds[i, rks]
         noise_powers[i] = noise_powers[i, rks]
 
-    stats = {}
-    stats['preds'] = preds
-    stats['losses'] = losses
-    print('updating useful stats for normal images...')
-    update_useful_stats(stats)
-
     print('start saving to disk ({})...'.format(NORMAL_SAVE_DIR))
     # np.save(os.path.join(NORMAL_SAVE_DIR, 'x_ball_subset_100.npy'), x_ball[0:100])
     np.save(os.path.join(NORMAL_SAVE_DIR, 'losses.npy'), losses)
@@ -230,8 +224,6 @@ if args.collect_normal_ball and not os.path.exists(os.path.join(NORMAL_SAVE_DIR,
     np.save(os.path.join(NORMAL_SAVE_DIR, 'noise_powers.npy'), noise_powers)
     with open(os.path.join(NORMAL_SAVE_DIR, 'run_args.txt'), 'w') as f:  # save args to normal dir only once.
         json.dump(args.__dict__, f, indent=2)
-    with open(os.path.join(NORMAL_SAVE_DIR, 'stats.pkl'), 'wb') as f:
-        pickle.dump(stats, f, protocol=4)
 
     # x_ball = x_ball[0:100]  # expensive in memory
 else:
@@ -239,8 +231,6 @@ else:
     losses     = np.load(os.path.join(NORMAL_SAVE_DIR, 'losses.npy'))
     preds      = np.load(os.path.join(NORMAL_SAVE_DIR, 'preds.npy'))
     x_dist     = np.load(os.path.join(NORMAL_SAVE_DIR, 'noise_powers.npy'))
-    with open(os.path.join(NORMAL_SAVE_DIR, 'stats.pkl'), 'rb') as f:
-        stats = pickle.load(f)
 
 if not os.path.exists(os.path.join(SAVE_DIR, 'preds_adv.npy')):
     print('calculating adv x in ball...')
@@ -257,20 +247,11 @@ if not os.path.exists(os.path.join(SAVE_DIR, 'preds_adv.npy')):
         preds_adv[i]        = preds_adv[i, rks_adv]
         noise_powers_adv[i] = noise_powers_adv[i, rks_adv]
 
-    stats_adv = {}
-    stats_adv['preds'] = preds_adv
-    stats_adv['losses'] = losses_adv
-
-    print('updating useful stats for adv images...')
-    update_useful_stats(stats_adv)
-
     print('start saving to disk ({})...'.format(SAVE_DIR))
     # np.save(os.path.join(SAVE_DIR, 'x_ball_adv_subset_100.npy'), x_ball_adv[0:100])
     np.save(os.path.join(SAVE_DIR, 'losses_adv.npy'), losses_adv)
     np.save(os.path.join(SAVE_DIR, 'preds_adv.npy'), preds_adv)
     np.save(os.path.join(SAVE_DIR, 'noise_powers_adv.npy'), noise_powers_adv)
-    with open(os.path.join(SAVE_DIR, 'stats_adv.pkl'), 'wb') as f:
-        pickle.dump(stats_adv, f, protocol=4)
 
     # x_ball_adv = x_ball_adv[0:100]  # expensive in memory
 else:
@@ -278,8 +259,6 @@ else:
     losses_adv = np.load(os.path.join(SAVE_DIR, 'losses_adv.npy'))
     preds_adv  = np.load(os.path.join(SAVE_DIR, 'preds_adv.npy'))
     x_dist_adv = np.load(os.path.join(SAVE_DIR, 'noise_powers_adv.npy'))
-    with open(os.path.join(SAVE_DIR, 'stats_adv.pkl'), 'rb') as f:
-        stats_adv = pickle.load(f)
 
 # DEBUG: converting everything from 3x32x32 to 32x32x3
 # X_test_img     = convert_tensor_to_image(X_test)
@@ -293,6 +272,18 @@ else:
 
 # DEBUG visualizing the images in the ball
 # plot_ttas(x_ball_img, x_ball_adv_img, f2_inds)
+
+# getting stats:
+print('updating useful stats for normal images...')
+stats = {}
+stats['preds'] = preds
+stats['losses'] = losses
+update_useful_stats(stats)
+print('updating useful stats for adv images...')
+stats_adv = {}
+stats_adv['preds'] = preds_adv
+stats_adv['losses'] = losses_adv
+update_useful_stats(stats_adv)
 
 assert np.all(stats['y_ball_preds'][:, 0] == y_test_preds)
 assert np.all(stats_adv['y_ball_preds'][:, 0] == y_test_adv_preds)
