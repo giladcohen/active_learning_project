@@ -142,7 +142,7 @@ clf = RandomForestClassifier(
     bootstrap=True, # Whether bootstrap samples are used when building trees.
                     # If False, the whole datset is used to build each tree.
     random_state=rand_gen,
-    verbose=1000,
+    verbose=0,
     n_jobs=20
 )
 clf.fit(train_features, train_labels)
