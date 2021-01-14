@@ -116,7 +116,7 @@ def update_useful_stats(stats):
         tmp_preds = stats['preds'].copy()
         tmp_preds[:, :, cls] = -np.inf
         stats['pil_mat'][:, :, cls] = scipy.special.softmax(tmp_preds, axis=2)
-    stats['pil_mat_mean'] = stats['pil_mat'].max(axis=1)  # mean over TTAs
+    stats['pil_mat_mean'] = stats['pil_mat'].mean(axis=1)  # mean over TTAs
 
 def histogram_intersection(f1, f2, num_bins=100, range_limit=(-np.inf, np.inf)):
     min_edge = max(f1.min(), f2.min(), range_limit[0])
