@@ -184,6 +184,7 @@ def search_for_best_thd(f1, f2, search_func=histogram_intersection):
     return best_thd_pos
 
 def register_rank_feature(base_name, f1, f2, inds, rank=None, num_bins=100, range_limit=(-np.inf, np.inf), plot=PLOT):
+    rank = None
     if rank is not None:
         best_top_rank = rank - 1
     else:
@@ -194,6 +195,7 @@ def register_rank_feature(base_name, f1, f2, inds, rank=None, num_bins=100, rang
     return feature_name, f1[:, best_top_rank], f2[:, best_top_rank]
 
 def register_thd_feature(base_name, f1, f2, inds, thds, thd=None, range_limit=(-np.inf, np.inf), plot=PLOT):
+    thd = None
     if thd is not None:
         best_thd_pos = thds.index(thd)
         top_thd = thd
