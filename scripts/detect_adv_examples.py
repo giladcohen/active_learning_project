@@ -126,7 +126,7 @@ train_labels   = np.concatenate((np.zeros(len(src_f2_inds_val)), np.ones(len(src
 
 # load test features:
 assert (features_index  == np.load(os.path.join(DST_DIR, 'features_index_hist.npy'))).all()
-assert (normal_features == np.load(os.path.join(args.checkpoint_dir, 'cw_targeted', args.defense, 'normal_features_hist.npy'))).all()
+assert (normal_features == np.load(os.path.join(DST_DIR, 'normal_features_hist.npy'))).all()
 test_normal_features = np.load(os.path.join(DST_DIR, 'normal_features_hist.npy'))
 test_adv_features    = np.load(os.path.join(DST_DIR, 'adv_features_hist.npy'))
 
