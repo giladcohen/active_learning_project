@@ -33,7 +33,7 @@ from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchEx
 
 parser = argparse.ArgumentParser(description='PyTorch adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
-parser.add_argument('--attack_dir', default='fgsm', type=str, help='attack directory')
+parser.add_argument('--attack_dir', default='deepfool', type=str, help='attack directory')
 parser.add_argument('--save_dir', default='tta_ball_rev_L2_eps_2_n_1000', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
@@ -43,6 +43,9 @@ parser.add_argument('--collect_normal_ball', default=False, type=boolean_string,
 parser.add_argument('--norm', default='L2', type=str, help='norm or ball distance')
 parser.add_argument('--eps', default=2.0, type=float, help='the ball radius for exploration')
 parser.add_argument('--num_points', default=1000, type=int, help='the number of gradients to sample')
+
+# feature selection
+parser.add_argument('--f_inds', default='f2', type=str, help='f0/f1/f2/f3, image indices used for training features')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -288,50 +291,61 @@ update_useful_stats(stats_adv)
 assert np.all(stats['y_ball_preds'][:, 0] == y_test_preds)
 assert np.all(stats_adv['y_ball_preds'][:, 0] == y_test_adv_preds)
 
+if args.f_inds == 'f0':
+    f_inds_val = f0_inds_val
+elif args.f_inds == 'f1':
+    f_inds_val = f1_inds_val
+elif args.f_inds == 'f2':
+    f_inds_val = f2_inds_val
+elif args.f_inds == 'f3':
+    f_inds_val = f3_inds_val
+else:
+    raise AssertionError(args.f_inds + ' is not acceptable')
+
 print('calculating Feature 1: integral(loss)...')
-register_intg_loss(train_args['dataset'], stats, stats_adv, f2_inds_val)
+register_intg_loss(train_args['dataset'], stats, stats_adv, f_inds_val)
 
 print('calculating Feature 2: integral(rel_loss)...')
-register_intg_rel_loss(train_args['dataset'], stats, stats_adv, f2_inds_val)
+register_intg_rel_loss(train_args['dataset'], stats, stats_adv, f_inds_val)
 
 print('calculating Feature 3: max(rel_loss)...')
-register_max_rel_loss(train_args['dataset'], stats, stats_adv, f2_inds_val)
+register_max_rel_loss(train_args['dataset'], stats, stats_adv, f_inds_val)
 
 print('calculating Feature 4: rank @rel_loss= thd * max_rel_loss...')
-register_rank_at_thd_rel_loss(train_args['dataset'], stats, stats_adv, f2_inds_val)
+register_rank_at_thd_rel_loss(train_args['dataset'], stats, stats_adv, f_inds_val)
 
 print('calculating Feature 5: rank @first pred switch...')
-register_rank_at_first_pred_switch(train_args['dataset'], stats, stats_adv, f2_inds_val)
+register_rank_at_first_pred_switch(train_args['dataset'], stats, stats_adv, f_inds_val)
 
 print('calculating Feature 6: number of switches until a specific rank...')
-register_num_pred_switches(train_args['dataset'], stats, stats_adv, f2_inds_val)
+register_num_pred_switches(train_args['dataset'], stats, stats_adv, f_inds_val)
 
 print('calculating Feature 7: mean(loss) for only initial label...')
-register_mean_loss_for_initial_label(train_args['dataset'], stats, stats_adv, f2_inds_val)
+register_mean_loss_for_initial_label(train_args['dataset'], stats, stats_adv, f_inds_val)
 
 print('calculating Feature 8: mean(rel_loss) for only initial label...')
-register_mean_rel_loss_for_initial_label(train_args['dataset'], stats, stats_adv, f2_inds_val)
+register_mean_rel_loss_for_initial_label(train_args['dataset'], stats, stats_adv, f_inds_val)
 
 print('calculating Feature 9: integral(confidence) until a specific rank...')
-register_intg_confidences_prime(train_args['dataset'], stats, stats_adv, f2_inds_val)
+register_intg_confidences_prime(train_args['dataset'], stats, stats_adv, f_inds_val)
 
 print('calculating Feature 10: integral(confidence) for primary only. Specific...')
-register_intg_confidences_prime_specific(train_args['dataset'], stats, stats_adv, f2_inds_val)
+register_intg_confidences_prime_specific(train_args['dataset'], stats, stats_adv, f_inds_val)
 
 print('calculating Feature 11: integral(confidence) for secondary label. Overall...')
-register_intg_confidences_secondary(train_args['dataset'], stats, stats_adv, f2_inds_val)
+register_intg_confidences_secondary(train_args['dataset'], stats, stats_adv, f_inds_val)
 
 print('calculating Feature 12: integral(confidence) for secondary label. Specific...')
-register_intg_confidences_secondary_specific(train_args['dataset'], stats, stats_adv, f2_inds_val)
+register_intg_confidences_secondary_specific(train_args['dataset'], stats, stats_adv, f_inds_val)
 
 print('calculating Feature 13: integral(delta) for prime - rest. Overall...')
-register_intg_delta_confidences_prime_rest(train_args['dataset'], stats, stats_adv, f2_inds_val)
+register_intg_delta_confidences_prime_rest(train_args['dataset'], stats, stats_adv, f_inds_val)
 
 print('calculating Feature 14: integral(delta) for prime - secondary. Specific...')
-register_intg_delta_confidences_prime_secondary_specific(train_args['dataset'], stats, stats_adv, f2_inds_val)
+register_intg_delta_confidences_prime_secondary_specific(train_args['dataset'], stats, stats_adv, f_inds_val)
 
 print('calculating Feature 15: integral(delta) for prime - secondary, setting zj=-inf for other labels...')
-register_delta_probs_prime_secondary_excl_rest(train_args['dataset'], stats, stats_adv, f2_inds_val)
+register_delta_probs_prime_secondary_excl_rest(train_args['dataset'], stats, stats_adv, f_inds_val)
 
 # debug - get all ranks
 # with open(os.path.join(SAVE_DIR, 'features_index_hist_all.pkl'), 'wb') as f:

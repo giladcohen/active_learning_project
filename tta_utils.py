@@ -247,7 +247,7 @@ def register_max_rel_loss(dataset, stats, stats_adv, inds):
     for j in range(num_points):
         f1[:, j] = stats['rel_losses'][:, 0:j+1].max(axis=1)
         f2[:, j] = stats_adv['rel_losses'][:, 0:j+1].max(axis=1)
-    return register_rank_feature(name, f1, f2, inds, FEATURES_RANKS[name][dataset])
+    return register_rank_feature(name, f1, f2, inds, FEATURES_RANKS[name][dataset], num_bins=1000, range_limit=(-np.inf, 3e5))
 
 @to_features
 def register_rank_at_thd_rel_loss(dataset, stats, stats_adv, inds):
@@ -479,4 +479,4 @@ def register_delta_probs_prime_secondary_excl_rest(dataset, stats, stats_adv, in
     f1 = probs_first_second[:, 0]     - probs_first_second[:, 1]
     f2 = probs_first_second_adv[:, 0] - probs_first_second_adv[:, 1]
 
-    return register_common_feature(name, f1, f2, inds, FEATURES_RANKS[name][dataset])
+    return register_common_feature(name, f1, f2, inds)

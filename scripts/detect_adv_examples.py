@@ -15,22 +15,9 @@ from numba import njit
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 
-from active_learning_project.models.resnet import ResNet34, ResNet101
-from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_normalized_tensor
-from active_learning_project.attacks.tta_ball_explorer import TTABallExplorer
 from active_learning_project.utils import convert_tensor_to_image, calc_prob_wo_l, compute_roc, boolean_string
 
-from active_learning_project.tta_utils import plot_ttas, update_useful_stats, register_intg_loss, \
-    register_intg_rel_loss, register_max_rel_loss, register_rank_at_thd_rel_loss, register_rank_at_first_pred_switch, \
-    register_num_pred_switches, register_mean_loss_for_initial_label, register_mean_rel_loss_for_initial_label, \
-    register_intg_confidences_prime, register_intg_confidences_prime_specific, register_intg_confidences_secondary, \
-    register_intg_confidences_secondary_specific, register_intg_delta_confidences_prime_rest, \
-    register_intg_delta_confidences_prime_secondary_specific, register_delta_probs_prime_secondary_excl_rest
-
 import matplotlib.pyplot as plt
-
-from art.classifiers import PyTorchClassifier
-from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchExtClassifier
 
 parser = argparse.ArgumentParser(description='PyTorch adversarial robustness testing')
 parser.add_argument('--checkpoint_dir',
@@ -91,10 +78,10 @@ def calc_adv_detection_metrics(detection_preds, detection_preds_adv):
     acc_f2_adv = np.mean(detection_preds_adv[dst_f2_inds_test] == 1)
     acc_f3_adv = np.mean(detection_preds_adv[dst_f3_inds_test] == 1)
 
-    f2_test_preds_all = np.concatenate(
-        (detection_preds_prob[dst_f2_inds_test], detection_preds_prob_adv[dst_f2_inds_test]), axis=0)
-    f2_test_gt_all = np.concatenate((np.zeros(len(dst_f2_inds_test)), np.ones(len(dst_f2_inds_test))), axis=0)
-    _, _, auc_score = compute_roc(f2_test_gt_all, f2_test_preds_all, plot=False)
+    f1_test_preds_all = np.concatenate(
+        (detection_preds_prob[dst_f1_inds_test], detection_preds_prob_adv[dst_f1_inds_test]), axis=0)
+    f1_test_gt_all = np.concatenate((np.zeros(len(dst_f1_inds_test)), np.ones(len(dst_f1_inds_test))), axis=0)
+    _, _, auc_score = compute_roc(f1_test_gt_all, f1_test_preds_all, plot=False)
     print('Adv detection Accuracy: all samples: {:.2f}/{:.2f}%. '
           'f1 samples: {:.2f}/{:.2f}%, f2 samples: {:.2f}/{:.2f}%, f3 samples: {:.2f}/{:.2f}%. '
           'AUC score: {:.5f}'
