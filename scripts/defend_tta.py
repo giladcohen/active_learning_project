@@ -230,6 +230,7 @@ if args.collect_normal_ball and not os.path.exists(os.path.join(NORMAL_SAVE_DIR,
 
     # x_ball = x_ball[0:100]  # expensive in memory
 else:
+    pass  # debug
     # x_ball     = np.load(os.path.join(NORMAL_SAVE_DIR, 'x_ball_subset_100.npy'))
     losses     = np.load(os.path.join(NORMAL_SAVE_DIR, 'losses.npy'))
     preds      = np.load(os.path.join(NORMAL_SAVE_DIR, 'preds.npy'))
