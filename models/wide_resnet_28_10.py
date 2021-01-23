@@ -4,6 +4,9 @@ import torch.nn.functional as F
 from active_learning_project.utils import to_1d, activation_batch_ratio, activation_ratio_avg, activation_L1_ratio
 from collections import OrderedDict
 
+def leaky_relu(x):
+    return F.leaky_relu(x, 0.1)
+
 class res_basic(nn.Module):
     def __init__(self, in_planes, planes, dropout_rate, stride=1, use_bn=True, activation=F.relu):
         super(res_basic, self).__init__()
@@ -52,7 +55,7 @@ class WideResNet28_10(nn.Module):
         elif activation == 'softplus':
             self.activation = F.softplus
         elif activation == 'leaky_relu':
-            self.activation = F.leaky_relu
+            self.activation = leaky_relu
         else:
             raise AssertionError('activation function {} was not expected'.format(activation))
 
