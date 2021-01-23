@@ -113,17 +113,17 @@ class WideResNet28_10(nn.Module):
         #     net['layer16'], net['layer17'] = relu_out, out
 
         relu_out, out = self.layer3_0(out)
-        with torch.no_grad():
-            net['layer18'], net['layer19'] = relu_out, out
+        # with torch.no_grad():
+        #     net['layer18'], net['layer19'] = relu_out, out
         relu_out, out = self.layer3_1(out)
-        with torch.no_grad():
-            net['layer20'], net['layer21'] = relu_out, out
+        # with torch.no_grad():
+        #     net['layer20'], net['layer21'] = relu_out, out
         relu_out, out = self.layer3_2(out)
-        with torch.no_grad():
-            net['layer22'], net['layer23'] = relu_out, out
+        # with torch.no_grad():
+        #     net['layer22'], net['layer23'] = relu_out, out
         relu_out, out = self.layer3_3(out)
-        with torch.no_grad():
-            net['layer24'], net['layer25'] = relu_out, out
+        # with torch.no_grad():
+        #     net['layer24'], net['layer25'] = relu_out, out
 
         out = F.avg_pool2d(out, 8)
         out = to_1d(out)

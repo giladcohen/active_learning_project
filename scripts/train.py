@@ -18,11 +18,10 @@ from active_learning_project.models.wide_resnet_28_10 import WideResNet28_10
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 
-
 from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
     get_all_data_loader
-from active_learning_project.utils import remove_substr_from_keys, boolean_string, save_features
+from active_learning_project.utils import remove_substr_from_keys, boolean_string, save_features, pytorch_evaluate
 from torchsummary import summary
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
@@ -52,6 +51,9 @@ args = parser.parse_args()
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 os.makedirs(args.checkpoint_dir, exist_ok=True)
+if args.record:
+    os.makedirs(os.path.join(args.checkpoint_dir, 'records', 'trainval'), exist_ok=True)
+    os.makedirs(os.path.join(args.checkpoint_dir, 'records', 'test'), exist_ok=True)
 batch_size = args.batch_size
 
 rand_gen = np.random.RandomState(int(time.time()))
@@ -274,23 +276,13 @@ def record(subset):
     else:
         raise AssertionError('illegal subset = {}'.format(subset))
 
-    all_outputs = {
-        # 'layer18': [], 'layer19': [], 'layer20': [], 'layer21': [], 'layer22': [], 'layer23': [],'layer24': [], 'layer25': [],
-        'embeddings': [], 'logits': []
-    }
+    fetch_keys = ['embeddings', 'logits']
 
     with torch.no_grad():
-        net.eval()
+        outputs = pytorch_evaluate(net, loader, fetch_keys)
 
-        for batch_idx, (inputs, targets) in enumerate(loader):
-            inputs, targets = inputs.to(device), targets.to(device)
-            outputs = net(inputs)
-            for key in all_outputs.keys():
-                all_outputs[key].append(outputs[key].data.cpu().numpy())
-
-    for key in all_outputs.keys():
-        all_outputs[key] = np.stack(all_outputs[key], axis=0)
-    save_features(all_outputs, os.path.join(args.checkpoint_dir, 'records', subset, 'rec_{}'.format(epoch)))
+    for i, key in enumerate(fetch_keys):
+        np.save('rec_{}_{}.npy'.format(epoch, key), outputs[i])
 
 def save_global_state():
     global epoch
