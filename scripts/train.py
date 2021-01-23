@@ -275,8 +275,8 @@ def record(subset):
         raise AssertionError('illegal subset = {}'.format(subset))
 
     all_outputs = {
-        'layer18': [], 'layer19': [], 'layer20': [], 'layer21': [], 'layer22': [], 'layer23': [],
-        'layer24': [], 'layer25': [], 'embeddings': [], 'logits': []
+        # 'layer18': [], 'layer19': [], 'layer20': [], 'layer21': [], 'layer22': [], 'layer23': [],'layer24': [], 'layer25': [],
+        'embeddings': [], 'logits': []
     }
 
     with torch.no_grad():
