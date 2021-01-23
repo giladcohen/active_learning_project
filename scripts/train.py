@@ -342,18 +342,16 @@ if __name__ == "__main__":
 
     print('Testing epoch #{}'.format(epoch + 1))
     test()
-    record('trainval')
-    record('test')
 
     print('start training from epoch #{} for {} epochs'.format(epoch + 1, args.epochs))
     for epoch in tqdm(range(epoch, epoch + args.epochs)):
+        if args.record:
+            record('trainval')
+            record('test')
         train()
-        if epoch % 2 == 0:
+        if epoch % 10 == 0:
             test()
             save_global_state()
-            if args.record:
-                record('trainval')
-                record('test')
     save_global_state()
     test()
     reset_net()
