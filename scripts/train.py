@@ -282,7 +282,7 @@ def record(subset):
         outputs = pytorch_evaluate(net, loader, fetch_keys)
 
     for i, key in enumerate(fetch_keys):
-        np.save('rec_{}_{}.npy'.format(epoch, key), outputs[i])
+        np.save(os.path.join(args.checkpoint_dir, 'records', subset, 'rec_{}_{}.npy'.format(epoch, key)), outputs[i])
 
 def save_global_state():
     global epoch
