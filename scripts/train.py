@@ -342,7 +342,9 @@ if __name__ == "__main__":
 
     print('Testing epoch #{}'.format(epoch + 1))
     test()
-
+    record('trainval')
+    record('test')
+    
     print('start training from epoch #{} for {} epochs'.format(epoch + 1, args.epochs))
     for epoch in tqdm(range(epoch, epoch + args.epochs)):
         train()
