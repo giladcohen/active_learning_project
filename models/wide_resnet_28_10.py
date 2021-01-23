@@ -5,8 +5,9 @@ from active_learning_project.utils import to_1d, activation_batch_ratio, activat
 from collections import OrderedDict
 
 class res_basic(nn.Module):
-    def __init__(self, in_planes, planes, dropout_rate, stride=1, use_bn=True):
+    def __init__(self, in_planes, planes, dropout_rate, stride=1, use_bn=True, activation=F.relu):
         super(res_basic, self).__init__()
+        self.activation = activation
         self.use_bn = use_bn
         self.use_bias = False  # not self.use_bn
 
@@ -31,13 +32,13 @@ class res_basic(nn.Module):
         out = self.conv1(x)
         if self.use_bn:
             out = self.bn1(out)
-        out1 = F.relu(out)
+        out1 = self.activation(out)
 
         out = self.dropout(self.conv2(out1))
         if self.use_bn:
             out = self.bn2(out)
         out += self.shortcut(x)
-        out2 = F.relu(out)
+        out2 = self.activation(out)
         return out1, out2
 
 class WideResNet28_10(nn.Module):
@@ -46,6 +47,14 @@ class WideResNet28_10(nn.Module):
         self.dropout_rate = 0.0
         self.use_bn = use_bn
         self.use_bias = False  # not self.use_bn
+        if activation == 'relu':
+            self.activation = F.relu
+        elif activation == 'softplus':
+            self.activation = F.softplus
+        elif activation == 'leaky_relu':
+            self.activation = F.leaky_relu
+        else:
+            raise AssertionError('activation function {} was not expected'.format(activation))
 
         self.nStages = [16, 160, 320, 640]
 
@@ -55,22 +64,22 @@ class WideResNet28_10(nn.Module):
             self.bn1 = nn.BatchNorm2d(self.nStages[0])
 
         # unit_1
-        self.layer1_0 = res_basic(self.nStages[0], self.nStages[1], self.dropout_rate, stride=1, use_bn=self.use_bn)
-        self.layer1_1 = res_basic(self.nStages[1], self.nStages[1], self.dropout_rate, stride=1, use_bn=self.use_bn)
-        self.layer1_2 = res_basic(self.nStages[1], self.nStages[1], self.dropout_rate, stride=1, use_bn=self.use_bn)
-        self.layer1_3 = res_basic(self.nStages[1], self.nStages[1], self.dropout_rate, stride=1, use_bn=self.use_bn)
+        self.layer1_0 = res_basic(self.nStages[0], self.nStages[1], self.dropout_rate, stride=1, use_bn=self.use_bn, activation=self.activation)
+        self.layer1_1 = res_basic(self.nStages[1], self.nStages[1], self.dropout_rate, stride=1, use_bn=self.use_bn, activation=self.activation)
+        self.layer1_2 = res_basic(self.nStages[1], self.nStages[1], self.dropout_rate, stride=1, use_bn=self.use_bn, activation=self.activation)
+        self.layer1_3 = res_basic(self.nStages[1], self.nStages[1], self.dropout_rate, stride=1, use_bn=self.use_bn, activation=self.activation)
 
         # unit_2
-        self.layer2_0 = res_basic(self.nStages[1], self.nStages[2], self.dropout_rate, stride=2, use_bn=self.use_bn)
-        self.layer2_1 = res_basic(self.nStages[2], self.nStages[2], self.dropout_rate, stride=1, use_bn=self.use_bn)
-        self.layer2_2 = res_basic(self.nStages[2], self.nStages[2], self.dropout_rate, stride=1, use_bn=self.use_bn)
-        self.layer2_3 = res_basic(self.nStages[2], self.nStages[2], self.dropout_rate, stride=1, use_bn=self.use_bn)
+        self.layer2_0 = res_basic(self.nStages[1], self.nStages[2], self.dropout_rate, stride=2, use_bn=self.use_bn, activation=self.activation)
+        self.layer2_1 = res_basic(self.nStages[2], self.nStages[2], self.dropout_rate, stride=1, use_bn=self.use_bn, activation=self.activation)
+        self.layer2_2 = res_basic(self.nStages[2], self.nStages[2], self.dropout_rate, stride=1, use_bn=self.use_bn, activation=self.activation)
+        self.layer2_3 = res_basic(self.nStages[2], self.nStages[2], self.dropout_rate, stride=1, use_bn=self.use_bn, activation=self.activation)
 
         # unit_3
-        self.layer3_0 = res_basic(self.nStages[2], self.nStages[3], self.dropout_rate, stride=2, use_bn=self.use_bn)
-        self.layer3_1 = res_basic(self.nStages[3], self.nStages[3], self.dropout_rate, stride=1, use_bn=self.use_bn)
-        self.layer3_2 = res_basic(self.nStages[3], self.nStages[3], self.dropout_rate, stride=1, use_bn=self.use_bn)
-        self.layer3_3 = res_basic(self.nStages[3], self.nStages[3], self.dropout_rate, stride=1, use_bn=self.use_bn)
+        self.layer3_0 = res_basic(self.nStages[2], self.nStages[3], self.dropout_rate, stride=2, use_bn=self.use_bn, activation=self.activation)
+        self.layer3_1 = res_basic(self.nStages[3], self.nStages[3], self.dropout_rate, stride=1, use_bn=self.use_bn, activation=self.activation)
+        self.layer3_2 = res_basic(self.nStages[3], self.nStages[3], self.dropout_rate, stride=1, use_bn=self.use_bn, activation=self.activation)
+        self.layer3_3 = res_basic(self.nStages[3], self.nStages[3], self.dropout_rate, stride=1, use_bn=self.use_bn, activation=self.activation)
 
         self.linear = nn.Linear(self.nStages[3], num_classes)
 
@@ -82,7 +91,7 @@ class WideResNet28_10(nn.Module):
         out = self.conv1(x)
         if self.use_bn:
             out = self.bn1(out)
-        out = F.relu(out)
+        out = self.activation(out)
         # with torch.no_grad():
         #     net['layer1'] = out
 
