@@ -34,7 +34,7 @@ parser.add_argument('--net', default='wrn28_10', type=str, help='network archite
 parser.add_argument('--activation', default='relu', type=str, help='network activation: relu or softplus')
 parser.add_argument('--checkpoint_dir', default='/Users/giladcohen/logs/metrics/debug', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='300', type=int, help='number of epochs')
-parser.add_argument('--record', default=False, type=boolean_string, help='record all layers in each epoch')
+parser.add_argument('--record', default=True, type=boolean_string, help='record all layers in each epoch')
 parser.add_argument('--wd', default=0.0001, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
 parser.add_argument('--patience', default=3, type=int, help='LR schedule patience')
@@ -265,8 +265,6 @@ def test():
           .format(epoch + 1, test_loss, test_acc))
 
 def record(subset):
-    global global_state
-    global global_step
     global epoch
 
     if subset == 'trainval':
@@ -276,21 +274,23 @@ def record(subset):
     else:
         raise AssertionError('illegal subset = {}'.format(subset))
 
+    all_outputs = {
+        'layer18': [], 'layer19': [], 'layer20': [], 'layer21': [], 'layer22': [], 'layer23': [],
+        'layer24': [], 'layer25': [], 'embeddings': [], 'logits': []
+    }
+
     with torch.no_grad():
         net.eval()
-        all_outputs = {
-            'layer18': [], 'layer19': [], 'layer20': [], 'layer21': [], 'layer22': [], 'layer23': [],
-            'layer24': [], 'layer25': [], 'embeddings': [], 'logits': []
-        }
 
         for batch_idx, (inputs, targets) in enumerate(loader):
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = net(inputs)
             for key in all_outputs.keys():
-                all_outputs[key].append(outputs[key])
-        for key in all_outputs.keys():
-            all_outputs[key] = np.stack(all_outputs[key], axis=0)
-        save_features(all_outputs, os.path.join(args.checkpoint_dir, 'records', subset, 'rec_{}'.format(epoch)))
+                all_outputs[key].append(outputs[key].data.cpu().numpy())
+
+    for key in all_outputs.keys():
+        all_outputs[key] = np.stack(all_outputs[key], axis=0)
+    save_features(all_outputs, os.path.join(args.checkpoint_dir, 'records', subset, 'rec_{}'.format(epoch)))
 
 def save_global_state():
     global epoch
