@@ -367,4 +367,4 @@ def add_feature(x, x1):
 def save_features(data, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'wb') as f:
-        pickle.dump(data, f)
+        pickle.dump(data, f, protocol=4)
