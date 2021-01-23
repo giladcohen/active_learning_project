@@ -171,7 +171,7 @@ def get_all_data_loader(dataset,
 
     loader = torch.utils.data.DataLoader(
         dataset, batch_size=batch_size, shuffle=False,
-        num_workers=num_workers, pin_memory=pin_memory,
+        num_workers=num_workers, pin_memory=pin_memory, drop_last=False
     )
     return loader
 

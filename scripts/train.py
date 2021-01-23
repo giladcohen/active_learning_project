@@ -11,15 +11,18 @@ import os
 import argparse
 from tqdm import tqdm
 import time
-
 import sys
+
+from active_learning_project.models.wide_resnet_28_10 import WideResNet28_10
+
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 
 
 from active_learning_project.models.resnet import ResNet34, ResNet101
-from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader
-from active_learning_project.utils import remove_substr_from_keys
+from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
+    get_all_data_loader
+from active_learning_project.utils import remove_substr_from_keys, boolean_string, save_features
 from torchsummary import summary
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
@@ -27,10 +30,11 @@ parser.add_argument('--dataset', default='cifar10', type=str, help='dataset: cif
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
-parser.add_argument('--net', default='resnet34', type=str, help='network architecture')
+parser.add_argument('--net', default='wrn28_10', type=str, help='network architecture')
 parser.add_argument('--activation', default='relu', type=str, help='network activation: relu or softplus')
 parser.add_argument('--checkpoint_dir', default='/Users/giladcohen/logs/adv_robustness/debug', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='300', type=int, help='number of epochs')
+parser.add_argument('--record', default=False, type=boolean_string, help='record all layers in each epoch')
 parser.add_argument('--wd', default=0.0001, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
 parser.add_argument('--patience', default=3, type=int, help='LR schedule patience')
@@ -73,6 +77,14 @@ testloader = get_test_loader(
     pin_memory=device=='cuda'
 )
 
+if args.record:  # consumes memory
+    trainvalloader = get_all_data_loader(
+        dataset=args.dataset,
+        batch_size=batch_size,
+        num_workers=args.n_workers,
+        pin_memory=device == 'cuda'
+    )
+
 classes = trainloader.dataset.classes
 train_size = len(trainloader.dataset)
 val_size   = len(valloader.dataset)
@@ -84,6 +96,8 @@ if args.net == 'resnet34':
     net = ResNet34(num_classes=len(classes), activation=args.activation)
 elif args.net == 'resnet101':
     net = ResNet101(num_classes=len(classes), activation=args.activation)
+elif args.net == 'wrn28_10':
+    net = WideResNet28_10(num_classes=len(classes), activation=args.activation)
 else:
     raise AssertionError("network {} is unknown".format(args.net))
 
@@ -250,6 +264,34 @@ def test():
     print('Epoch #{} (TEST): loss={}\tacc={:.2f}'
           .format(epoch + 1, test_loss, test_acc))
 
+def record(subset):
+    global global_state
+    global global_step
+    global epoch
+
+    if subset == 'trainval':
+        loader = trainvalloader
+    elif subset == 'test':
+        loader = testloader
+    else:
+        raise AssertionError('illegal subset = {}'.format(subset))
+
+    with torch.no_grad():
+        net.eval()
+        all_outputs = {
+            'layer18': [], 'layer19': [], 'layer20': [], 'layer21': [], 'layer22': [], 'layer23': [],
+            'layer24': [], 'layer25': [], 'embeddings': [], 'logits': []
+        }
+
+        for batch_idx, (inputs, targets) in enumerate(loader):
+            inputs, targets = inputs.to(device), targets.to(device)
+            outputs = net(inputs)
+            for key in all_outputs.keys():
+                all_outputs[key].append(outputs[key])
+        for key in all_outputs.keys():
+            all_outputs[key] = np.stack(all_outputs[key], axis=0)
+        save_features(all_outputs, os.path.join(args.checkpoint_dir, 'records', subset, 'rec_{}'.format(epoch)))
+
 def save_global_state():
     global epoch
     global global_state
@@ -304,9 +346,12 @@ if __name__ == "__main__":
     print('start training from epoch #{} for {} epochs'.format(epoch + 1, args.epochs))
     for epoch in tqdm(range(epoch, epoch + args.epochs)):
         train()
-        if epoch % 10 == 0:
+        if epoch % 2 == 0:
             test()
             save_global_state()
+            if args.record:
+                record('trainval')
+                record('test')
     save_global_state()
     test()
     reset_net()

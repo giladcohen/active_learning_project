@@ -10,6 +10,7 @@ import math
 import torch
 import numpy as np
 from tqdm import tqdm
+import pickle
 import matplotlib.pyplot as plt
 
 from numba import njit, jit
@@ -363,3 +364,6 @@ def add_feature(x, x1):
         x = np.concatenate((x, x1), axis=1)
     return x
 
+def save_features(data, path):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    pickle.dump(data, path)
