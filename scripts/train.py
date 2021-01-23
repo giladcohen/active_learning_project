@@ -32,7 +32,7 @@ parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of S
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--net', default='wrn28_10', type=str, help='network architecture')
 parser.add_argument('--activation', default='relu', type=str, help='network activation: relu or softplus')
-parser.add_argument('--checkpoint_dir', default='/Users/giladcohen/logs/metrics/debug', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/metrics/debug', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='300', type=int, help='number of epochs')
 parser.add_argument('--record', default=True, type=boolean_string, help='record all layers in each epoch')
 parser.add_argument('--wd', default=0.0001, type=float, help='weight decay')  # was 5e-4 for batch_size=128
@@ -275,7 +275,7 @@ def record(subset):
         raise AssertionError('illegal subset = {}'.format(subset))
 
     all_outputs = {
-        # 'layer18': [], 'layer19': [], 'layer20': [], 'layer21': [], 'layer22': [], 'layer23': [],'layer24': [], 'layer25': [],
+        'layer18': [], 'layer19': [], 'layer20': [], 'layer21': [], 'layer22': [], 'layer23': [],'layer24': [], 'layer25': [],
         'embeddings': [], 'logits': []
     }
 
