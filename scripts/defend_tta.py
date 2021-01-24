@@ -371,9 +371,9 @@ adv_features    = np.stack(adv_features_list, axis=1)
 # adv_features = adv_features.reshape((test_size, -1))
 
 # saving everything
-np.save(os.path.join(SAVE_DIR, 'features_index_hist.npy'), features_index)
-np.save(os.path.join(SAVE_DIR, 'normal_features_hist.npy'), normal_features)
-np.save(os.path.join(SAVE_DIR, 'adv_features_hist.npy'), adv_features)
+np.save(os.path.join(SAVE_DIR, 'features_index_hist_by_{}.npy'.format(args.f_inds)), features_index)
+np.save(os.path.join(SAVE_DIR, 'normal_features_hist_by_{}.npy'.format(args.f_inds)), normal_features)
+np.save(os.path.join(SAVE_DIR, 'adv_features_hist_by_{}.npy'.format(args.f_inds)), adv_features)
 
 print('done')
 exit(0)
