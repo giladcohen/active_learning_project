@@ -178,7 +178,6 @@ for k in range(test_size):
 
 robustness_preds     = robustness_probs.argmax(axis=1)
 robustness_preds_adv = robustness_probs_adv.argmax(axis=1)
-
 calc_robust_metrics(robustness_preds, robustness_preds_adv)
 
 robustness_probs     = np.empty((test_size, num_classes))
@@ -195,6 +194,38 @@ for k in range(test_size):
     p_vec_norm = stats_adv['probs'][k].mean(axis=0)
     p_vec_adv = stats_adv['pil_mat_mean'][k, l]
     robustness_probs_adv[k] = p_vec_adv * p_is_adv + p_vec_norm * (1 - p_is_adv)
+
 robustness_preds     = robustness_probs.argmax(axis=1)
 robustness_preds_adv = robustness_probs_adv.argmax(axis=1)
 calc_robust_metrics(robustness_preds, robustness_preds_adv)
+
+# calculate a third robustness classification, if the image is normal, use only the original sample,
+# and if the image is adversarial, use the
+robustness_probs     = np.empty((test_size, num_classes))
+robustness_probs_adv = np.empty((test_size, num_classes))
+for k in range(test_size):
+    l = stats['y_ball_preds'][k, 0]
+    p_is_adv = detection_preds_prob[k]
+    if p_is_adv <= 0.5:  # probably normal
+        p_vec_norm = stats['probs'][k, 0]
+        p_vec_adv = calc_prob_wo_l(stats['preds'][k, 0], l=l)
+    else:  # probably adv
+        p_vec_norm = stats['probs'][k].mean(axis=0)
+        p_vec_adv = stats['pil_mat_mean'][k, l]
+    robustness_probs[k] = p_vec_adv * p_is_adv + p_vec_norm * (1 - p_is_adv)
+
+    l = stats_adv['y_ball_preds'][k, 0]
+    p_is_adv = detection_preds_prob_adv[k]
+    if p_is_adv <= 0.5:  # probably normal
+        p_vec_norm = stats_adv['probs'][k, 0]
+        p_vec_adv = calc_prob_wo_l(stats_adv['preds'][k, 0], l=l)
+    else:  # probably adv
+        p_vec_norm = stats_adv['probs'][k].mean(axis=0)
+        p_vec_adv = stats_adv['pil_mat_mean'][k, l]
+    robustness_probs_adv[k] = p_vec_adv * p_is_adv + p_vec_norm * (1 - p_is_adv)
+
+robustness_preds     = robustness_probs.argmax(axis=1)
+robustness_preds_adv = robustness_probs_adv.argmax(axis=1)
+calc_robust_metrics(robustness_preds, robustness_preds_adv)
+
+

@@ -79,13 +79,12 @@ testloader = get_test_loader(
     pin_memory=device=='cuda'
 )
 
-if args.record:  # consumes memory
-    trainvalloader = get_all_data_loader(
-        dataset=args.dataset,
-        batch_size=batch_size,
-        num_workers=args.n_workers,
-        pin_memory=device == 'cuda'
-    )
+trainvalloader = get_all_data_loader(
+    dataset=args.dataset,
+    batch_size=batch_size,
+    num_workers=args.n_workers,
+    pin_memory=device == 'cuda'
+)
 
 classes = trainloader.dataset.classes
 train_size = len(trainloader.dataset)
@@ -111,8 +110,18 @@ if device == 'cuda':
     cudnn.benchmark = True
 
 criterion = nn.CrossEntropyLoss()
-y_val = np.asarray(valloader.dataset.targets)
-y_test = np.asarray(testloader.dataset.targets)
+y_train    = np.asarray(trainloader.dataset.targets)
+y_val      = np.asarray(valloader.dataset.targets)
+y_trainval = np.asarray(trainvalloader.dataset.targets)
+y_test     = np.asarray(testloader.dataset.targets)
+
+# dump to dir:
+np.save(os.path.join(args.checkpoint_dir, 'y_train.npy'), y_train)
+np.save(os.path.join(args.checkpoint_dir, 'y_val.npy'), y_val)
+np.save(os.path.join(args.checkpoint_dir, 'y_trainval.npy'), y_trainval)
+np.save(os.path.join(args.checkpoint_dir, 'y_test.npy'), y_test)
+np.save(os.path.join(args.checkpoint_dir, 'train_inds.npy'), train_inds)
+np.save(os.path.join(args.checkpoint_dir, 'val_inds.npy'), val_inds)
 
 def reset_optim():
     global optimizer
