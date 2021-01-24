@@ -139,7 +139,6 @@ detection_preds_prob_adv = clf.predict_proba(test_adv_features)[:, 1]
 
 calc_adv_detection_metrics(detection_preds, detection_preds_adv)
 
-exit(0)
 # now robustness...
 y_test    = np.load(os.path.join(args.checkpoint_dir, 'normal', 'y_test.npy'))
 preds     = np.load(os.path.join(args.checkpoint_dir, 'normal', args.defense, 'preds.npy'))
