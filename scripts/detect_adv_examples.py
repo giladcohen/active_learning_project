@@ -105,17 +105,17 @@ def calc_robust_metrics(robustness_preds, robustness_preds_adv):
 
 
 # load train features:
-features_index  = np.load(os.path.join(SRC_DIR, 'features_index_hist.npy'))
-normal_features = np.load(os.path.join(SRC_DIR, 'normal_features_hist.npy'))
-adv_features    = np.load(os.path.join(SRC_DIR, 'adv_features_hist.npy'))
+features_index  = np.load(os.path.join(SRC_DIR, 'features_index_hist_by_f1.npy'))
+normal_features = np.load(os.path.join(SRC_DIR, 'normal_features_hist_by_f1.npy'))
+adv_features    = np.load(os.path.join(SRC_DIR, 'adv_features_hist_by_f1.npy'))
 train_features = np.concatenate((normal_features[src_f2_inds_val], adv_features[src_f2_inds_val]))
 train_labels   = np.concatenate((np.zeros(len(src_f2_inds_val)), np.ones(len(src_f2_inds_val))))
 
 # load test features:
-assert (features_index  == np.load(os.path.join(DST_DIR, 'features_index_hist.npy'))).all()
-assert (normal_features == np.load(os.path.join(DST_DIR, 'normal_features_hist.npy'))).all()
-test_normal_features = np.load(os.path.join(DST_DIR, 'normal_features_hist.npy'))
-test_adv_features    = np.load(os.path.join(DST_DIR, 'adv_features_hist.npy'))
+assert (features_index  == np.load(os.path.join(DST_DIR, 'features_index_hist_by_f1.npy'))).all()
+assert (normal_features == np.load(os.path.join(DST_DIR, 'normal_features_hist_by_f1.npy'))).all()
+test_normal_features = np.load(os.path.join(DST_DIR, 'normal_features_hist_by_f1.npy'))
+test_adv_features    = np.load(os.path.join(DST_DIR, 'adv_features_hist_by_f1.npy'))
 
 # fitting random forest classifier
 clf = RandomForestClassifier(
