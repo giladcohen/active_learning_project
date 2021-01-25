@@ -65,9 +65,9 @@ targeted = attack_args['targeted']
 
 assert args.save_dir != ''
 NORMAL_SAVE_DIR = os.path.join(args.checkpoint_dir, 'normal', args.save_dir)
-os.makedirs(os.path.join(NORMAL_SAVE_DIR), exist_ok=True)
-
 SAVE_DIR = os.path.join(ATTACK_DIR, args.save_dir)
+os.makedirs(os.path.join(NORMAL_SAVE_DIR), exist_ok=True)
+os.makedirs(os.path.join(SAVE_DIR), exist_ok=True)
 
 # saving current args:
 with open(os.path.join(SAVE_DIR, 'run_args.txt'), 'w') as f:
