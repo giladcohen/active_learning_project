@@ -32,7 +32,7 @@ from art.classifiers import PyTorchClassifier
 from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchExtClassifier
 
 parser = argparse.ArgumentParser(description='PyTorch adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust/robust_resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='deepfool', type=str, help='attack directory')
 parser.add_argument('--save_dir', default='tta_ball_rev_L2_eps_2_n_1000', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
@@ -229,10 +229,12 @@ if args.collect_normal_ball and not os.path.exists(os.path.join(NORMAL_SAVE_DIR,
 
     # x_ball = x_ball[0:100]  # expensive in memory
 else:
+    # debug
+    pass
     # x_ball     = np.load(os.path.join(NORMAL_SAVE_DIR, 'x_ball_subset_100.npy'))
-    losses     = np.load(os.path.join(NORMAL_SAVE_DIR, 'losses.npy'))
-    preds      = np.load(os.path.join(NORMAL_SAVE_DIR, 'preds.npy'))
-    x_dist     = np.load(os.path.join(NORMAL_SAVE_DIR, 'noise_powers.npy'))
+    # losses     = np.load(os.path.join(NORMAL_SAVE_DIR, 'losses.npy'))
+    # preds      = np.load(os.path.join(NORMAL_SAVE_DIR, 'preds.npy'))
+    # x_dist     = np.load(os.path.join(NORMAL_SAVE_DIR, 'noise_powers.npy'))
 
 if not os.path.exists(os.path.join(SAVE_DIR, 'preds_adv.npy')):
     print('calculating adv x in ball...')
@@ -261,6 +263,9 @@ else:
     losses_adv = np.load(os.path.join(SAVE_DIR, 'losses_adv.npy'))
     preds_adv  = np.load(os.path.join(SAVE_DIR, 'preds_adv.npy'))
     x_dist_adv = np.load(os.path.join(SAVE_DIR, 'noise_powers_adv.npy'))
+
+print('done')
+exit(0)
 
 # DEBUG: converting everything from 3x32x32 to 32x32x3
 # X_test_img     = convert_tensor_to_image(X_test)
