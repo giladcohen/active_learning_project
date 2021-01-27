@@ -93,7 +93,7 @@ class TTABallExplorer(object):
             tta_dataset, batch_size=self.batch_size, shuffle=False, num_workers=4, pin_memory=True
         )
 
-        # all_x_adv = np.empty((x.shape[0], self.num_points) + x.shape[1:], dtype=np.float32)
+        # all_x_adv = np.empty((x.shape[0], self.num_points) + x.shape[1:], dtype=np.float32)  # debug
         all_losses = np.empty((x.shape[0], self.num_points))
         all_preds = np.empty((x.shape[0], self.num_points, num_classes))
         all_noise_power = -1 * np.ones((x.shape[0], self.num_points))
@@ -106,7 +106,7 @@ class TTABallExplorer(object):
             batch_labels = batch_labels.to(self.classifier.device)
             losses, preds = self.classifier.loss_preds_gradient_framework(batch, batch_labels)
 
-            # all_x_adv[batch_index_1:batch_index_2, 0]       = batch.data.cpu().numpy()
+            # all_x_adv[batch_index_1:batch_index_2, 0]       = batch.data.cpu().numpy()  # debug
             all_losses[batch_index_1:batch_index_2, 0]      = losses.data.cpu().numpy()
             all_preds[batch_index_1:batch_index_2, 0]       = preds.data.cpu().numpy()
             all_noise_power[batch_index_1:batch_index_2, 0] = 0.0
@@ -118,7 +118,7 @@ class TTABallExplorer(object):
                 batch_index_1, batch_index_2 = batch_id * self.batch_size, (batch_id + 1) * self.batch_size
                 out_np = self._generate_batch(batch, batch_labels)
 
-                # all_x_adv[batch_index_1:batch_index_2, n]       = out_np[0]
+                # all_x_adv[batch_index_1:batch_index_2, n]       = out_np[0]  # debug
                 all_losses[batch_index_1:batch_index_2, n]      = out_np[1]
                 all_preds[batch_index_1:batch_index_2, n]       = out_np[2]
                 all_noise_power[batch_index_1:batch_index_2, n] = out_np[3]

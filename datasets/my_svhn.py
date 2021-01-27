@@ -65,7 +65,7 @@ class MySVHN(SVHN):
         Returns:
             tuple: (image, target) where target is index of the target class.
         """
-        img, target = self.data[index], int(self.targets[index])
+        img, target = self.data[index], self.targets[index]
 
         # img = Image.fromarray(np.transpose(img, (1, 2, 0)))
         if type(img) != torch.Tensor:

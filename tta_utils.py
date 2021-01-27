@@ -480,3 +480,22 @@ def register_delta_probs_prime_secondary_excl_rest(dataset, stats, stats_adv, in
     f2 = probs_first_second_adv[:, 0] - probs_first_second_adv[:, 1]
 
     return register_common_feature(name, f1, f2, inds)
+
+# @to_features
+# def register_intg_minus_log_p(dataset, stats, stats_adv, inds):
+#     name = 'intg_minus_log_p'
+#     test_size, num_points, num_classes = stats['preds'].shape
+#     minus_log_p     = np.empty((test_size, num_points))
+#     minus_log_p_adv = np.empty((test_size, num_points))
+#
+#     for k in range(num_points):
+#         l = stats['y_ball_preds'][k, 0]
+#         minus_log_p[k] = -np.log(stats['probs'][k, :, l])/np.log(1.05)
+#
+#         l = stats_adv['y_ball_preds'][k, 0]
+#         minus_log_p_adv[k] = -np.log(stats_adv['probs'][k, :, l])/np.log(1.05)
+#
+#     f1 = np.cumsum(minus_log_p, axis=1)
+#     f2 = np.cumsum(minus_log_p_adv, axis=1)
+#
+#     return register_rank_feature(name, f1, f2, inds)

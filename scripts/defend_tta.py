@@ -24,7 +24,6 @@ from active_learning_project.tta_utils import plot_ttas, update_useful_stats, re
     register_intg_confidences_prime, register_intg_confidences_prime_specific, register_intg_confidences_secondary, \
     register_intg_confidences_secondary_specific, register_intg_delta_confidences_prime_rest, \
     register_intg_delta_confidences_prime_secondary_specific, register_delta_probs_prime_secondary_excl_rest
-
 from active_learning_project.global_vars import features_index, normal_features_list, adv_features_list
 import matplotlib.pyplot as plt
 
@@ -32,7 +31,7 @@ from art.classifiers import PyTorchClassifier
 from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchExtClassifier
 
 parser = argparse.ArgumentParser(description='PyTorch adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust/robust_resnet34_00', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='deepfool', type=str, help='attack directory')
 parser.add_argument('--save_dir', default='tta_ball_rev_L2_eps_2_n_1000', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')

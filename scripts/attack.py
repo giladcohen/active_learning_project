@@ -33,9 +33,9 @@ from active_learning_project.attacks.zero_grad_cw_try import ZeroGrad
 from cleverhans.utils import random_targets, to_categorical
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
-parser.add_argument('--attack', default='cw', type=str, help='attack: fgsm, jsma, cw, deepfool, ead, pgd')
-parser.add_argument('--targeted', default=True, type=boolean_string, help='use trageted attack')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
+parser.add_argument('--attack', default='deepfool', type=str, help='attack: fgsm, jsma, cw, deepfool, ead, pgd')
+parser.add_argument('--targeted', default=False, type=boolean_string, help='use trageted attack')
 parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
