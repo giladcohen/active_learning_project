@@ -6,38 +6,52 @@ normal_features_list = []
 adv_features_list = []
 
 FEATURES_RANKS = {
-    'intg_loss': {'cifar10': 450},
-    'intg_rel_loss': {'cifar10': 1000},
-    'max_rel_loss': {'cifar10': 1000},
-    'rank_at_thd_rel_loss': {'cifar10': 0.5},  # set THD
-    'rank_at_first_pred_switch': {'cifar10': None},
-    'num_pred_switches': {'cifar10': 350},  # for f1:350, for f2:500
-    'mean_loss_for_initial_label': {'cifar10': None},
-    'mean_rel_loss_for_initial_label': {'cifar10': None},
-    'intg_confidences_prime': {'cifar10': 50},
-    'intg_confidences_prime_specific': {'cifar10': 450},  # for f1:450, for f2:350
-    'intg_confidences_secondary': {'cifar10': 50},
-    'intg_confidences_secondary_specific': {'cifar10': 250},
-    'intg_delta_confidences_prime_rest': {'cifar10': 50},
-    'intg_delta_confidences_prime_secondary_specific': {'cifar10': 250},  # for f1:400, for f2:250
-    'delta_probs_prime_secondary_excl_rest': {'cifar10': None}
+    'intg_loss'                                        : {'cifar10' : {'regular': {'f1': 450 , 'f2': 450 }, 'robust': {'f1': 1000, 'f2': 1000}},
+                                                          'cifar100': {'regular': {'f1': -1 , 'f2': -1 }, 'robust': {'f1': -1, 'f2': -1}},
+                                                          'svhn'    : {'regular': {'f1': -1 , 'f2': -1 }, 'robust': {'f1': -1, 'f2': -1}}
+                                                          },
+    'intg_rel_loss'                                    : {'cifar10' : {'regular': {'f1': 1000, 'f2': 1000}, 'robust': {'f1': 1000, 'f2': 1000}},
+                                                          'cifar100': {'regular': {'f1': -1 , 'f2': -1 }, 'robust': {'f1': -1, 'f2': -1}},
+                                                          'svhn'    : {'regular': {'f1': -1 , 'f2': -1 }, 'robust': {'f1': -1, 'f2': -1}}
+                                                          },
+    'max_rel_loss'                                     : {'cifar10' : {'regular': {'f1': 1000, 'f2': 1000}, 'robust': {'f1': 1000, 'f2': 1000}},
+                                                          'cifar100': {'regular': {'f1': -1, 'f2': -1}, 'robust': {'f1': -1, 'f2': -1}},
+                                                          'svhn'    : {'regular': {'f1': -1, 'f2': -1},'robust': {'f1': -1, 'f2': -1}}
+                                                          },
+    'rank_at_thd_rel_loss'                             : {'cifar10' : {'regular': {'f1': 0.5 , 'f2': 0.5 }, 'robust': {'f1': 0.2 , 'f2': 0.2}},
+                                                          'cifar100': {'regular': {'f1': -1, 'f2': -1}, 'robust': {'f1': -1, 'f2': -1}},
+                                                          'svhn'    : {'regular': {'f1': -1, 'f2': -1}, 'robust': {'f1': -1, 'f2': -1}}
+                                                          },
+    'rank_at_first_pred_switch'                        : None,
+    'num_pred_switches'                                : {'cifar10' : {'regular': {'f1': 350 , 'f2': 500 }, 'robust': {'f1': 900 , 'f2': 900}},
+                                                          'cifar100': {'regular': {'f1': -1, 'f2': -1}, 'robust': {'f1': -1, 'f2': -1}},
+                                                          'svhn'    : {'regular': {'f1': -1, 'f2': -1}, 'robust': {'f1': -1, 'f2': -1}}
+                                                          },
+    'mean_loss_for_initial_label'                      : None,
+    'mean_rel_loss_for_initial_label'                  : None,
+    'intg_confidences_prime'                           : {'cifar10' : {'regular': {'f1': 50  , 'f2': 50  }, 'robust': {'f1': 550 , 'f2': 550}},
+                                                          'cifar100': {'regular': {'f1': -1, 'f2': -1}, 'robust': {'f1': -1, 'f2': -1}},
+                                                          'svhn'    : {'regular': {'f1': -1, 'f2': -1}, 'robust': {'f1': -1, 'f2': -1}}
+                                                          },
+    'intg_confidences_prime_specific'                  : {'cifar10' : {'regular': {'f1': 450 , 'f2': 350 }, 'robust': {'f1': 800 , 'f2': 800}},
+                                                          'cifar100': {'regular': {'f1': -1, 'f2': -1}, 'robust': {'f1': -1, 'f2': -1}},
+                                                          'svhn'    : {'regular': {'f1': -1, 'f2': -1}, 'robust': {'f1': -1, 'f2': -1}}
+                                                          },
+    'intg_confidences_secondary'                       : {'cifar10' : {'regular': {'f1': 50  , 'f2': 50  }, 'robust': {'f1': 100 , 'f2': 100}},
+                                                          'cifar100': {'regular': {'f1': -1, 'f2': -1}, 'robust': {'f1': -1, 'f2': -1}},
+                                                          'svhn'    : {'regular': {'f1': -1, 'f2': -1}, 'robust': {'f1': -1, 'f2': -1}}
+                                                          },
+    'intg_confidences_secondary_specific'              : {'cifar10' : {'regular': {'f1': 250 , 'f2': 250 }, 'robust': {'f1': 950 , 'f2': 950}},
+                                                          'cifar100': {'regular': {'f1': -1, 'f2': -1}, 'robust': {'f1': -1, 'f2': -1}},
+                                                          'svhn'    : {'regular': {'f1': -1, 'f2': -1}, 'robust': {'f1': -1, 'f2': -1}}
+                                                          },
+    'intg_delta_confidences_prime_rest'                : {'cifar10' : {'regular': {'f1': 50  , 'f2': 50  }, 'robust': {'f1': 450 , 'f2': 450}},
+                                                          'cifar100': {'regular': {'f1': -1, 'f2': -1}, 'robust': {'f1': -1, 'f2': -1}},
+                                                          'svhn'    : {'regular': {'f1': -1, 'f2': -1}, 'robust': {'f1': -1, 'f2': -1}}
+                                                          },
+    'intg_delta_confidences_prime_secondary_specific'  : {'cifar10' : {'regular': {'f1': 400 , 'f2': 250 }, 'robust': {'f1': 950 , 'f2': 800}},
+                                                          'cifar100': {'regular': {'f1': -1, 'f2': -1}, 'robust': {'f1': -1, 'f2': -1}},
+                                                          'svhn'    : {'regular': {'f1': -1, 'f2': -1}, 'robust': {'f1': -1, 'f2': -1}}
+                                                          },
+    'delta_probs_prime_secondary_excl_rest'            : None
 }
-
-# FEATURES_RANKS = {
-#     'intg_loss': {'cifar10': 1000},
-#     'intg_rel_loss': {'cifar10': 1000},
-#     'max_rel_loss': {'cifar10': 1000},
-#     'rank_at_thd_rel_loss': {'cifar10': 0.2},  # set THD
-#     'rank_at_first_pred_switch': {'cifar10': None},
-#     'num_pred_switches': {'cifar10': 900},  # for f1:350, for f2:500
-#     'mean_loss_for_initial_label': {'cifar10': None},
-#     'mean_rel_loss_for_initial_label': {'cifar10': None},
-#     'intg_confidences_prime': {'cifar10': 550},
-#     'intg_confidences_prime_specific': {'cifar10': 800},  # for f1:450, for f2:350
-#     'intg_confidences_secondary': {'cifar10': 100},
-#     'intg_confidences_secondary_specific': {'cifar10': 950},
-#     'intg_delta_confidences_prime_rest': {'cifar10': 450},
-#     'intg_delta_confidences_prime_secondary_specific': {'cifar10': 800},  # for f1:400, for f2:250
-#     'delta_probs_prime_secondary_excl_rest': {'cifar10': None}
-# }
-
