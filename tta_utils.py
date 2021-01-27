@@ -14,7 +14,7 @@ import inspect
 from active_learning_project.global_vars import features_index, normal_features_list, adv_features_list, FEATURES_RANKS
 
 rand_gen = np.random.RandomState(12345)
-eps = 1e-10
+eps = 1e-14
 PLOT = True
 
 def to_features(func):
@@ -74,7 +74,7 @@ def update_useful_stats(stats):
     losses = stats['losses']
     rel_losses = np.zeros_like(losses)
     for k in range(test_size):
-        rel_losses[k] = (losses[k] - losses[k, 0]) / losses[k, 0]
+        rel_losses[k] = (losses[k] - losses[k, 0]) / (losses[k, 0] + eps)
     stats['rel_losses'] = rel_losses
 
     # get hard predictions
@@ -110,13 +110,13 @@ def update_useful_stats(stats):
         if k not in stats['no_sw_pred_inds']:
             stats['confidences_secondary'][k] = stats['probs'][k, :, stats['secondary_preds'][k]]
 
-    # get pil mat
-    stats['pil_mat'] = np.zeros((test_size, num_points, num_classes, num_classes), dtype=np.float32)
-    for cls in range(num_classes):
-        tmp_preds = stats['preds'].copy()
-        tmp_preds[:, :, cls] = -np.inf
-        stats['pil_mat'][:, :, cls] = scipy.special.softmax(tmp_preds, axis=2)
-    stats['pil_mat_mean'] = stats['pil_mat'].mean(axis=1)  # mean over TTAs
+    # # get pil mat
+    # stats['pil_mat'] = np.zeros((test_size, num_points, num_classes, num_classes), dtype=np.float16)
+    # for cls in range(num_classes):
+    #     tmp_preds = stats['preds'].copy()
+    #     tmp_preds[:, :, cls] = -np.inf
+    #     stats['pil_mat'][:, :, cls] = scipy.special.softmax(tmp_preds, axis=2)
+    # stats['pil_mat_mean'] = stats['pil_mat'].mean(axis=1)  # mean over TTAs
 
 def histogram_intersection(f1, f2, num_bins=100, range_limit=(-np.inf, np.inf)):
     min_edge = max(f1.min(), f2.min(), range_limit[0])
