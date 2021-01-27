@@ -111,7 +111,7 @@ def update_useful_stats(stats):
             stats['confidences_secondary'][k] = stats['probs'][k, :, stats['secondary_preds'][k]]
 
     # get pil mat
-    stats['pil_mat'] = np.zeros((test_size, num_points, num_classes, num_classes))
+    stats['pil_mat'] = np.zeros((test_size, num_points, num_classes, num_classes), dtype=np.float32)
     for cls in range(num_classes):
         tmp_preds = stats['preds'].copy()
         tmp_preds[:, :, cls] = -np.inf
