@@ -54,6 +54,8 @@ args = parser.parse_args()
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
+args.dataset = train_args['dataset']
+args.net_type = 'robust' if 'adv_robust/' in args.checkpoint_dir else 'regular'
 
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 
@@ -302,49 +304,49 @@ else:
     raise AssertionError(args.f_inds + ' is not acceptable')
 
 print('calculating Feature 1: integral(loss)...')
-register_intg_loss(train_args['dataset'], stats, stats_adv, f_inds_val)
+register_intg_loss(args, stats, stats_adv, f_inds_val)
 
 print('calculating Feature 2: integral(rel_loss)...')
-register_intg_rel_loss(train_args['dataset'], stats, stats_adv, f_inds_val)
+register_intg_rel_loss(args, stats, stats_adv, f_inds_val)
 
 print('calculating Feature 3: max(rel_loss)...')
-register_max_rel_loss(train_args['dataset'], stats, stats_adv, f_inds_val)
+register_max_rel_loss(args, stats, stats_adv, f_inds_val)
 
 print('calculating Feature 4: rank @rel_loss= thd * max_rel_loss...')
-register_rank_at_thd_rel_loss(train_args['dataset'], stats, stats_adv, f_inds_val)
+register_rank_at_thd_rel_loss(args, stats, stats_adv, f_inds_val)
 
 print('calculating Feature 5: rank @first pred switch...')
-register_rank_at_first_pred_switch(train_args['dataset'], stats, stats_adv, f_inds_val)
+register_rank_at_first_pred_switch(args, stats, stats_adv, f_inds_val)
 
 print('calculating Feature 6: number of switches until a specific rank...')
-register_num_pred_switches(train_args['dataset'], stats, stats_adv, f_inds_val)
+register_num_pred_switches(args, stats, stats_adv, f_inds_val)
 
 print('calculating Feature 7: mean(loss) for only initial label...')
-register_mean_loss_for_initial_label(train_args['dataset'], stats, stats_adv, f_inds_val)
+register_mean_loss_for_initial_label(args, stats, stats_adv, f_inds_val)
 
 print('calculating Feature 8: mean(rel_loss) for only initial label...')
-register_mean_rel_loss_for_initial_label(train_args['dataset'], stats, stats_adv, f_inds_val)
+register_mean_rel_loss_for_initial_label(args, stats, stats_adv, f_inds_val)
 
 print('calculating Feature 9: integral(confidence) until a specific rank...')
-register_intg_confidences_prime(train_args['dataset'], stats, stats_adv, f_inds_val)
+register_intg_confidences_prime(args, stats, stats_adv, f_inds_val)
 
 print('calculating Feature 10: integral(confidence) for primary only. Specific...')
-register_intg_confidences_prime_specific(train_args['dataset'], stats, stats_adv, f_inds_val)
+register_intg_confidences_prime_specific(args, stats, stats_adv, f_inds_val)
 
 print('calculating Feature 11: integral(confidence) for secondary label. Overall...')
-register_intg_confidences_secondary(train_args['dataset'], stats, stats_adv, f_inds_val)
+register_intg_confidences_secondary(args, stats, stats_adv, f_inds_val)
 
 print('calculating Feature 12: integral(confidence) for secondary label. Specific...')
-register_intg_confidences_secondary_specific(train_args['dataset'], stats, stats_adv, f_inds_val)
+register_intg_confidences_secondary_specific(args, stats, stats_adv, f_inds_val)
 
 print('calculating Feature 13: integral(delta) for prime - rest. Overall...')
-register_intg_delta_confidences_prime_rest(train_args['dataset'], stats, stats_adv, f_inds_val)
+register_intg_delta_confidences_prime_rest(args, stats, stats_adv, f_inds_val)
 
 print('calculating Feature 14: integral(delta) for prime - secondary. Specific...')
-register_intg_delta_confidences_prime_secondary_specific(train_args['dataset'], stats, stats_adv, f_inds_val)
+register_intg_delta_confidences_prime_secondary_specific(args, stats, stats_adv, f_inds_val)
 
 print('calculating Feature 15: integral(delta) for prime - secondary, setting zj=-inf for other labels...')
-register_delta_probs_prime_secondary_excl_rest(train_args['dataset'], stats, stats_adv, f_inds_val)
+register_delta_probs_prime_secondary_excl_rest(args, stats, stats_adv, f_inds_val)
 
 # debug - get all ranks
 # with open(os.path.join(SAVE_DIR, 'features_index_hist_all.pkl'), 'wb') as f:

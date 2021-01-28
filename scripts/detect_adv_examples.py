@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(description='PyTorch adversarial robustness testing')
 parser.add_argument('--checkpoint_dir',
-                    default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00',
+                    default='/data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust/robust_resnet34_00',
                     type=str, help='dir containing the network checkpoint')
 parser.add_argument('--src',
                     default='deepfool',
@@ -29,6 +29,9 @@ parser.add_argument('--src',
 parser.add_argument('--dst',
                     default='deepfool',
                     type=str, help='dir containing testing features, relative to checkoint_dir')
+parser.add_argument('--f_inds',
+                    default='f2',
+                    type=str, help='The type of images used for training features')
 parser.add_argument('--defense',
                     default='tta_ball_rev_L2_eps_2_n_1000',
                     type=str, help='name of defense')
@@ -64,6 +67,17 @@ dst_f0_inds_test = np.load(os.path.join(args.checkpoint_dir, args.dst, 'inds', '
 dst_f1_inds_test = np.load(os.path.join(args.checkpoint_dir, args.dst, 'inds', 'f1_inds_test.npy'))
 dst_f2_inds_test = np.load(os.path.join(args.checkpoint_dir, args.dst, 'inds', 'f2_inds_test.npy'))
 dst_f3_inds_test = np.load(os.path.join(args.checkpoint_dir, args.dst, 'inds', 'f3_inds_test.npy'))
+
+if args.f_inds == 'f0':
+    src_inds_val = src_f0_inds_val
+elif args.f_inds == 'f1':
+    src_inds_val = src_f1_inds_val
+elif args.f_inds == 'f2':
+    src_inds_val = src_f2_inds_val
+elif args.f_inds == 'f3':
+    src_inds_val = src_f3_inds_val
+else:
+    raise AssertionError(args.f_inds + ' is not acceptable')
 
 # metric functions:
 def calc_adv_detection_metrics(detection_preds, detection_preds_adv):
@@ -105,11 +119,11 @@ def calc_robust_metrics(robustness_preds, robustness_preds_adv):
 
 
 # load train features:
-features_index  = np.load(os.path.join(SRC_DIR, 'features_index_hist_by_f1.npy'))
-normal_features = np.load(os.path.join(SRC_DIR, 'normal_features_hist_by_f1.npy'))
-adv_features    = np.load(os.path.join(SRC_DIR, 'adv_features_hist_by_f1.npy'))
-train_features = np.concatenate((normal_features[src_f2_inds_val], adv_features[src_f2_inds_val]))
-train_labels   = np.concatenate((np.zeros(len(src_f2_inds_val)), np.ones(len(src_f2_inds_val))))
+features_index  = np.load(os.path.join(SRC_DIR, 'features_index_hist_by_{}.npy'.format(args.f_inds)))
+normal_features = np.load(os.path.join(SRC_DIR, 'normal_features_hist_by_{}.npy'.format(args.f_inds)))
+adv_features    = np.load(os.path.join(SRC_DIR, 'adv_features_hist_by_{}.npy'.format(args.f_inds)))
+train_features = np.concatenate((normal_features[src_inds_val], adv_features[src_inds_val]))
+train_labels   = np.concatenate((np.zeros(len(src_inds_val)), np.ones(len(src_inds_val))))
 
 # load test features:
 assert (features_index  == np.load(os.path.join(DST_DIR, 'features_index_hist_by_f1.npy'))).all()
