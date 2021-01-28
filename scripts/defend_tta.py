@@ -100,6 +100,8 @@ X_test_adv       = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
 if targeted:
     y_test_adv = np.load(os.path.join(ATTACK_DIR, 'y_test_adv.npy'))
 
+np.save(os.path.join(NORMAL_SAVE_DIR, 'y_test.npy'), y_test)
+
 # Model
 print('==> Building model..')
 if train_args['net'] == 'resnet34':
