@@ -238,6 +238,9 @@ else:
     # preds      = np.load(os.path.join(NORMAL_SAVE_DIR, 'preds.npy'))
     # x_dist     = np.load(os.path.join(NORMAL_SAVE_DIR, 'noise_powers.npy'))
 
+print('done')
+exit(0)
+
 if not os.path.exists(os.path.join(SAVE_DIR, 'preds_adv.npy')):
     print('calculating adv x in ball...')
     # x_ball_adv, losses_adv, preds_adv, noise_powers_adv = explorer.generate(X_test_adv)
