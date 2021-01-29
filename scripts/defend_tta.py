@@ -238,9 +238,6 @@ else:
     # preds      = np.load(os.path.join(NORMAL_SAVE_DIR, 'preds.npy'))
     # x_dist     = np.load(os.path.join(NORMAL_SAVE_DIR, 'noise_powers.npy'))
 
-print('done')
-exit(0)
-
 if not os.path.exists(os.path.join(SAVE_DIR, 'preds_adv.npy')):
     print('calculating adv x in ball...')
     # x_ball_adv, losses_adv, preds_adv, noise_powers_adv = explorer.generate(X_test_adv)
@@ -268,6 +265,9 @@ else:
     losses_adv = np.load(os.path.join(SAVE_DIR, 'losses_adv.npy'))
     preds_adv  = np.load(os.path.join(SAVE_DIR, 'preds_adv.npy'))
     x_dist_adv = np.load(os.path.join(SAVE_DIR, 'noise_powers_adv.npy'))
+
+print('done')
+exit(0)
 
 # DEBUG: converting everything from 3x32x32 to 32x32x3
 # X_test_img     = convert_tensor_to_image(X_test)
