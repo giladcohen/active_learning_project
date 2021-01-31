@@ -234,9 +234,9 @@ if args.collect_normal_ball and not os.path.exists(os.path.join(NORMAL_SAVE_DIR,
 else:
     pass  # debug
     # x_ball     = np.load(os.path.join(NORMAL_SAVE_DIR, 'x_ball_subset_100.npy'))
-    # losses     = np.load(os.path.join(NORMAL_SAVE_DIR, 'losses.npy'))
-    # preds      = np.load(os.path.join(NORMAL_SAVE_DIR, 'preds.npy'))
-    # x_dist     = np.load(os.path.join(NORMAL_SAVE_DIR, 'noise_powers.npy'))
+    losses     = np.load(os.path.join(NORMAL_SAVE_DIR, 'losses.npy'))
+    preds      = np.load(os.path.join(NORMAL_SAVE_DIR, 'preds.npy'))
+    x_dist     = np.load(os.path.join(NORMAL_SAVE_DIR, 'noise_powers.npy'))
 
 if not os.path.exists(os.path.join(SAVE_DIR, 'preds_adv.npy')):
     print('calculating adv x in ball...')
@@ -266,8 +266,9 @@ else:
     preds_adv  = np.load(os.path.join(SAVE_DIR, 'preds_adv.npy'))
     x_dist_adv = np.load(os.path.join(SAVE_DIR, 'noise_powers_adv.npy'))
 
-print('done')
-exit(0)
+# debug
+# print('done')
+# exit(0)
 
 # DEBUG: converting everything from 3x32x32 to 32x32x3
 # X_test_img     = convert_tensor_to_image(X_test)
