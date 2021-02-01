@@ -164,7 +164,10 @@ def get_mini_stats(preds):
     stats['preds'] = preds
     stats['probs'] = scipy.special.softmax(stats['preds'], axis=2)
     stats['y_ball_preds'] = stats['probs'].argmax(axis=2)
-    stats['pil_mat'] = np.zeros((test_size, num_points, num_classes, num_classes))
+    if num_classes > 10:
+        stats['pil_mat'] = np.zeros((test_size, num_points, num_classes, num_classes), np.float16)
+    else:
+        stats['pil_mat'] = np.zeros((test_size, num_points, num_classes, num_classes))
     for cls in range(num_classes):
         tmp_preds = stats['preds'].copy()
         tmp_preds[:, :, cls] = -np.inf
