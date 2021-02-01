@@ -30,7 +30,7 @@ parser.add_argument('--dst',
                     default='deepfool',
                     type=str, help='dir containing testing features, relative to checkoint_dir')
 parser.add_argument('--f_inds',
-                    default='f2',
+                    default='f1',
                     type=str, help='The type of images used for training features')
 parser.add_argument('--defense',
                     default='tta_ball_rev_L2_eps_2_n_1000',
