@@ -31,7 +31,7 @@ from art.classifiers import PyTorchClassifier
 from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchExtClassifier
 
 parser = argparse.ArgumentParser(description='PyTorch adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust/robust_resnet34_00', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='fgsm_targeted', type=str, help='attack directory')
 parser.add_argument('--save_dir', default='tta_ball_rev_L2_eps_2_n_1000', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
@@ -44,7 +44,7 @@ parser.add_argument('--eps', default=2.0, type=float, help='the ball radius for 
 parser.add_argument('--num_points', default=1000, type=int, help='the number of gradients to sample')
 
 # feature selection
-parser.add_argument('--f_inds', default='f2', type=str, help='f0/f1/f2/f3, image indices used for training features')
+parser.add_argument('--f_inds', default='f1', type=str, help='f0/f1/f2/f3, image indices used for training features')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
