@@ -164,15 +164,22 @@ def get_mini_stats(preds):
     stats['preds'] = preds
     stats['probs'] = scipy.special.softmax(stats['preds'], axis=2)
     stats['y_ball_preds'] = stats['probs'].argmax(axis=2)
-    if num_classes > 10:
-        stats['pil_mat'] = np.zeros((test_size, num_points, num_classes, num_classes), np.float16)
-    else:
+
+    if num_classes <= 10:  # use the fast way:
         stats['pil_mat'] = np.zeros((test_size, num_points, num_classes, num_classes))
-    for cls in range(num_classes):
-        tmp_preds = stats['preds'].copy()
-        tmp_preds[:, :, cls] = -np.inf
-        stats['pil_mat'][:, :, cls] = scipy.special.softmax(tmp_preds, axis=2)
-    stats['pil_mat_mean'] = stats['pil_mat'].mean(axis=1)  # mean over TTAs
+        for cls in range(num_classes):
+            tmp_preds = stats['preds'].copy()
+            tmp_preds[:, :, cls] = -np.inf
+            stats['pil_mat'][:, :, cls] = scipy.special.softmax(tmp_preds, axis=2)
+        stats['pil_mat_mean'] = stats['pil_mat'].mean(axis=1)  # mean over TTAs
+    else:  # use the slow way (due to high memory)
+        stats['pil_mat_mean'] = np.zeros((test_size, num_classes, num_classes))
+        for k in range(test_size):
+            for cls in range(num_classes):
+                pil_tmp = stats['preds'][k].copy()
+                pil_tmp[:, cls] = -np.inf
+                pil_tmp = scipy.special.softmax(pil_tmp, axis=1)
+                stats['pil_mat_mean'][k, cls] = pil_tmp.mean(axis=0)
     return stats
 
 stats     = get_mini_stats(preds)
