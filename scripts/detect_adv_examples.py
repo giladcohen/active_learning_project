@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(description='PyTorch adversarial robustness testing')
 parser.add_argument('--checkpoint_dir',
-                    default='/data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust/robust_resnet34_00',
+                    default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00',
                     type=str, help='dir containing the network checkpoint')
 parser.add_argument('--src',
                     default='deepfool',
