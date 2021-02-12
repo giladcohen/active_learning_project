@@ -449,7 +449,7 @@ if args.defense == 'lid':
         data = np.concatenate((characteristics, label), axis=1)
         np.save(file_name, data)
         end_test = time.time()
-        print('total feature extraction time for val: {} sec'.format(end_test - end_val))
+        print('total feature extraction time for test: {} sec'.format(end_test - end_val))
 
 
 def sample_estimator(model, num_classes, train_loader):
@@ -668,7 +668,7 @@ if args.defense == 'mahalanobis':
         data = np.concatenate((characteristics, label), axis=1)
         np.save(file_name, data)
         end_test = time.time()
-        print('total feature extraction time for val: {} sec'.format(end_test - end_val))
+        print('total feature extraction time for test: {} sec'.format(end_test - end_val))
 
 # elif args.defense == 'ours':
 #     if args.norm == 'L_inf':
