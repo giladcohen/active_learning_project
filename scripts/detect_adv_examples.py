@@ -25,16 +25,16 @@ import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(description='PyTorch adversarial robustness testing')
 parser.add_argument('--checkpoint_dir',
-                    default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00',
+                    default='/data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00',
                     type=str, help='dir containing the network checkpoint')
 parser.add_argument('--src',
-                    default='cw_targeted',
+                    default='jsma_targeted',
                     type=str, help='dir containing training features, relative to checkpoint_dir')
 parser.add_argument('--dst',
-                    default='cw_targeted',
+                    default='jsma_targeted',
                     type=str, help='dir containing testing features, relative to checkpoint_dir')
 parser.add_argument('--defense',
-                    default='mahalanobis',
+                    default='lid',
                     type=str, help='name of defense')
 
 # for LID:
@@ -177,7 +177,7 @@ if args.defense in ['lid', 'mahalanobis']:
 
         ## Build detector
         lr = LogisticRegressionCV(n_jobs=-1).fit(X_train, Y_train)
-    
+
         ## Evaluate detector
         y_pred = lr.predict_proba(X_test)[:, 1]
         y_label_pred = lr.predict(X_test)
