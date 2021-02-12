@@ -143,35 +143,50 @@ def load_characteristics(characteristics_file):
     return X, Y
 
 if args.defense in ['lid', 'mahalanobis']:
+    train_characteristics_file_vec = []
+    test_characteristics_file_vec = []
     if args.defense == 'lid':
-        train_characteristics_file = os.path.join(SRC_DIR, 'k_{}_train.npy'.format(args.k_nearest))
-        test_characteristics_file  = os.path.join(DST_DIR, 'k_{}_test.npy'.format(args.k_nearest))
+        if args.k_nearest == -1:
+            k_vec = np.arange(10, 41, 2)
+        else:
+            k_vec = [args.k_nearest]
+        for k in k_vec:
+            train_characteristics_file_vec.append(os.path.join(SRC_DIR, 'k_{}_train.npy'.format(k)))
+            test_characteristics_file_vec.append(os.path.join(DST_DIR, 'k_{}_test.npy'.format(k)))
     else:
-        train_characteristics_file = os.path.join(SRC_DIR, 'mag_{}_train.npy'.format(args.magnitude))
-        test_characteristics_file  = os.path.join(DST_DIR, 'mag_{}_test.npy'.format(args.magnitude))
+        if args.magnitude == -1:
+            magnitude_vec = np.array([0.000001, 0.000002, 0.000005, 0.00001, 0.00002, 0.00005, 0.0001, 0.0002, 0.0005, 0.001, 0.002, 0.005, 0.01])
+        else:
+            magnitude_vec = [args.magnitude]
+        for mag in magnitude_vec:
+            train_characteristics_file_vec.append(os.path.join(SRC_DIR, 'mag_{}_train.npy'.format(mag)))
+            test_characteristics_file_vec.append(os.path.join(DST_DIR, 'mag_{}_test.npy'.format(mag)))
 
-    print("Loading attacks...\nTraining file: {}\nTesting file: {}".format(train_characteristics_file, test_characteristics_file))
-    X_train, Y_train = load_characteristics(train_characteristics_file)
-    X_test, Y_test   = load_characteristics(test_characteristics_file)
-    scaler = MinMaxScaler().fit(X_train)
-    X_train = scaler.transform(X_train)
-    X_test = scaler.transform(X_test)
+    for i in range(len(train_characteristics_file_vec)):
+        train_characteristics_file = train_characteristics_file_vec[i]
+        test_characteristics_file = test_characteristics_file_vec[i]
+        print("Loading attacks...\nTraining file: {}\nTesting file: {}".format(train_characteristics_file, test_characteristics_file))
+        X_train, Y_train = load_characteristics(train_characteristics_file)
+        X_test, Y_test   = load_characteristics(test_characteristics_file)
+        scaler = MinMaxScaler().fit(X_train)
+        X_train = scaler.transform(X_train)
+        X_test = scaler.transform(X_test)
 
-    print("Train data size: ", X_train.shape)
-    print("Test data size: ", X_test.shape)
+        #print("Train data size: ", X_train.shape)
+        #print("Test data size: ", X_test.shape)
 
-    ## Build detector
-    lr = LogisticRegressionCV(n_jobs=-1).fit(X_train, Y_train)
+        ## Build detector
+        lr = LogisticRegressionCV(n_jobs=-1).fit(X_train, Y_train)
+    
+        ## Evaluate detector
+        y_pred = lr.predict_proba(X_test)[:, 1]
+        y_label_pred = lr.predict(X_test)
 
-    ## Evaluate detector
-    y_pred = lr.predict_proba(X_test)[:, 1]
-    y_label_pred = lr.predict(X_test)
-
-    _, _, auc_score = compute_roc(Y_test, y_pred, plot=True)
-    precision = precision_score(Y_test, y_label_pred)
-    recall = recall_score(Y_test, y_label_pred)
-    acc = accuracy_score(Y_test, y_label_pred)
-    print('Detector ROC-AUC score: {}, accuracy: {}, precision: {}, recall: {}'.format(auc_score, acc, precision, recall))
+        _, _, auc_score = compute_roc(Y_test, y_pred, plot=True)
+        precision = precision_score(Y_test, y_label_pred)
+        recall = recall_score(Y_test, y_label_pred)
+        acc = accuracy_score(Y_test, y_label_pred)
+        print('Detector ROC-AUC score: {}, accuracy: {}, precision: {}, recall: {}'.format(auc_score, acc, precision, recall))
     exit(0)
 
 # load train features:
