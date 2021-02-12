@@ -43,15 +43,14 @@ STDEVS = {'cifar10' : {'fgsm': 0.01, 'jsma': 0.0534, 'pgd': 0.0089, 'deepfool': 
 parser = argparse.ArgumentParser(description='Feature extraction of LID, Mahalanobis, and ours')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attack directory')
-parser.add_argument('--save_dir', default='mahalanobis_mag_0.00001', type=str, help='reverse dir')
+parser.add_argument('--defense', default='mahalanobis', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--defense', default='mahalanobis', type=str, help='attack only subset of test set')
 
 # for LID:
 parser.add_argument('--k_nearest', default=-1, type=int, help='number of nearest neighbors to use for LID/DkNN detection')
 
 # for mahalanobis:
-parser.add_argument('--magnitude', default=0.00001, help='number of nearest neighbors to use for LID/DkNN detection')
+parser.add_argument('--magnitude', default=-1, type=float, help='number of nearest neighbors to use for LID/DkNN detection')
 
 # for ours:
 parser.add_argument('--norm', default='L2', type=str, help='norm or ball distance')
@@ -75,13 +74,9 @@ with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'r') as f:
 targeted = attack_args['targeted']
 
 NORMAL_SAVE_DIR = os.path.join(args.checkpoint_dir, 'normal', args.save_dir)
-SAVE_DIR = os.path.join(ATTACK_DIR, args.save_dir)
+SAVE_DIR = os.path.join(ATTACK_DIR, args.defense)  # will be changed by params
 os.makedirs(os.path.join(NORMAL_SAVE_DIR), exist_ok=True)
 os.makedirs(os.path.join(SAVE_DIR), exist_ok=True)
-
-# saving current args:
-with open(os.path.join(SAVE_DIR, 'run_args.txt'), 'w') as f:
-    json.dump(args.__dict__, f, indent=2)
 
 batch_size = args.batch_size
 rand_gen = np.random.RandomState(seed=12345)
@@ -441,7 +436,7 @@ if args.defense == 'lid':
         # for test-val set
         characteristics, label = get_lid(X_test_val, X_test_val_noisy, X_test_val_adv, k, 100)
         print("LID train: [characteristic shape: ", characteristics.shape, ", label shape: ", label.shape)
-        file_name = os.path.join(SAVE_DIR, 'train.npy')
+        file_name = os.path.join(SAVE_DIR, 'k_{}_train.npy'.format(k))
         data = np.concatenate((characteristics, label), axis=1)
         np.save(file_name, data)
         end_val = time.time()
@@ -450,7 +445,7 @@ if args.defense == 'lid':
         # for test-test set
         characteristics, label = get_lid(X_test_test, X_test_test_noisy, X_test_test_adv, k, 100)
         print("LID test: [characteristic shape: ", characteristics.shape, ", label shape: ", label.shape)
-        file_name = os.path.join(SAVE_DIR, 'test.npy')
+        file_name = os.path.join(SAVE_DIR, 'k_{}_test.npy'.format(k))
         data = np.concatenate((characteristics, label), axis=1)
         np.save(file_name, data)
         end_test = time.time()
@@ -660,7 +655,7 @@ if args.defense == 'mahalanobis':
         # val
         characteristics, label = get_mahalanobis(X_test_val, X_test_val_noisy, X_test_val_adv, magnitude, sample_mean, precision, 'train')
         print("Mahalanobis train: [characteristic shape: ", characteristics.shape, ", label shape: ", label.shape)
-        file_name = os.path.join(SAVE_DIR, 'train.npy')
+        file_name = os.path.join(SAVE_DIR, 'mag_{}_train.npy'.format(magnitude))
         data = np.concatenate((characteristics, label), axis=1)
         np.save(file_name, data)
         end_val = time.time()
@@ -669,7 +664,7 @@ if args.defense == 'mahalanobis':
         # test
         characteristics, label = get_mahalanobis(X_test_test, X_test_test_noisy, X_test_test_adv, magnitude, sample_mean, precision, 'test')
         print("Mahalanobis test: [characteristic shape: ", characteristics.shape, ", label shape: ", label.shape)
-        file_name = os.path.join(SAVE_DIR, 'test.npy')
+        file_name = os.path.join(SAVE_DIR, 'mag_{}_test.npy'.format(magnitude))
         data = np.concatenate((characteristics, label), axis=1)
         np.save(file_name, data)
         end_test = time.time()

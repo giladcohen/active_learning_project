@@ -34,8 +34,15 @@ parser.add_argument('--dst',
                     default='cw_targeted',
                     type=str, help='dir containing testing features, relative to checkpoint_dir')
 parser.add_argument('--defense',
-                    default='mahalanobis_mag_0.00001',
+                    default='mahalanobis',
                     type=str, help='name of defense')
+
+# for LID:
+parser.add_argument('--k_nearest', default=-1, type=int, help='number of nearest neighbors to use for LID/DkNN detection')
+
+# for mahalanobis:
+parser.add_argument('--magnitude', default=-1, type=float, help='number of nearest neighbors to use for LID/DkNN detection')
+
 # for ours
 parser.add_argument('--f_inds',
                     default='f1',
@@ -135,9 +142,14 @@ def load_characteristics(characteristics_file):
 
     return X, Y
 
-if 'lid' in args.defense or 'mahalanobis' in args.defense:
-    train_characteristics_file = os.path.join(SRC_DIR, 'train.npy')
-    test_characteristics_file  = os.path.join(DST_DIR, 'test.npy')
+if args.defense in ['lid', 'mahalanobis']:
+    if args.defense == 'lid':
+        train_characteristics_file = os.path.join(SRC_DIR, 'k_{}_train.npy'.format(args.k_nearest))
+        test_characteristics_file  = os.path.join(DST_DIR, 'k_{}_test.npy'.format(args.k_nearest))
+    else:
+        train_characteristics_file = os.path.join(SRC_DIR, 'mag_{}_train.npy'.format(args.magnitude))
+        test_characteristics_file  = os.path.join(DST_DIR, 'mag_{}_test.npy'.format(args.magnitude))
+
     print("Loading attacks...\nTraining file: {}\nTesting file: {}".format(train_characteristics_file, test_characteristics_file))
     X_train, Y_train = load_characteristics(train_characteristics_file)
     X_test, Y_test   = load_characteristics(test_characteristics_file)
