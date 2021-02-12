@@ -31,14 +31,14 @@ from art.classifiers import PyTorchClassifier
 from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchExtClassifier
 
 parser = argparse.ArgumentParser(description='PyTorch adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust/robust_resnet34_00', type=str, help='checkpoint dir')
-parser.add_argument('--attack_dir', default='deepfool', type=str, help='attack directory')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
+parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attack directory')
 parser.add_argument('--save_dir', default='tta_ball_rev_L2_eps_2_n_1000', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
 
 # for exploration
-parser.add_argument('--collect_normal_ball', default=False, type=boolean_string, help='norm or ball distance')
+parser.add_argument('--collect_normal_ball', default=True, type=boolean_string, help='norm or ball distance')
 parser.add_argument('--norm', default='L2', type=str, help='norm or ball distance')
 parser.add_argument('--eps', default=2.0, type=float, help='the ball radius for exploration')
 parser.add_argument('--num_points', default=1000, type=int, help='the number of gradients to sample')

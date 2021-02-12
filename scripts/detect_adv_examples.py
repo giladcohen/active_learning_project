@@ -8,6 +8,9 @@ import os
 import argparse
 import sys
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegressionCV
+from sklearn.preprocessing import scale, MinMaxScaler, StandardScaler
+from sklearn.metrics import accuracy_score, precision_score, recall_score
 import scipy
 import numba as nb
 from numba import njit
@@ -22,20 +25,21 @@ import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(description='PyTorch adversarial robustness testing')
 parser.add_argument('--checkpoint_dir',
-                    default='/data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust/robust_resnet34_00',
+                    default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00',
                     type=str, help='dir containing the network checkpoint')
 parser.add_argument('--src',
-                    default='deepfool',
-                    type=str, help='dir containing training features, relative to checkoint_dir')
+                    default='cw_targeted',
+                    type=str, help='dir containing training features, relative to checkpoint_dir')
 parser.add_argument('--dst',
-                    default='deepfool',
-                    type=str, help='dir containing testing features, relative to checkoint_dir')
+                    default='cw_targeted',
+                    type=str, help='dir containing testing features, relative to checkpoint_dir')
+parser.add_argument('--defense',
+                    default='mahalanobis_mag_0.00001',
+                    type=str, help='name of defense')
+# for ours
 parser.add_argument('--f_inds',
                     default='f1',
                     type=str, help='The type of images used for training features')
-parser.add_argument('--defense',
-                    default='tta_ball_rev_L2_eps_2_n_1000',
-                    type=str, help='name of defense')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -44,6 +48,9 @@ args = parser.parse_args()
 SRC_DIR  = os.path.join(args.checkpoint_dir, args.src, args.defense)
 DST_DIR  = os.path.join(args.checkpoint_dir, args.dst, args.defense)
 INDS_DIR = os.path.join(args.checkpoint_dir, args.src, 'inds')
+
+with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
+    train_args = json.load(f)
 
 rand_gen = np.random.RandomState(12345)
 # load inds
@@ -118,6 +125,42 @@ def calc_robust_metrics(robustness_preds, robustness_preds_adv):
     print('Robust classification accuracy: all samples: {:.2f}/{:.2f}%, f1 samples: {:.2f}/{:.2f}%, f2 samples: {:.2f}/{:.2f}%, f3 samples: {:.2f}/{:.2f}%'
           .format(acc_all * 100, acc_all_adv * 100, acc_f1 * 100, acc_f1_adv * 100, acc_f2 * 100, acc_f2_adv * 100, acc_f3 * 100, acc_f3_adv * 100))
 
+def load_characteristics(characteristics_file):
+    X, Y = None, None
+    data = np.load(characteristics_file)
+    if X is None:
+        X = data[:, :-1]
+    if Y is None:
+        Y = data[:, -1]  # labels only need to load once
+
+    return X, Y
+
+if 'lid' in args.defense or 'mahalanobis' in args.defense:
+    train_characteristics_file = os.path.join(SRC_DIR, 'train.npy')
+    test_characteristics_file  = os.path.join(DST_DIR, 'test.npy')
+    print("Loading attacks...\nTraining file: {}\nTesting file: {}".format(train_characteristics_file, test_characteristics_file))
+    X_train, Y_train = load_characteristics(train_characteristics_file)
+    X_test, Y_test   = load_characteristics(test_characteristics_file)
+    scaler = MinMaxScaler().fit(X_train)
+    X_train = scaler.transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    print("Train data size: ", X_train.shape)
+    print("Test data size: ", X_test.shape)
+
+    ## Build detector
+    lr = LogisticRegressionCV(n_jobs=-1).fit(X_train, Y_train)
+
+    ## Evaluate detector
+    y_pred = lr.predict_proba(X_test)[:, 1]
+    y_label_pred = lr.predict(X_test)
+
+    _, _, auc_score = compute_roc(Y_test, y_pred, plot=True)
+    precision = precision_score(Y_test, y_label_pred)
+    recall = recall_score(Y_test, y_label_pred)
+    acc = accuracy_score(Y_test, y_label_pred)
+    print('Detector ROC-AUC score: {}, accuracy: {}, precision: {}, recall: {}'.format(auc_score, acc, precision, recall))
+    exit(0)
 
 # load train features:
 features_index  = np.load(os.path.join(SRC_DIR, 'features_index_hist_by_{}.npy'.format(args.f_inds)))

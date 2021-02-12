@@ -23,20 +23,20 @@ from cleverhans.utils import to_categorical, batch_indices
 
 import matplotlib.pyplot as plt
 from art.classifiers import PyTorchClassifier
-from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchExtClassifier
+# from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchExtClassifier
 
 parser = argparse.ArgumentParser(description='Adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/Users/giladcohen/data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_softplus/robust_resnet34_00', type=str, help='checkpoint dir')
-parser.add_argument('--attack_dir', default='deepfool', type=str, help='attack directory')
-parser.add_argument('--rev_dir', default='rev_L2_pred/zga_lr_0.001_ic_0.01', type=str, help='reverse dir')
+parser.add_argument('--checkpoint_dir', default='/Users/giladcohen/data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust/robust_resnet34_00', type=str, help='checkpoint dir')
+parser.add_argument('--attack_dir', default='ead', type=str, help='attack directory')
+parser.add_argument('--rev_dir', default='', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--net_pool', default='ensemble', type=str, help='networks pool: main, ensemble, all')
-parser.add_argument('--img_pool', default='rev', type=str, help='images pool: orig, rev, all')
-parser.add_argument('--method', default='inference_svm', type=str, help='method of defense: simple, inference_svm')
+parser.add_argument('--net_pool', default='main', type=str, help='networks pool: main, ensemble, all')
+parser.add_argument('--img_pool', default='orig', type=str, help='images pool: orig, rev, all')
+parser.add_argument('--method', default='simple', type=str, help='method of defense: simple, inference_svm')
 parser.add_argument('--train_on', default='adv', type=str, help='normal, adv, all')
 parser.add_argument('--temperature', default=1, type=float, help='normal, adv')
 parser.add_argument('--pca_dims', default=-1, type=int, help='if not -1, apply PCA to svm with dims')
-parser.add_argument('--subset', default=500, type=int, help='attack only subset of test set')
+parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -120,7 +120,7 @@ optimizer = optim.SGD(
 
 # get and assert preds:
 net.eval()
-classifier = PyTorchExtClassifier(model=net, clip_values=(0, 1), loss=criterion,
+classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
                                optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 
 # load all calculated features:
@@ -134,6 +134,7 @@ train_adv     = args.train_on in ['adv', 'all']
 # main
 y_main_logits         = np.load(os.path.join(ATTACK_DIR, 'y_test_logits.npy'))
 y_adv_main_logits     = np.load(os.path.join(ATTACK_DIR, 'y_test_adv_logits.npy'))
+
 # ensemble
 y_net_logits          = np.load(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_net_logits_mat.npy'))
 y_adv_net_logits      = np.load(os.path.join(ENSEMBLE_DIR_DUMP, 'y_test_adv_net_logits_mat.npy'))
@@ -166,49 +167,21 @@ y_cross_preds         = softmax((1/T) * y_cross_logits, axis=2)          # (N, 1
 y_adv_cross_preds     = softmax((1/T) * y_adv_cross_logits, axis=2)      # (N, 10, #cls)
 
 # what are the samples we care about? net_succ (not attack_succ. it is irrelevant)
-f0_inds = []  # net_fail
-f1_inds = []  # net_succ
-f2_inds = []  # net_succ AND attack_flip
-f3_inds = []  # net_succ AND attack_flip AND attack_succ
+# load inds
+val_inds     = np.load(os.path.join(ATTACK_DIR, 'inds', 'val_inds.npy'))
+f0_inds_val  = np.load(os.path.join(ATTACK_DIR, 'inds', 'f0_inds_val.npy'))
+f1_inds_val  = np.load(os.path.join(ATTACK_DIR, 'inds', 'f1_inds_val.npy'))
+f2_inds_val  = np.load(os.path.join(ATTACK_DIR, 'inds', 'f2_inds_val.npy'))
+f3_inds_val  = np.load(os.path.join(ATTACK_DIR, 'inds', 'f3_inds_val.npy'))
 
-for i in range(test_size):
-    f1 = y_test_preds[i] == y_test[i]
-    f2 = f1 and y_test_preds[i] != y_test_adv_preds[i]
-    if targeted:
-        f3 = f2 and y_test_adv_preds[i] == y_test_adv[i]
-    else:
-        f3 = f2
-    if f1:
-        f1_inds.append(i)
-    else:
-        f0_inds.append(i)
-    if f2:
-        f2_inds.append(i)
-    if f3:
-        f3_inds.append(i)
-
-f0_inds = np.asarray(f0_inds)
-f1_inds = np.asarray(f1_inds)
-f2_inds = np.asarray(f2_inds)
-f3_inds = np.asarray(f3_inds)
-all_inds = np.arange(test_size)
+test_inds    = np.load(os.path.join(ATTACK_DIR, 'inds', 'test_inds.npy'))
+f0_inds_test = np.load(os.path.join(ATTACK_DIR, 'inds', 'f0_inds_test.npy'))
+f1_inds_test = np.load(os.path.join(ATTACK_DIR, 'inds', 'f1_inds_test.npy'))
+f2_inds_test = np.load(os.path.join(ATTACK_DIR, 'inds', 'f2_inds_test.npy'))
+f3_inds_test = np.load(os.path.join(ATTACK_DIR, 'inds', 'f3_inds_test.npy'))
 
 print("Number of test samples: {}. #net_succ: {}. #net_succ_attack_flip: {}. #net_succ_attack_succ: {}"
-      .format(test_size, len(f1_inds), len(f2_inds), len(f3_inds)))
-
-# dividing the official test set to a val set and to a test set
-val_inds = rand_gen.choice(all_inds, int(0.5*test_size), replace=False)
-val_inds.sort()
-f0_inds_val = np.asarray([ind for ind in f0_inds if ind in val_inds])
-f1_inds_val = np.asarray([ind for ind in f1_inds if ind in val_inds])
-f2_inds_val = np.asarray([ind for ind in f2_inds if ind in val_inds])
-f3_inds_val = np.asarray([ind for ind in f3_inds if ind in val_inds])
-
-test_inds = np.asarray([ind for ind in all_inds if ind not in val_inds])
-f0_inds_test = np.asarray([ind for ind in f0_inds if ind in test_inds])
-f1_inds_test = np.asarray([ind for ind in f1_inds if ind in test_inds])
-f2_inds_test = np.asarray([ind for ind in f2_inds if ind in test_inds])
-f3_inds_test = np.asarray([ind for ind in f3_inds if ind in test_inds])
+      .format(len(test_inds), len(f1_inds_test), len(f2_inds_test), len(f3_inds_test)))
 
 if load_rev:
     assert test_size == defense_args.get('subset')

@@ -54,7 +54,7 @@ class TTABallExplorer(object):
             ),
             transforms.Pad(padding=16, padding_mode='edge'),
             transforms.RandomAffine(
-                degrees=15,
+                degrees=[-15, 15],
                 translate=(4.0 / 64, 4.0 / 64),
                 scale=(0.9, 1.1),
                 shear=None,
@@ -90,7 +90,7 @@ class TTABallExplorer(object):
             dataset, batch_size=self.batch_size, shuffle=False, num_workers=0, pin_memory=True
         )
         tta_data_loader = torch.utils.data.DataLoader(
-            tta_dataset, batch_size=self.batch_size, shuffle=False, num_workers=4, pin_memory=True
+            tta_dataset, batch_size=self.batch_size, shuffle=False, num_workers=4, pin_memory=True  # debug 4
         )
 
         # all_x_adv = np.empty((x.shape[0], self.num_points) + x.shape[1:], dtype=np.float32)  # debug
@@ -112,7 +112,7 @@ class TTABallExplorer(object):
             all_noise_power[batch_index_1:batch_index_2, 0] = 0.0
 
         print('start predicting {} noisy samples...'.format(self.num_points - 1))
-        for n in tqdm(range(1, self.num_points)):
+        for n in tqdm(range(1, self.num_points)):  # debug: remove tqdm
             for batch_id, batch in enumerate(tta_data_loader):
                 batch, batch_labels = batch
                 batch_index_1, batch_index_2 = batch_id * self.batch_size, (batch_id + 1) * self.batch_size
