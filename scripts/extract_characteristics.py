@@ -73,7 +73,7 @@ with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'r') as f:
     attack_args = json.load(f)
 targeted = attack_args['targeted']
 
-NORMAL_SAVE_DIR = os.path.join(args.checkpoint_dir, 'normal', args.save_dir)
+NORMAL_SAVE_DIR = os.path.join(args.checkpoint_dir, 'normal')
 SAVE_DIR = os.path.join(ATTACK_DIR, args.defense)  # will be changed by params
 os.makedirs(os.path.join(NORMAL_SAVE_DIR), exist_ok=True)
 os.makedirs(os.path.join(SAVE_DIR), exist_ok=True)
