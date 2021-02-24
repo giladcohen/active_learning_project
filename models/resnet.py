@@ -102,8 +102,8 @@ class ResNet(nn.Module):
         out = self.layer4(out)
         out = F.avg_pool2d(out, 4)
         out = out.view(out.size(0), -1)
-        with torch.no_grad():
-            net['embeddings'] = out
+        # with torch.no_grad():
+        net['embeddings'] = out
         out = self.linear(out)
         net['logits'] = out
         return net

@@ -19,6 +19,8 @@ from active_learning_project.datasets.my_cifar100 import MyCIFAR100
 from active_learning_project.datasets.my_svhn import MySVHN
 import matplotlib.pyplot as plt
 
+from art.utils import get_labels_np_array, to_categorical
+
 BASE_DATASET_DIR = '/Users/giladcohen/data/dataset'
 def dataset_factory(dataset):
     if dataset == 'cifar10':
@@ -224,3 +226,25 @@ def get_normalized_tensor(loader: torch.utils.data.DataLoader, batch_size=100):
         X[b:e] = inputs.cpu().numpy()
 
     return X
+
+def get_single_img_dataloader(dataset, x, targets, batch_size, transform=None, index=None):
+    data_dir, database, train_transform, test_transform = dataset_factory(dataset)
+    dataset = database(root=data_dir, train=False, download=False, transform=transform)  # just a dummy database
+
+    # overwrite:
+    targets = to_categorical(targets, nb_classes=len(dataset.classes))
+    if index is not None:
+        x = np.expand_dims(x[index, ...], 0).repeat(batch_size, axis=0)
+        targets = np.expand_dims(targets[index, ...], 0).repeat(batch_size, axis=0)
+
+    x_tensor = torch.from_numpy(x.astype(np.float32))
+    targets_tensor = torch.from_numpy(targets.astype(np.float32))
+    dataset.data = x_tensor
+    dataset.targets = targets_tensor
+
+    #loader:
+    data_loader = torch.utils.data.DataLoader(
+        dataset, batch_size=batch_size, shuffle=False, num_workers=0, pin_memory=True
+    )
+
+    return data_loader

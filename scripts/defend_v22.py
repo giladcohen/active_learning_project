@@ -357,6 +357,7 @@ elif 'svm' in args.method:
     defense_preds = clf.predict(test_normal_features)
     defense_preds_adv = clf.predict(test_adv_features)
 
+
 acc_all = np.mean(defense_preds[test_inds] == y_test[test_inds])
 acc_f1 = np.mean(defense_preds[f1_inds_test] == y_test[f1_inds_test])
 acc_f2 = np.mean(defense_preds[f2_inds_test] == y_test[f2_inds_test])

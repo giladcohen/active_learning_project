@@ -110,7 +110,6 @@ test_inds = np.arange(test_size)
 X_test           = get_normalized_tensor(testloader, batch_size)
 y_test           = np.asarray(testloader.dataset.targets)
 X_test_adv       = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
-
 if targeted:
     y_test_adv = np.load(os.path.join(ATTACK_DIR, 'y_test_adv.npy'))
 
@@ -149,18 +148,26 @@ classifier = PyTorchExtClassifier(model=net, clip_values=(0, 1), loss=criterion,
 y_test_logits = classifier.predict(X_test, batch_size=batch_size)
 y_test_preds = y_test_logits.argmax(axis=1)
 try:
-    np.testing.assert_array_almost_equal_nulp(y_test_preds, np.load(os.path.join(ATTACK_DIR, 'y_test_preds.npy')))
-    np.save(os.path.join(ATTACK_DIR, 'y_test_logits.npy'), y_test_logits)
+    if os.path.exists(os.path.join(os.path.join(ATTACK_DIR, 'y_test_logits.npy'))):
+        np.testing.assert_array_almost_equal_nulp(y_test_logits, np.load(os.path.join(ATTACK_DIR, 'y_test_logits.npy')))
+    if os.path.exists(os.path.join(os.path.join(ATTACK_DIR, 'y_test_preds.npy'))):
+        np.testing.assert_array_almost_equal_nulp(y_test_preds, np.load(os.path.join(ATTACK_DIR, 'y_test_preds.npy')))
 except AssertionError as e:
-    raise AssertionError('{}\nAssert failed for y_test_preds for ATTACK_DIR={}'.format(e, ATTACK_DIR))
+    raise AssertionError('{}\nAssert failed for y_test for ATTACK_DIR={}'.format(e, ATTACK_DIR))
+np.save(os.path.join(args.checkpoint_dir, 'y_test_logits.npy'), y_test_logits)
+np.save(os.path.join(args.checkpoint_dir, 'y_test_preds.npy'), y_test_preds)
 
 y_test_adv_logits = classifier.predict(X_test_adv, batch_size=batch_size)
 y_test_adv_preds = y_test_adv_logits.argmax(axis=1)
 try:
-    np.testing.assert_array_almost_equal_nulp(y_test_adv_preds, np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy')))
-    np.save(os.path.join(ATTACK_DIR, 'y_test_adv_logits.npy'), y_test_adv_logits)
+    if os.path.exists(os.path.join(os.path.join(ATTACK_DIR, 'y_test_adv_logits.npy'))):
+        np.testing.assert_array_almost_equal_nulp(y_test_adv_logits, np.load(os.path.join(ATTACK_DIR, 'y_test_adv_logits.npy')))
+    if os.path.exists(os.path.join(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'))):
+        np.testing.assert_array_almost_equal_nulp(y_test_adv_preds, np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy')))
 except AssertionError as e:
-    raise AssertionError('{}\nAssert failed for y_test_adv_logits for ATTACK_DIR={}'.format(e, ATTACK_DIR))
+    raise AssertionError('{}\nAssert failed for y_test for ATTACK_DIR={}'.format(e, ATTACK_DIR))
+np.save(os.path.join(args.checkpoint_dir, 'y_test_adv_logits.npy'), y_test_adv_logits)
+np.save(os.path.join(args.checkpoint_dir, 'y_test_adv_preds.npy'), y_test_adv_preds)
 
 # what are the samples we care about? net_succ (not attack_succ. it is irrelevant)
 val_inds     = np.load(os.path.join(ATTACK_DIR, 'inds', 'val_inds.npy'))
@@ -325,7 +332,6 @@ def get_lids_random_batch(X, X_noisy, X_adv, k=args.k_nearest, batch_size=100):
 
     return lids, lids_noisy, lids_adv
 
-
 def get_lid(X, X_noisy, X_adv, k, batch_size=100):
     print('Extract local intrinsic dimensionality: k = %s' % k)
     lids_normal, lids_noisy, lids_adv = get_lids_random_batch(X, X_noisy, X_adv, k, batch_size)
@@ -338,7 +344,6 @@ def get_lid(X, X_noisy, X_adv, k, batch_size=100):
     artifacts, labels = merge_and_generate_labels(lids_pos, lids_neg)
 
     return artifacts, labels
-
 
 def sample_estimator(net, num_classes, feature_list, train_loader):
     """
@@ -421,9 +426,7 @@ def sample_estimator(net, num_classes, feature_list, train_loader):
 
     return sample_class_mean, precision
 
-
 start = time.time()
-
 if args.defense == 'lid':
     if args.k_nearest == -1:
         k_vec = np.arange(10, 41, 2)
@@ -450,7 +453,6 @@ if args.defense == 'lid':
         np.save(file_name, data)
         end_test = time.time()
         print('total feature extraction time for test: {} sec'.format(end_test - end_val))
-
 
 def sample_estimator(model, num_classes, train_loader):
     """
@@ -636,7 +638,6 @@ def get_mahalanobis(X, X_noisy, X_adv, magnitude, sample_mean, precision, set):
     characteristics, labels = merge_and_generate_labels(Mahalanobis_pos, Mahalanobis_neg)
 
     return characteristics, labels
-
 
 if args.defense == 'mahalanobis':
     print('get sample mean and covariance of the training set...')

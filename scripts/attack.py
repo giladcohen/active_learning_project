@@ -130,17 +130,15 @@ if __name__ == "__main__":
     classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
                                    optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 
-    y_val_preds = classifier.predict(X_val, batch_size=batch_size)
-    y_val_preds = y_val_preds.argmax(axis=1)
+    y_val_logits = classifier.predict(X_val, batch_size=batch_size)
+    y_val_preds = y_val_logits.argmax(axis=1)
     val_acc = np.sum(y_val_preds == y_val) / val_size
     print('Accuracy on benign val examples: {}%'.format(val_acc * 100))
-    np.save(os.path.join(ATTACK_DIR, 'y_val_preds.npy'), y_val_preds)
 
-    y_test_preds = classifier.predict(X_test, batch_size=batch_size)
-    y_test_preds = y_test_preds.argmax(axis=1)
+    y_test_logits = classifier.predict(X_test, batch_size=batch_size)
+    y_test_preds = y_test_logits.argmax(axis=1)
     test_acc = np.sum(y_test_preds == y_test) / test_size
     print('Accuracy on benign test examples: {}%'.format(test_acc * 100))
-    np.save(os.path.join(ATTACK_DIR, 'y_test_preds.npy'), y_test_preds)
 
     # attack
     # creating targeted labels
