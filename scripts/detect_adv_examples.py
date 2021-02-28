@@ -323,4 +323,3 @@ robustness_preds     = robustness_probs.argmax(axis=1)
 robustness_preds_adv = robustness_probs_adv.argmax(axis=1)
 calc_robust_metrics(robustness_preds, robustness_preds_adv)
 
-

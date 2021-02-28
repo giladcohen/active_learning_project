@@ -216,8 +216,10 @@ def get_test_loader(dataset,
 
     return data_loader
 
-def get_normalized_tensor(loader: torch.utils.data.DataLoader, batch_size=100):
+def get_normalized_tensor(loader: torch.utils.data.DataLoader, batch_size=None):
     """ Returning a normalized tensor"""
+    if batch_size is None:
+        batch_size = loader.batch_size
     size = len(loader.dataset)
     X = -1.0 * np.ones(shape=(size, 3, 32, 32), dtype=np.float32)
     for batch_idx, (inputs, targets) in enumerate(loader):
@@ -227,7 +229,7 @@ def get_normalized_tensor(loader: torch.utils.data.DataLoader, batch_size=100):
 
     return X
 
-def get_single_img_dataloader(dataset, x, targets, batch_size, transform=None, index=None):
+def get_single_img_dataloader(dataset, x, targets, batch_size, pin_memory=False, transform=None, index=None):
     data_dir, database, train_transform, test_transform = dataset_factory(dataset)
     dataset = database(root=data_dir, train=False, download=False, transform=transform)  # just a dummy database
 
@@ -244,7 +246,7 @@ def get_single_img_dataloader(dataset, x, targets, batch_size, transform=None, i
 
     #loader:
     data_loader = torch.utils.data.DataLoader(
-        dataset, batch_size=batch_size, shuffle=False, num_workers=0, pin_memory=True
+        dataset, batch_size=batch_size, shuffle=False, num_workers=0, pin_memory=pin_memory
     )
 
     return data_loader
