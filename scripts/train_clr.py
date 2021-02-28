@@ -196,9 +196,9 @@ for img_ind in tqdm(range(100)):
     # for normal:
     reset_net()
     reset_proj()
+    net.eval()
     train_loader = get_single_img_dataloader(args.dataset, X_test, y_test_preds, 2 * args.batch_size,
                                              pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
-    # net.train()
     for step in range(args.steps):
         for batch_idx, (inputs, targets) in enumerate(train_loader):
             # debug:
@@ -220,9 +220,9 @@ for img_ind in tqdm(range(100)):
     # for adv:
     reset_net()
     reset_proj()
+    net.eval()
     train_loader = get_single_img_dataloader(args.dataset, X_test_adv, y_test_adv_preds, 2 * args.batch_size,
                                              pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
-    # net.train()
     for step in range(args.steps):
         for batch_idx, (inputs, targets) in enumerate(train_loader):
             # debug:
