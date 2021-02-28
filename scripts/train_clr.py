@@ -187,7 +187,6 @@ robustness_preds     = -1 * np.ones(test_size, dtype=np.int32)
 robustness_preds_adv = -1 * np.ones(test_size, dtype=np.int32)
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=contrastive_loss,
                                optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
-net.eval()
 for img_ind in tqdm(range(100)):
     # debug: run only 100 pics
     # debug: only one pic
@@ -197,6 +196,7 @@ for img_ind in tqdm(range(100)):
     reset_net()
     reset_proj()
     net.eval()
+    proj_head.eval()
     train_loader = get_single_img_dataloader(args.dataset, X_test, y_test_preds, 2 * args.batch_size,
                                              pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
     for step in range(args.steps):
@@ -214,13 +214,13 @@ for img_ind in tqdm(range(100)):
             loss.backward()
             optimizer.step()
 
-    net.eval()
     robustness_preds[img_ind] = classifier.predict(np.expand_dims(X_test[img_ind], 0)).squeeze().argmax()
 
     # for adv:
     reset_net()
     reset_proj()
     net.eval()
+    proj_head.eval()
     train_loader = get_single_img_dataloader(args.dataset, X_test_adv, y_test_adv_preds, 2 * args.batch_size,
                                              pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
     for step in range(args.steps):
@@ -238,7 +238,6 @@ for img_ind in tqdm(range(100)):
             loss.backward()
             optimizer.step()
 
-    net.eval()
     robustness_preds_adv[img_ind] = classifier.predict(np.expand_dims(X_test_adv[img_ind], 0)).squeeze().argmax()
 
 calc_robust_metrics_debug(robustness_preds, robustness_preds_adv)
