@@ -246,7 +246,7 @@ def get_single_img_dataloader(dataset, x, targets, batch_size, pin_memory=False,
 
     #loader:
     data_loader = torch.utils.data.DataLoader(
-        dataset, batch_size=batch_size, shuffle=True, num_workers=3, pin_memory=pin_memory
+        dataset, batch_size=batch_size, shuffle=True, num_workers=1, pin_memory=pin_memory
     )
 
     return data_loader
