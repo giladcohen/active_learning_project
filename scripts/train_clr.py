@@ -150,7 +150,7 @@ net = net.to(device)
 proj_head = ProjectobHead(512, 512, 128)
 proj_head = proj_head.to(device)
 
-summary(net, (3, 32, 32))
+# summary(net, (3, 32, 32))
 if device == 'cuda':
     # net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
@@ -188,10 +188,8 @@ robustness_preds_adv = -1 * np.ones(test_size, dtype=np.int32)
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=contrastive_loss,
                                optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 
-for img_ind in tqdm(range(test_size)):
+for img_ind in tqdm(range(100)):
     # debug: run only 100 pics
-    if img_ind >= 100:
-        break
     # debug: only one pic
     # img_ind = 0
 
