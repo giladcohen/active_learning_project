@@ -22,8 +22,8 @@ class ProjectobHead(nn.Module):
     def forward(self, x):
         # x = nn.functional.normalize(x)
         out = self.linear1(x)
-        out = self.bn1(out)
+        # out = self.bn1(out)
         out = F.relu(out)
         out = self.linear2(out)
-        #out = self.bn2(out)
+        out = self.bn2(out)
         return out
