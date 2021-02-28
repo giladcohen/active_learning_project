@@ -39,7 +39,7 @@ parser.add_argument('--checkpoint_dir',
                     type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attack directory')
 parser.add_argument('--lr', default=0.0001, type=float, help='learning rate')
-parser.add_argument('--steps', default=1, type=int, help='number of training steps')
+parser.add_argument('--steps', default=7, type=int, help='number of training steps')
 parser.add_argument('--batch_size', default=16, type=int, help='batch size for the CLR training')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
