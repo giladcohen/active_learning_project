@@ -41,6 +41,7 @@ parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attac
 parser.add_argument('--lr', default=0.0001, type=float, help='learning rate')
 parser.add_argument('--steps', default=7, type=int, help='number of training steps')
 parser.add_argument('--batch_size', default=16, type=int, help='batch size for the CLR training')
+parser.add_argument('--opt', default='sgd', type=str, help='optimizer')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -163,12 +164,32 @@ def reset_proj():
         if hasattr(layer, 'reset_parameters'):
             layer.reset_parameters()
 
-optimizer = optim.SGD(
-    list(net.parameters()) + list(proj_head.parameters()),
-    lr=args.lr,
-    momentum=0.0,  # TODO: try other mom
-    weight_decay=0.0,  # TODO: try other wd # train_args['wd'],
-    nesterov=False)
+
+train_params = list(net.parameters()) + list(proj_head.parameters())
+if args.opt == 'sgd':
+    optimizer = optim.SGD(
+        train_params,
+        lr=args.lr,
+        momentum=0.0,  # TODO: try other mom
+        weight_decay=0.0,  # TODO: try other wd # train_args['wd'],
+        nesterov=False)
+elif args.opt == 'adam':
+    optimizer = optim.Adam(
+        train_params,
+        lr=args.lr,
+        weight_decay=0.0)  # TODO: try other wd # train_args['wd'])
+elif args.opt == 'adamw':
+    optimizer = optim.AdamW(
+        train_params,
+        lr=args.lr,
+        weight_decay=0.0)  # TODO: try other wd # train_args['wd'])
+elif args.opt == 'rmsprop':
+    optimizer = optim.RMSprop(
+        train_params,
+        lr=args.lr,
+        weight_decay=0.0)  # TODO: try other wd # train_args['wd'])
+else:
+    raise AssertionError('optimizer {} is not expected'.format(args.opt))
 
 def contrastive_loss(hidden, temperature=0.1):
     hidden1 = hidden[0:args.batch_size]
