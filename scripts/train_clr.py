@@ -38,8 +38,8 @@ parser.add_argument('--checkpoint_dir',
                     default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00',
                     type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attack directory')
-parser.add_argument('--lr', default=0.0005, type=float, help='learning rate')
-parser.add_argument('--steps', default=1, type=int, help='number of training steps')
+parser.add_argument('--lr', default=0.0001, type=float, help='learning rate')
+parser.add_argument('--steps', default=2, type=int, help='number of training steps')
 parser.add_argument('--batch_size', default=16, type=int, help='batch size for the CLR training')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -202,6 +202,7 @@ for img_ind in tqdm(range(100)):
     for batch_idx, (inputs, targets) in enumerate(train_loader):
         # debug:
         # (inputs, targets) = list(train_loader)[0]
+        print('working on normal, img_ind={}, batch_idx={}'.format(img_ind, batch_idx))
         if batch_idx >= args.steps:
             break
         inputs, targets = inputs.to(device), targets.to(device)
