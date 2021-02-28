@@ -42,6 +42,7 @@ parser.add_argument('--lr', default=0.0001, type=float, help='learning rate')
 parser.add_argument('--steps', default=7, type=int, help='number of training steps')
 parser.add_argument('--batch_size', default=16, type=int, help='batch size for the CLR training')
 parser.add_argument('--opt', default='sgd', type=str, help='optimizer')
+parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -170,9 +171,9 @@ if args.opt == 'sgd':
     optimizer = optim.SGD(
         train_params,
         lr=args.lr,
-        momentum=0.0,  # TODO: try other mom
+        momentum=args.mom,  # TODO: try other mom
         weight_decay=0.0,  # TODO: try other wd # train_args['wd'],
-        nesterov=False)
+        nesterov=args.mom > 0)
 elif args.opt == 'adam':
     optimizer = optim.Adam(
         train_params,
@@ -187,6 +188,7 @@ elif args.opt == 'rmsprop':
     optimizer = optim.RMSprop(
         train_params,
         lr=args.lr,
+        momentum=args.mom,
         weight_decay=0.0)  # TODO: try other wd # train_args['wd'])
 else:
     raise AssertionError('optimizer {} is not expected'.format(args.opt))
