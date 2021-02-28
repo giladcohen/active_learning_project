@@ -41,7 +41,7 @@ parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attac
 parser.add_argument('--lr', default=0.0001, type=float, help='learning rate')
 parser.add_argument('--steps', default=7, type=int, help='number of training steps')
 parser.add_argument('--batch_size', default=16, type=int, help='batch size for the CLR training')
-parser.add_argument('--opt', default='adam', type=str, help='optimizer')
+parser.add_argument('--opt', default='sgd', type=str, help='optimizer')
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -66,8 +66,8 @@ def calc_robust_metrics(robustness_preds, robustness_preds_adv):
 
 def calc_robust_metrics_debug(robustness_preds, robustness_preds_adv):
     print('Calculating robustness metrics...')
-    acc_all = np.mean(robustness_preds[0:100] == y_test[0:100])
-    acc_all_adv = np.mean(robustness_preds_adv[0:100] == y_test[0:100])
+    acc_all = np.mean(robustness_preds[0:500] == y_test[0:500])
+    acc_all_adv = np.mean(robustness_preds_adv[0:500] == y_test[0:500])
     print('Robust classification accuracy: all samples: {:.2f}/{:.2f}%'.format(acc_all * 100, acc_all_adv * 100))
 
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
@@ -210,7 +210,7 @@ robustness_preds     = -1 * np.ones(test_size, dtype=np.int32)
 robustness_preds_adv = -1 * np.ones(test_size, dtype=np.int32)
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=contrastive_loss,
                                optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
-for img_ind in tqdm(range(100)):
+for img_ind in tqdm(range(500)):
     # debug: run only 100 pics
     # debug: only one pic
     # img_ind = 0
