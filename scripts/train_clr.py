@@ -39,7 +39,7 @@ parser.add_argument('--checkpoint_dir',
                     type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attack directory')
 parser.add_argument('--lr', default=0.0001, type=float, help='learning rate')
-parser.add_argument('--steps', default=2, type=int, help='number of training steps')
+parser.add_argument('--steps', default=1, type=int, help='number of training steps')
 parser.add_argument('--batch_size', default=16, type=int, help='batch size for the CLR training')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -199,22 +199,20 @@ for img_ind in tqdm(range(100)):
     train_loader = get_single_img_dataloader(args.dataset, X_test, y_test_preds, 2 * args.batch_size,
                                              pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
     net.train()
-    for batch_idx, (inputs, targets) in enumerate(train_loader):
-        # debug:
-        # (inputs, targets) = list(train_loader)[0]
-        print('working on normal, img_ind={}, batch_idx={}'.format(img_ind, batch_idx))
-        if batch_idx >= args.steps:
-            break
-        inputs, targets = inputs.to(device), targets.to(device)
-        optimizer.zero_grad()
-        out = net(inputs)
-        embeddings, logits = out['embeddings'], out['logits']
-        z = proj_head(embeddings)
-        loss_cont = contrastive_loss(z)
-        loss_ent = entropy_loss(logits)
-        loss = loss_cont + loss_ent
-        loss.backward()
-        optimizer.step()
+    for step in range(args.steps):
+        for batch_idx, (inputs, targets) in enumerate(train_loader):
+            # debug:
+            # (inputs, targets) = list(train_loader)[0]
+            inputs, targets = inputs.to(device), targets.to(device)
+            optimizer.zero_grad()
+            out = net(inputs)
+            embeddings, logits = out['embeddings'], out['logits']
+            z = proj_head(embeddings)
+            loss_cont = contrastive_loss(z)
+            loss_ent = entropy_loss(logits)
+            loss = loss_cont + loss_ent
+            loss.backward()
+            optimizer.step()
 
     net.eval()
     robustness_preds[img_ind] = classifier.predict(np.expand_dims(X_test[img_ind], 0)).squeeze().argmax()
@@ -222,24 +220,23 @@ for img_ind in tqdm(range(100)):
     # for adv:
     reset_net()
     reset_proj()
-
     train_loader = get_single_img_dataloader(args.dataset, X_test_adv, y_test_adv_preds, 2 * args.batch_size,
                                              pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
-    for batch_idx, (inputs, targets) in enumerate(train_loader):
-        # debug:
-        # (inputs, targets) = list(train_loader)[0]
-        if batch_idx >= args.steps:
-            break
-        inputs, targets = inputs.to(device), targets.to(device)
-        optimizer.zero_grad()
-        out = net(inputs)
-        embeddings, logits = out['embeddings'], out['logits']
-        z = proj_head(embeddings)
-        loss_cont = contrastive_loss(z)
-        loss_ent = entropy_loss(logits)
-        loss = loss_cont + loss_ent
-        loss.backward()
-        optimizer.step()
+    net.train()
+    for step in range(args.steps):
+        for batch_idx, (inputs, targets) in enumerate(train_loader):
+            # debug:
+            # (inputs, targets) = list(train_loader)[0]
+            inputs, targets = inputs.to(device), targets.to(device)
+            optimizer.zero_grad()
+            out = net(inputs)
+            embeddings, logits = out['embeddings'], out['logits']
+            z = proj_head(embeddings)
+            loss_cont = contrastive_loss(z)
+            loss_ent = entropy_loss(logits)
+            loss = loss_cont + loss_ent
+            loss.backward()
+            optimizer.step()
 
     net.eval()
     robustness_preds_adv[img_ind] = classifier.predict(np.expand_dims(X_test_adv[img_ind], 0)).squeeze().argmax()
