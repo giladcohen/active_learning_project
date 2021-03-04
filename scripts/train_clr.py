@@ -48,6 +48,7 @@ parser.add_argument('--batch_size', default=16, type=int, help='batch size for t
 parser.add_argument('--opt', default='sgd', type=str, help='optimizer')
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
+parser.add_argument('--lambda_ent', default=0.0, type=float, help='Regularization for entropy loss')
 
 # eval
 parser.add_argument('--tta_size', default=50, type=int, help='number of test-time augmentations in eval phase')
@@ -293,7 +294,7 @@ for img_ind in tqdm(range(NUM_DEBUG_SAMPLES)):
             z = proj_head(embeddings)
             loss_cont = contrastive_loss(z)
             loss_ent = entropy_loss(logits)
-            loss = loss_cont + loss_ent
+            loss = loss_cont + args.lambda_ent * loss_ent
             loss.backward()
             optimizer.step()
     TRAIN_TIME_CNT += time.time() - start_time
@@ -335,7 +336,7 @@ for img_ind in tqdm(range(NUM_DEBUG_SAMPLES)):
             z = proj_head(embeddings)
             loss_cont = contrastive_loss(z)
             loss_ent = entropy_loss(logits)
-            loss = loss_cont + loss_ent
+            loss = loss_cont + args.lambda_ent * loss_ent
             loss.backward()
             optimizer.step()
     TRAIN_TIME_CNT += time.time() - start_time
