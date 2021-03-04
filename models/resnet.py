@@ -106,6 +106,7 @@ class ResNet(nn.Module):
         net['embeddings'] = out
         out = self.linear(out)
         net['logits'] = out
+        net['probs'] = F.softmax(out, dim=1)
         return net
 
 

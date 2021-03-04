@@ -17,6 +17,7 @@ from tqdm import tqdm
 import time
 import sys
 import PIL
+import scipy
 
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
@@ -29,7 +30,8 @@ import active_learning_project.datasets.my_transforms as my_transforms
 
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
     get_all_data_loader, get_normalized_tensor, get_single_img_dataloader
-from active_learning_project.utils import remove_substr_from_keys, boolean_string, save_features, pytorch_evaluate
+from active_learning_project.utils import remove_substr_from_keys, boolean_string, save_features, pytorch_evaluate, \
+    majority_vote
 from torchsummary import summary
 import torchvision.transforms as transforms
 
@@ -38,6 +40,8 @@ parser.add_argument('--checkpoint_dir',
                     default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00',
                     type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attack directory')
+
+# train
 parser.add_argument('--lr', default=0.0001, type=float, help='learning rate')
 parser.add_argument('--steps', default=7, type=int, help='number of training steps')
 parser.add_argument('--batch_size', default=16, type=int, help='batch size for the CLR training')
@@ -45,34 +49,76 @@ parser.add_argument('--opt', default='sgd', type=str, help='optimizer')
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
 
+# eval
+parser.add_argument('--tta_size', default=50, type=int, help='number of test-time augmentations in eval phase')
+
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 
 args = parser.parse_args()
 
 # debug
-NUM_DEBUG_SAMPLES = 100
+NUM_DEBUG_SAMPLES = 500
 
 def calc_robust_metrics(robustness_preds, robustness_preds_adv):
     print('Calculating robustness metrics...')
-    acc_all = np.mean(robustness_preds[test_inds] == y_test[test_inds])
-    acc_f1 = np.mean(robustness_preds[f1_inds_test] == y_test[f1_inds_test])
-    acc_f2 = np.mean(robustness_preds[f2_inds_test] == y_test[f2_inds_test])
-    acc_f3 = np.mean(robustness_preds[f3_inds_test] == y_test[f3_inds_test])
+    if NUM_DEBUG_SAMPLES is not None:
+        acc_all = np.mean(robustness_preds[0:NUM_DEBUG_SAMPLES] == y_test[0:NUM_DEBUG_SAMPLES])
+        acc_all_adv = np.mean(robustness_preds_adv[0:NUM_DEBUG_SAMPLES] == y_test[0:NUM_DEBUG_SAMPLES])
+        print('Robust classification accuracy: all samples: {:.2f}/{:.2f}%'.format(acc_all * 100, acc_all_adv * 100))
+    else:
+        acc_all = np.mean(robustness_preds[test_inds] == y_test[test_inds])
+        acc_f1 = np.mean(robustness_preds[f1_inds_test] == y_test[f1_inds_test])
+        acc_f2 = np.mean(robustness_preds[f2_inds_test] == y_test[f2_inds_test])
+        acc_f3 = np.mean(robustness_preds[f3_inds_test] == y_test[f3_inds_test])
 
-    acc_all_adv = np.mean(robustness_preds_adv[test_inds] == y_test[test_inds])
-    acc_f1_adv = np.mean(robustness_preds_adv[f1_inds_test] == y_test[f1_inds_test])
-    acc_f2_adv = np.mean(robustness_preds_adv[f2_inds_test] == y_test[f2_inds_test])
-    acc_f3_adv = np.mean(robustness_preds_adv[f3_inds_test] == y_test[f3_inds_test])
+        acc_all_adv = np.mean(robustness_preds_adv[test_inds] == y_test[test_inds])
+        acc_f1_adv = np.mean(robustness_preds_adv[f1_inds_test] == y_test[f1_inds_test])
+        acc_f2_adv = np.mean(robustness_preds_adv[f2_inds_test] == y_test[f2_inds_test])
+        acc_f3_adv = np.mean(robustness_preds_adv[f3_inds_test] == y_test[f3_inds_test])
 
-    print('Robust classification accuracy: all samples: {:.2f}/{:.2f}%, f1 samples: {:.2f}/{:.2f}%, f2 samples: {:.2f}/{:.2f}%, f3 samples: {:.2f}/{:.2f}%'
-          .format(acc_all * 100, acc_all_adv * 100, acc_f1 * 100, acc_f1_adv * 100, acc_f2 * 100, acc_f2_adv * 100, acc_f3 * 100, acc_f3_adv * 100))
+        print('Robust classification accuracy: all samples: {:.2f}/{:.2f}%, f1 samples: {:.2f}/{:.2f}%, f2 samples: {:.2f}/{:.2f}%, f3 samples: {:.2f}/{:.2f}%'
+              .format(acc_all * 100, acc_all_adv * 100, acc_f1 * 100, acc_f1_adv * 100, acc_f2 * 100, acc_f2_adv * 100, acc_f3 * 100, acc_f3_adv * 100))
 
-def calc_robust_metrics_debug(robustness_preds, robustness_preds_adv):
-    print('Calculating robustness metrics...')
-    acc_all = np.mean(robustness_preds[0:NUM_DEBUG_SAMPLES] == y_test[0:NUM_DEBUG_SAMPLES])
-    acc_all_adv = np.mean(robustness_preds_adv[0:NUM_DEBUG_SAMPLES] == y_test[0:NUM_DEBUG_SAMPLES])
-    print('Robust classification accuracy: all samples: {:.2f}/{:.2f}%'.format(acc_all * 100, acc_all_adv * 100))
+def calc_robust_metrics_from_probs_majority_vote(tta_robustness_probs, tta_robustness_probs_adv):
+    print('Calculating robustness metrics from probs via majority vote...')
+    tta_robustness_preds = tta_robustness_probs.argmax(axis=2)
+    robustness_preds = np.apply_along_axis(majority_vote, axis=1, arr=tta_robustness_preds)
+    tta_robustness_preds_adv = tta_robustness_probs_adv.argmax(axis=2)
+    robustness_preds_adv = np.apply_along_axis(majority_vote, axis=1, arr=tta_robustness_preds_adv)
+    calc_robust_metrics(robustness_preds, robustness_preds_adv)
+
+def calc_robust_metrics_from_probs_summation(tta_robustness_probs, tta_robustness_probs_adv):
+    print('Calculating robustness metrics from probs via summation...')
+    tta_robustness_probs_sum = tta_robustness_probs.sum(axis=1)
+    robustness_preds = tta_robustness_probs_sum.argmax(axis=1)
+    tta_robustness_probs_adv_sum = tta_robustness_probs_adv.sum(axis=1)
+    robustness_preds_adv = tta_robustness_probs_adv_sum.argmax(axis=1)
+    calc_robust_metrics(robustness_preds, robustness_preds_adv)
+
+def calc_robust_metrics_from_embeddings_center(tta_embeddings_arr, tta_embeddings_arr_adv):
+    print('Calculating robustness metrics from embeddings center...')
+    tta_embeddings_center = tta_embeddings_arr.mean(axis=1)
+    tta_embeddings_center = torch.from_numpy(tta_embeddings_center).to(device)
+
+    tta_embeddings_center_adv = tta_embeddings_arr_adv.mean(axis=1)
+    tta_embeddings_center_adv = torch.from_numpy(tta_embeddings_center_adv).to(device)
+
+    with torch.no_grad():
+        robustness_preds     = net.linear(tta_embeddings_center).argmax(dim=1).detach().cpu().numpy()
+        robustness_preds_adv = net.linear(tta_embeddings_center_adv).argmax(dim=1).detach().cpu().numpy()
+
+    # batch_size = 100
+    #     lenn = len(tta_embeddings_arr)
+    #     num_batches = int(np.ceil(lenn / batch_size))
+    #     for batch_idx in range(num_batches):
+    #         b = batch_idx * batch_size
+    #         e = min(b + batch_size, lenn)
+    #         robustness_preds[b:e]     = net.linear(tta_embeddings_center)[b:e].argmax(dim=1).detach().cpu().numpy()
+    #         robustness_preds_adv[b:e] = net.linear(tta_embeddings_center_adv)[b:e].argmax(dim=1).detach().cpu().numpy()
+    #     assert e < lenn, 'not cool!'
+
+    calc_robust_metrics(robustness_preds, robustness_preds_adv)
 
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
@@ -212,6 +258,12 @@ def entropy_loss(logits):
 
 robustness_preds     = -1 * np.ones(test_size, dtype=np.int32)
 robustness_preds_adv = -1 * np.ones(test_size, dtype=np.int32)
+# multi TTAs
+robustness_probs     = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
+robustness_probs_adv = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
+embeddings_arr       = -1 * np.ones((test_size, args.tta_size, net.linear.weight.shape[1]), dtype=np.float32)
+embeddings_arr_adv   = -1 * np.ones((test_size, args.tta_size, net.linear.weight.shape[1]), dtype=np.float32)
+
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=contrastive_loss,
                                optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 for img_ind in tqdm(range(NUM_DEBUG_SAMPLES)):
@@ -220,6 +272,7 @@ for img_ind in tqdm(range(NUM_DEBUG_SAMPLES)):
     # img_ind = 0
 
     # for normal:
+    # Training
     reset_net()
     reset_proj()
     net.eval()
@@ -241,9 +294,23 @@ for img_ind in tqdm(range(NUM_DEBUG_SAMPLES)):
             loss.backward()
             optimizer.step()
 
+    # Evaluating
     robustness_preds[img_ind] = classifier.predict(np.expand_dims(X_test[img_ind], 0)).squeeze().argmax()
+    with torch.no_grad():
+        tta_cnt = 0
+        while tta_cnt < args.tta_size:
+            for batch_idx, (inputs, targets) in enumerate(train_loader):
+                inputs, targets = inputs.to(device), targets.to(device)
+                b = tta_cnt
+                e = min(tta_cnt + len(inputs), args.tta_size)
+                out = net(inputs)
+                embeddings_arr[img_ind, b:e] = out['embeddings'][0:(e-b)].detach().cpu().numpy()
+                robustness_probs[img_ind, b:e] = out['probs'][0:(e-b)].detach().cpu().numpy()
+                tta_cnt += e-b
+                assert tta_cnt <= args.tta_size, 'not cool!'
 
     # for adv:
+    # Training
     reset_net()
     reset_proj()
     net.eval()
@@ -265,6 +332,31 @@ for img_ind in tqdm(range(NUM_DEBUG_SAMPLES)):
             loss.backward()
             optimizer.step()
 
+    # Evaluating
     robustness_preds_adv[img_ind] = classifier.predict(np.expand_dims(X_test_adv[img_ind], 0)).squeeze().argmax()
+    with torch.no_grad():
+        tta_cnt = 0
+        while tta_cnt < args.tta_size:
+            for batch_idx, (inputs, targets) in enumerate(train_loader):
+                inputs, targets = inputs.to(device), targets.to(device)
+                b = tta_cnt
+                e = min(tta_cnt + len(inputs), args.tta_size)
+                out = net(inputs)
+                embeddings_arr_adv[img_ind, b:e] = out['embeddings'][0:(e-b)].detach().cpu().numpy()
+                robustness_probs_adv[img_ind, b:e] = out['probs'][0:(e-b)].detach().cpu().numpy()
+                tta_cnt += e-b
+                assert tta_cnt <= args.tta_size, 'not cool!'
 
-calc_robust_metrics_debug(robustness_preds, robustness_preds_adv)
+np.save(os.path.join(ATTACK_DIR, 'robustness_preds.npy'), robustness_preds)
+np.save(os.path.join(ATTACK_DIR, 'robustness_preds_adv.npy'), robustness_preds_adv)
+np.save(os.path.join(ATTACK_DIR, 'robustness_probs.npy'), robustness_probs)
+np.save(os.path.join(ATTACK_DIR, 'robustness_probs_adv.npy'), robustness_probs_adv)
+np.save(os.path.join(ATTACK_DIR, 'embeddings_arr.npy'), embeddings_arr)
+np.save(os.path.join(ATTACK_DIR, 'embeddings_arr_adv.npy'), embeddings_arr_adv)
+
+calc_robust_metrics(robustness_preds, robustness_preds_adv)
+calc_robust_metrics_from_probs_majority_vote(robustness_probs, robustness_probs_adv)
+calc_robust_metrics_from_probs_summation(robustness_probs, robustness_probs_adv)
+calc_robust_metrics_from_embeddings_center(embeddings_arr, embeddings_arr_adv)
+
+print('done')
