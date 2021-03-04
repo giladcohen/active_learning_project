@@ -130,6 +130,7 @@ y_preds_nets     = -1 * np.ones((test_size, num_networks), dtype=np.int32)
 y_preds_nets_adv = -1 * np.ones((test_size, num_networks), dtype=np.int32)
 
 for j, ckpt_file in tqdm(enumerate(networks_list)):  # for network j
+    print('Evaluating network {}'.format(ckpt_file))
     global_state = torch.load(ckpt_file, map_location=torch.device(device))
     net.load_state_dict(global_state['best_net'])
     y_preds_nets[:, j]     = classifier.predict(X_test, batch_size=batch_size).argmax(axis=1)
