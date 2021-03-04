@@ -269,7 +269,9 @@ embeddings_arr_adv   = -1 * np.ones((test_size, args.tta_size, net.linear.weight
 
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=contrastive_loss,
                                optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
-for img_ind in tqdm(range(NUM_DEBUG_SAMPLES)):
+
+img_cnt = NUM_DEBUG_SAMPLES if NUM_DEBUG_SAMPLES is not None else test_size
+for img_ind in tqdm(range(img_cnt)):
     # debug: run only 100 pics
     # debug: only one pic
     # img_ind = 0
