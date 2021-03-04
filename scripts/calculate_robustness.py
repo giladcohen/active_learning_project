@@ -120,10 +120,10 @@ print("Number of test samples: {}. #net_succ: {}. #net_succ_attack_flip: {}. #ne
 
 networks_list = []
 if args.net_pool in ['main', 'all']:
-    networks_list.append(args.checkpoint_dir)
+    networks_list.append(CHECKPOINT_PATH)
 if args.net_pool in ['ensemble', 'all']:
     networks_list.extend(get_ensemble_paths(ENSEMBLE_DIR))
-    networks_list.remove(args.checkpoint_dir)
+    networks_list.remove(CHECKPOINT_PATH)
 num_networks = len(networks_list)
 
 y_preds_nets     = -1 * np.ones((test_size, num_networks), dtype=np.int32)
