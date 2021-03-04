@@ -171,3 +171,4 @@ else:
     print('For ensemble incl. main:')
     y_preds     = np.apply_along_axis(majority_vote, axis=1, arr=y_preds_nets)
     y_preds_adv = np.apply_along_axis(majority_vote, axis=1, arr=y_preds_nets_adv)
+    calc_robust_metrics(y_preds, y_preds_adv)
