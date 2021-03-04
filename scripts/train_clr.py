@@ -59,6 +59,8 @@ args = parser.parse_args()
 
 # debug
 NUM_DEBUG_SAMPLES = 500
+TRAIN_TIME_CNT = 0.0
+TEST_TIME_CNT = 0.0
 
 def calc_robust_metrics(robustness_preds, robustness_preds_adv):
     print('Calculating robustness metrics...')
@@ -273,6 +275,7 @@ for img_ind in tqdm(range(NUM_DEBUG_SAMPLES)):
 
     # for normal:
     # Training
+    start_time = time.time()
     reset_net()
     reset_proj()
     net.eval()
@@ -293,8 +296,10 @@ for img_ind in tqdm(range(NUM_DEBUG_SAMPLES)):
             loss = loss_cont + loss_ent
             loss.backward()
             optimizer.step()
+    TRAIN_TIME_CNT += time.time() - start_time
 
     # Evaluating
+    start_time = time.time()
     robustness_preds[img_ind] = classifier.predict(np.expand_dims(X_test[img_ind], 0)).squeeze().argmax()
     with torch.no_grad():
         tta_cnt = 0
@@ -308,9 +313,11 @@ for img_ind in tqdm(range(NUM_DEBUG_SAMPLES)):
                 robustness_probs[img_ind, b:e] = out['probs'][0:(e-b)].detach().cpu().numpy()
                 tta_cnt += e-b
                 assert tta_cnt <= args.tta_size, 'not cool!'
+    TEST_TIME_CNT += time.time() - start_time
 
     # for adv:
     # Training
+    start_time = time.time()
     reset_net()
     reset_proj()
     net.eval()
@@ -331,8 +338,10 @@ for img_ind in tqdm(range(NUM_DEBUG_SAMPLES)):
             loss = loss_cont + loss_ent
             loss.backward()
             optimizer.step()
+    TRAIN_TIME_CNT += time.time() - start_time
 
     # Evaluating
+    start_time = time.time()
     robustness_preds_adv[img_ind] = classifier.predict(np.expand_dims(X_test_adv[img_ind], 0)).squeeze().argmax()
     with torch.no_grad():
         tta_cnt = 0
@@ -346,6 +355,15 @@ for img_ind in tqdm(range(NUM_DEBUG_SAMPLES)):
                 robustness_probs_adv[img_ind, b:e] = out['probs'][0:(e-b)].detach().cpu().numpy()
                 tta_cnt += e-b
                 assert tta_cnt <= args.tta_size, 'not cool!'
+    TEST_TIME_CNT += time.time() - start_time
+
+if NUM_DEBUG_SAMPLES is not None:
+    average_train_time = TRAIN_TIME_CNT / (2 * NUM_DEBUG_SAMPLES)
+    average_test_time = TEST_TIME_CNT / (2 * NUM_DEBUG_SAMPLES)
+else:
+    average_train_time = TRAIN_TIME_CNT / (2 * test_size)
+    average_test_time = TEST_TIME_CNT / (2 * test_size)
+print('average train/test time per sample: {}/{} secs'.format(average_train_time, average_test_time))
 
 np.save(os.path.join(ATTACK_DIR, 'robustness_preds.npy'), robustness_preds)
 np.save(os.path.join(ATTACK_DIR, 'robustness_preds_adv.npy'), robustness_preds_adv)
