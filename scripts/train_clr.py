@@ -48,7 +48,7 @@ parser.add_argument('--batch_size', default=16, type=int, help='batch size for t
 parser.add_argument('--opt', default='sgd', type=str, help='optimizer')
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
-parser.add_argument('--lambda_ent', default=0.0, type=float, help='Regularization for entropy loss')
+parser.add_argument('--lambda_ent', default=0.001, type=float, help='Regularization for entropy loss')
 
 # eval
 parser.add_argument('--tta_size', default=50, type=int, help='number of test-time augmentations in eval phase')
@@ -59,7 +59,7 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 args = parser.parse_args()
 
 # debug
-NUM_DEBUG_SAMPLES = 1000
+NUM_DEBUG_SAMPLES = None
 TRAIN_TIME_CNT = 0.0
 TEST_TIME_CNT = 0.0
 
