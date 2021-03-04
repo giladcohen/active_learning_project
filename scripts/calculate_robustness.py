@@ -27,14 +27,18 @@ from art.classifiers import PyTorchClassifier
 
 parser = argparse.ArgumentParser(description='Adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/Users/giladcohen/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
-parser.add_argument('--attack_dir', default='ead', type=str, help='attack directory')
+parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attack directory')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--net_pool', default='main', type=str, help='networks pool: main, ensemble, all')
+parser.add_argument('--net_pool', default='all', type=str, help='networks pool: main, ensemble, all')
+parser.add_argument('--combine_all', '-c', action='store_true', help='combine all three net pools')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 
 args = parser.parse_args()
+
+if args.combine_all:
+    assert args.net_pool == 'all'
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
@@ -136,10 +140,6 @@ for j, ckpt_file in tqdm(enumerate(networks_list)):  # for network j
     y_preds_nets[:, j]     = classifier.predict(X_test, batch_size=batch_size).argmax(axis=1)
     y_preds_nets_adv[:, j] = classifier.predict(X_test_adv, batch_size=batch_size).argmax(axis=1)
 
-# use majority vote:
-y_preds     = np.apply_along_axis(majority_vote, axis=1, arr=y_preds_nets)
-y_preds_adv = np.apply_along_axis(majority_vote, axis=1, arr=y_preds_nets_adv)
-
 def calc_robust_metrics(robustness_preds, robustness_preds_adv):
     acc_all = np.mean(robustness_preds[test_inds] == y_test[test_inds])
     acc_f1 = np.mean(robustness_preds[f1_inds_test] == y_test[f1_inds_test])
@@ -154,4 +154,20 @@ def calc_robust_metrics(robustness_preds, robustness_preds_adv):
     print('Robust classification accuracy: all samples: {:.2f}/{:.2f}%, f1 samples: {:.2f}/{:.2f}%, f2 samples: {:.2f}/{:.2f}%, f3 samples: {:.2f}/{:.2f}%'
           .format(acc_all * 100, acc_all_adv * 100, acc_f1 * 100, acc_f1_adv * 100, acc_f2 * 100, acc_f2_adv * 100, acc_f3 * 100, acc_f3_adv * 100))
 
-calc_robust_metrics(y_preds, y_preds_adv)
+if not args.combine_all:
+    # use majority vote:
+    y_preds     = np.apply_along_axis(majority_vote, axis=1, arr=y_preds_nets)
+    y_preds_adv = np.apply_along_axis(majority_vote, axis=1, arr=y_preds_nets_adv)
+    calc_robust_metrics(y_preds, y_preds_adv)
+else:
+    print('For main:')
+    y_preds     = y_preds_nets[:, 0]
+    y_preds_adv = y_preds_nets_adv[:, 0]
+    calc_robust_metrics(y_preds, y_preds_adv)
+    print('For ensemble excl. main:')
+    y_preds     = np.apply_along_axis(majority_vote, axis=1, arr=y_preds_nets[:, 1:])
+    y_preds_adv = np.apply_along_axis(majority_vote, axis=1, arr=y_preds_nets_adv[:, 1:])
+    calc_robust_metrics(y_preds, y_preds_adv)
+    print('For ensemble incl. main:')
+    y_preds     = np.apply_along_axis(majority_vote, axis=1, arr=y_preds_nets)
+    y_preds_adv = np.apply_along_axis(majority_vote, axis=1, arr=y_preds_nets_adv)
