@@ -59,12 +59,11 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 args = parser.parse_args()
 
 # debug
-NUM_DEBUG_SAMPLES = None
+NUM_DEBUG_SAMPLES = 100
 TRAIN_TIME_CNT = 0.0
 TEST_TIME_CNT = 0.0
 
 def calc_robust_metrics(robustness_preds, robustness_preds_adv):
-    print('Calculating robustness metrics...')
     if NUM_DEBUG_SAMPLES is not None:
         acc_all = np.mean(robustness_preds[0:NUM_DEBUG_SAMPLES] == y_test[0:NUM_DEBUG_SAMPLES])
         acc_all_adv = np.mean(robustness_preds_adv[0:NUM_DEBUG_SAMPLES] == y_test[0:NUM_DEBUG_SAMPLES])
@@ -99,29 +98,10 @@ def calc_robust_metrics_from_probs_summation(tta_robustness_probs, tta_robustnes
     robustness_preds_adv = tta_robustness_probs_adv_sum.argmax(axis=1)
     calc_robust_metrics(robustness_preds, robustness_preds_adv)
 
-def calc_robust_metrics_from_embeddings_center(tta_embeddings_arr, tta_embeddings_arr_adv):
-    print('Calculating robustness metrics from embeddings center...')
-    tta_embeddings_center = tta_embeddings_arr.mean(axis=1)
-    tta_embeddings_center = torch.from_numpy(tta_embeddings_center).to(device)
-
-    tta_embeddings_center_adv = tta_embeddings_arr_adv.mean(axis=1)
-    tta_embeddings_center_adv = torch.from_numpy(tta_embeddings_center_adv).to(device)
-
-    with torch.no_grad():
-        robustness_preds     = net.linear(tta_embeddings_center).argmax(dim=1).detach().cpu().numpy()
-        robustness_preds_adv = net.linear(tta_embeddings_center_adv).argmax(dim=1).detach().cpu().numpy()
-
-    # batch_size = 100
-    #     lenn = len(tta_embeddings_arr)
-    #     num_batches = int(np.ceil(lenn / batch_size))
-    #     for batch_idx in range(num_batches):
-    #         b = batch_idx * batch_size
-    #         e = min(b + batch_size, lenn)
-    #         robustness_preds[b:e]     = net.linear(tta_embeddings_center)[b:e].argmax(dim=1).detach().cpu().numpy()
-    #         robustness_preds_adv[b:e] = net.linear(tta_embeddings_center_adv)[b:e].argmax(dim=1).detach().cpu().numpy()
-    #     assert e < lenn, 'not cool!'
-
-    calc_robust_metrics(robustness_preds, robustness_preds_adv)
+def get_preds_from_emb_center(tta_embedding):
+    tta_embeddings_center = tta_embedding.mean(axis=0)
+    pred = net.linear(tta_embeddings_center).argmax().detach().cpu().numpy()
+    return pred
 
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
@@ -264,8 +244,12 @@ robustness_preds_adv = -1 * np.ones(test_size, dtype=np.int32)
 # multi TTAs
 robustness_probs     = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
 robustness_probs_adv = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
-embeddings_arr       = -1 * np.ones((test_size, args.tta_size, net.linear.weight.shape[1]), dtype=np.float32)
-embeddings_arr_adv   = -1 * np.ones((test_size, args.tta_size, net.linear.weight.shape[1]), dtype=np.float32)
+embeddings_arr       = -1 * torch.ones((test_size, args.tta_size, net.linear.weight.shape[1]),
+                                       dtype=torch.float32, device=device, requires_grad=False)
+embeddings_arr_adv   = -1 * torch.ones((test_size, args.tta_size, net.linear.weight.shape[1]),
+                                       dtype=torch.float32, device=device, requires_grad=False)
+robustness_preds_from_emb_enter     = -1 * np.ones(test_size, dtype=np.int32)
+robustness_preds_from_emb_enter_adv = -1 * np.ones(test_size, dtype=np.int32)
 
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=contrastive_loss,
                                optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
@@ -312,10 +296,12 @@ for img_ind in tqdm(range(img_cnt)):
                 b = tta_cnt
                 e = min(tta_cnt + len(inputs), args.tta_size)
                 out = net(inputs)
-                embeddings_arr[img_ind, b:e] = out['embeddings'][0:(e-b)].detach().cpu().numpy()
+                embeddings_arr[img_ind, b:e] = out['embeddings'][0:(e-b)]
                 robustness_probs[img_ind, b:e] = out['probs'][0:(e-b)].detach().cpu().numpy()
                 tta_cnt += e-b
                 assert tta_cnt <= args.tta_size, 'not cool!'
+
+        robustness_preds_from_emb_enter[img_ind] = get_preds_from_emb_center(embeddings_arr[img_ind])
     TEST_TIME_CNT += time.time() - start_time
 
     # for adv:
@@ -354,10 +340,12 @@ for img_ind in tqdm(range(img_cnt)):
                 b = tta_cnt
                 e = min(tta_cnt + len(inputs), args.tta_size)
                 out = net(inputs)
-                embeddings_arr_adv[img_ind, b:e] = out['embeddings'][0:(e-b)].detach().cpu().numpy()
+                embeddings_arr_adv[img_ind, b:e] = out['embeddings'][0:(e-b)]
                 robustness_probs_adv[img_ind, b:e] = out['probs'][0:(e-b)].detach().cpu().numpy()
                 tta_cnt += e-b
                 assert tta_cnt <= args.tta_size, 'not cool!'
+
+        robustness_preds_from_emb_enter_adv[img_ind] = get_preds_from_emb_center(embeddings_arr_adv[img_ind])
     TEST_TIME_CNT += time.time() - start_time
 
 if NUM_DEBUG_SAMPLES is not None:
@@ -375,9 +363,11 @@ np.save(os.path.join(ATTACK_DIR, 'robustness_probs_adv.npy'), robustness_probs_a
 np.save(os.path.join(ATTACK_DIR, 'embeddings_arr.npy'), embeddings_arr)
 np.save(os.path.join(ATTACK_DIR, 'embeddings_arr_adv.npy'), embeddings_arr_adv)
 
+print('Calculating robustness metrics...')
 calc_robust_metrics(robustness_preds, robustness_preds_adv)
 calc_robust_metrics_from_probs_majority_vote(robustness_probs, robustness_probs_adv)
 calc_robust_metrics_from_probs_summation(robustness_probs, robustness_probs_adv)
-calc_robust_metrics_from_embeddings_center(embeddings_arr, embeddings_arr_adv)
+print('Calculating robustness metrics via embedding center...')
+calc_robust_metrics(robustness_preds_from_emb_enter, robustness_preds_from_emb_enter_adv)
 
 print('done')
