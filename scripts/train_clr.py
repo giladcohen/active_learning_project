@@ -189,6 +189,7 @@ proj_head = proj_head.to(device)
 if device == 'cuda':
     # net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
+train_params = list(net.parameters()) + list(proj_head.parameters())
 
 def reset_net():
     net.load_state_dict(global_state['best_net'])
@@ -198,33 +199,33 @@ def reset_proj():
         if hasattr(layer, 'reset_parameters'):
             layer.reset_parameters()
 
-
-train_params = list(net.parameters()) + list(proj_head.parameters())
-if args.opt == 'sgd':
-    optimizer = optim.SGD(
-        train_params,
-        lr=args.lr,
-        momentum=args.mom,
-        weight_decay=args.wd,
-        nesterov=args.mom > 0)
-elif args.opt == 'adam':
-    optimizer = optim.Adam(
-        train_params,
-        lr=args.lr,
-        weight_decay=args.wd)
-elif args.opt == 'adamw':
-    optimizer = optim.AdamW(
-        train_params,
-        lr=args.lr,
-        weight_decay=args.wd)
-elif args.opt == 'rmsprop':
-    optimizer = optim.RMSprop(
-        train_params,
-        lr=args.lr,
-        momentum=args.mom,
-        weight_decay=args.wd)
-else:
-    raise AssertionError('optimizer {} is not expected'.format(args.opt))
+def reset_opt():
+    global optimizer
+    if args.opt == 'sgd':
+        optimizer = optim.SGD(
+            train_params,
+            lr=args.lr,
+            momentum=args.mom,
+            weight_decay=args.wd,
+            nesterov=args.mom > 0)
+    elif args.opt == 'adam':
+        optimizer = optim.Adam(
+            train_params,
+            lr=args.lr,
+            weight_decay=args.wd)
+    elif args.opt == 'adamw':
+        optimizer = optim.AdamW(
+            train_params,
+            lr=args.lr,
+            weight_decay=args.wd)
+    elif args.opt == 'rmsprop':
+        optimizer = optim.RMSprop(
+            train_params,
+            lr=args.lr,
+            momentum=args.mom,
+            weight_decay=args.wd)
+    else:
+        raise AssertionError('optimizer {} is not expected'.format(args.opt))
 
 def contrastive_loss(hidden, temperature=0.1):
     hidden1 = hidden[0:args.batch_size]
@@ -242,11 +243,11 @@ def entropy_loss(logits):
 robustness_preds     = -1 * np.ones(test_size, dtype=np.int32)
 robustness_preds_adv = -1 * np.ones(test_size, dtype=np.int32)
 # multi TTAs
-robustness_probs     = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
-robustness_probs_adv = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
-embeddings_arr       = -1 * torch.ones((test_size, args.tta_size, net.linear.weight.shape[1]),
+robustness_probs     = -1 * np.ones((test_size, 2 * args.batch_size, len(classes)), dtype=np.float32)
+robustness_probs_adv = -1 * np.ones((test_size, 2 * args.batch_size, len(classes)), dtype=np.float32)
+embeddings_arr       = -1 * torch.ones((test_size, 2 * args.batch_size, net.linear.weight.shape[1]),
                                        dtype=torch.float32, device=device, requires_grad=False)
-embeddings_arr_adv   = -1 * torch.ones((test_size, args.tta_size, net.linear.weight.shape[1]),
+embeddings_arr_adv   = -1 * torch.ones((test_size, 2 * args.batch_size, net.linear.weight.shape[1]),
                                        dtype=torch.float32, device=device, requires_grad=False)
 robustness_preds_from_emb_enter     = -1 * np.ones(test_size, dtype=np.int32)
 robustness_preds_from_emb_enter_adv = -1 * np.ones(test_size, dtype=np.int32)
@@ -265,42 +266,32 @@ for img_ind in tqdm(range(img_cnt)):
     start_time = time.time()
     reset_net()
     reset_proj()
+    reset_opt()
     net.eval()
     proj_head.eval()
     train_loader = get_single_img_dataloader(args.dataset, X_test, y_test_preds, 2 * args.batch_size,
                                              pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
+    (inputs, targets) = list(train_loader)[0]
+    inputs, targets = inputs.to(device), targets.to(device)
     for step in range(args.steps):
-        for batch_idx, (inputs, targets) in enumerate(train_loader):
-            # debug:
-            # (inputs, targets) = list(train_loader)[0]
-            inputs, targets = inputs.to(device), targets.to(device)
-            optimizer.zero_grad()
-            out = net(inputs)
-            embeddings, logits = out['embeddings'], out['logits']
-            z = proj_head(embeddings)
-            loss_cont = contrastive_loss(z)
-            loss_ent = entropy_loss(logits)
-            loss = loss_cont + args.lambda_ent * loss_ent
-            loss.backward()
-            optimizer.step()
+        optimizer.zero_grad()
+        out = net(inputs)
+        embeddings, logits = out['embeddings'], out['logits']
+        z = proj_head(embeddings)
+        loss_cont = contrastive_loss(z)
+        loss_ent = entropy_loss(logits)
+        loss = loss_cont + args.lambda_ent * loss_ent
+        loss.backward()
+        optimizer.step()
     TRAIN_TIME_CNT += time.time() - start_time
 
     # Evaluating
     start_time = time.time()
     robustness_preds[img_ind] = classifier.predict(np.expand_dims(X_test[img_ind], 0)).squeeze().argmax()
     with torch.no_grad():
-        tta_cnt = 0
-        while tta_cnt < args.tta_size:
-            for batch_idx, (inputs, targets) in enumerate(train_loader):
-                inputs, targets = inputs.to(device), targets.to(device)
-                b = tta_cnt
-                e = min(tta_cnt + len(inputs), args.tta_size)
-                out = net(inputs)
-                embeddings_arr[img_ind, b:e] = out['embeddings'][0:(e-b)]
-                robustness_probs[img_ind, b:e] = out['probs'][0:(e-b)].detach().cpu().numpy()
-                tta_cnt += e-b
-                assert tta_cnt <= args.tta_size, 'not cool!'
-
+        out = net(inputs)
+        embeddings_arr[img_ind] = out['embeddings']
+        robustness_probs[img_ind] = out['probs'].detach().cpu().numpy()
         robustness_preds_from_emb_enter[img_ind] = get_preds_from_emb_center(embeddings_arr[img_ind])
     TEST_TIME_CNT += time.time() - start_time
 
@@ -309,42 +300,32 @@ for img_ind in tqdm(range(img_cnt)):
     start_time = time.time()
     reset_net()
     reset_proj()
+    reset_opt()
     net.eval()
     proj_head.eval()
     train_loader = get_single_img_dataloader(args.dataset, X_test_adv, y_test_adv_preds, 2 * args.batch_size,
                                              pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
+    (inputs, targets) = list(train_loader)[0]
+    inputs, targets = inputs.to(device), targets.to(device)
     for step in range(args.steps):
-        for batch_idx, (inputs, targets) in enumerate(train_loader):
-            # debug:
-            # (inputs, targets) = list(train_loader)[0]
-            inputs, targets = inputs.to(device), targets.to(device)
-            optimizer.zero_grad()
-            out = net(inputs)
-            embeddings, logits = out['embeddings'], out['logits']
-            z = proj_head(embeddings)
-            loss_cont = contrastive_loss(z)
-            loss_ent = entropy_loss(logits)
-            loss = loss_cont + args.lambda_ent * loss_ent
-            loss.backward()
-            optimizer.step()
+        optimizer.zero_grad()
+        out = net(inputs)
+        embeddings, logits = out['embeddings'], out['logits']
+        z = proj_head(embeddings)
+        loss_cont = contrastive_loss(z)
+        loss_ent = entropy_loss(logits)
+        loss = loss_cont + args.lambda_ent * loss_ent
+        loss.backward()
+        optimizer.step()
     TRAIN_TIME_CNT += time.time() - start_time
 
     # Evaluating
     start_time = time.time()
     robustness_preds_adv[img_ind] = classifier.predict(np.expand_dims(X_test_adv[img_ind], 0)).squeeze().argmax()
     with torch.no_grad():
-        tta_cnt = 0
-        while tta_cnt < args.tta_size:
-            for batch_idx, (inputs, targets) in enumerate(train_loader):
-                inputs, targets = inputs.to(device), targets.to(device)
-                b = tta_cnt
-                e = min(tta_cnt + len(inputs), args.tta_size)
-                out = net(inputs)
-                embeddings_arr_adv[img_ind, b:e] = out['embeddings'][0:(e-b)]
-                robustness_probs_adv[img_ind, b:e] = out['probs'][0:(e-b)].detach().cpu().numpy()
-                tta_cnt += e-b
-                assert tta_cnt <= args.tta_size, 'not cool!'
-
+        out = net(inputs)
+        embeddings_arr_adv[img_ind] = out['embeddings']
+        robustness_probs_adv[img_ind] = out['probs'].detach().cpu().numpy()
         robustness_preds_from_emb_enter_adv[img_ind] = get_preds_from_emb_center(embeddings_arr_adv[img_ind])
     TEST_TIME_CNT += time.time() - start_time
 
