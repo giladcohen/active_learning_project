@@ -48,7 +48,7 @@ parser.add_argument('--batch_size', default=16, type=int, help='batch size for t
 parser.add_argument('--opt', default='adam', type=str, help='optimizer')
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
-parser.add_argument('--lambda_ent', default=0.001, type=float, help='Regularization for entropy loss')
+parser.add_argument('--lambda_ent', default=0.00001, type=float, help='Regularization for entropy loss')
 
 # eval
 parser.add_argument('--tta_size', default=50, type=int, help='number of test-time augmentations in eval phase')
