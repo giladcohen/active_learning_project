@@ -252,6 +252,7 @@ embeddings_arr_adv   = -1 * torch.ones((test_size, 2 * args.batch_size, net.line
 robustness_preds_from_emb_enter     = -1 * np.ones(test_size, dtype=np.int32)
 robustness_preds_from_emb_enter_adv = -1 * np.ones(test_size, dtype=np.int32)
 
+reset_opt()
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=contrastive_loss,
                                optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 
