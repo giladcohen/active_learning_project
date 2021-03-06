@@ -44,11 +44,11 @@ parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attac
 # train
 parser.add_argument('--lr', default=0.0001, type=float, help='learning rate')
 parser.add_argument('--steps', default=15, type=int, help='number of training steps')
-parser.add_argument('--batch_size', default=16, type=int, help='batch size for the CLR training')
+parser.add_argument('--batch_size', default=32, type=int, help='batch size for the CLR training')
 parser.add_argument('--opt', default='adam', type=str, help='optimizer')
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
-parser.add_argument('--lambda_ent', default=0.0, type=float, help='Regularization for entropy loss')
+parser.add_argument('--lambda_ent', default=1.0, type=float, help='Regularization for entropy loss')
 
 # eval
 parser.add_argument('--tta_size', default=50, type=int, help='number of test-time augmentations in eval phase')
