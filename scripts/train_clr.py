@@ -43,7 +43,7 @@ parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attac
 
 # train
 parser.add_argument('--lr', default=0.0001, type=float, help='learning rate')
-parser.add_argument('--steps', default=7, type=int, help='number of training steps')
+parser.add_argument('--steps', default=15, type=int, help='number of training steps')
 parser.add_argument('--batch_size', default=16, type=int, help='batch size for the CLR training')
 parser.add_argument('--opt', default='adam', type=str, help='optimizer')
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
