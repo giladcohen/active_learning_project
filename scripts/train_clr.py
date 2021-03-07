@@ -243,6 +243,32 @@ def entropy_loss(logits):
     b = -1.0 * b.sum()
     return b
 
+def get_debug(set, step):
+    global loss_cont, loss_ent
+    if set == 'normal':
+        x         = X_test
+        cent_d      = cross_entropy
+        ent_d       = entropy
+        conf_d      = confidences
+        loss_cont_d = loss_contrastive
+        loss_ent_d  = loss_entropy
+    else:
+        x         = X_test_adv
+        cent_d      = cross_entropy_adv
+        ent_d       = entropy_adv
+        conf_d      = confidences_adv
+        loss_cont_d = loss_contrastive_adv
+        loss_ent_d  = loss_entropy_adv
+    with torch.no_grad():
+        x_tensor = torch.from_numpy(np.expand_dims(x[img_ind], 0)).to(device)
+        y_tensor = torch.from_numpy(np.expand_dims(y_test[img_ind], 0)).to(device)
+        out = net(x_tensor)
+        cent_d[img_ind, step] = F.cross_entropy(out['logits'], y_tensor)
+        ent_d[img_ind, step] = entropy_loss(out['logits'])
+        conf_d[img_ind, step] = out['probs'].squeeze().max()
+        loss_cont_d[img_ind, step] = loss_cont.item()
+        loss_ent_d[img_ind, step] = loss_ent.item()
+
 reset_opt()
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=contrastive_loss,
                                optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
@@ -273,9 +299,9 @@ confidences_adv      = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
 loss_contrastive_adv = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
 loss_entropy_adv     = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
 
-def train():
+def train(set):
     """set='normal' or 'adv'"""
-    global TRAIN_TIME_CNT
+    global TRAIN_TIME_CNT, loss_cont, loss_ent
 
     start_time = time.time()
     reset_net()
@@ -294,8 +320,20 @@ def train():
         loss_cont = contrastive_loss(z)
         loss_ent = entropy_loss(logits)
         loss = loss_cont + args.lambda_ent * loss_ent
+        get_debug(set, step=step)
         loss.backward()
         optimizer.step()
+
+    # for debug, last step:
+    (inputs, targets) = list(train_loader)[0]
+    inputs, targets = inputs.to(device), targets.to(device)
+    out = net(inputs)
+    embeddings, logits = out['embeddings'], out['logits']
+    z = proj_head(embeddings)
+    loss_cont = contrastive_loss(z)
+    loss_ent = entropy_loss(logits)
+    get_debug(set, step=args.steps)
+
     TRAIN_TIME_CNT += time.time() - start_time
 
 def test(set):
@@ -337,13 +375,13 @@ for img_ind in tqdm(range(img_cnt)):
     # normal
     train_loader = get_single_img_dataloader(args.dataset, X_test, y_test, 2 * args.batch_size,
                                              pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
-    train()
+    train('normal')
     test('normal')
 
     # adv
     train_loader = get_single_img_dataloader(args.dataset, X_test_adv, y_test, 2 * args.batch_size,
                                              pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
-    train()
+    train('adv')
     test('adv')
 
 
@@ -361,6 +399,18 @@ np.save(os.path.join(ATTACK_DIR, 'robustness_probs.npy'), robustness_probs)
 np.save(os.path.join(ATTACK_DIR, 'robustness_probs_adv.npy'), robustness_probs_adv)
 np.save(os.path.join(ATTACK_DIR, 'robustness_preds_from_emb_enter.npy'), robustness_preds_from_emb_enter)
 np.save(os.path.join(ATTACK_DIR, 'robustness_preds_from_emb_enter_adv.npy'), robustness_preds_from_emb_enter_adv)
+
+# debug
+np.save(os.path.join(ATTACK_DIR, 'cross_entropy.npy'), cross_entropy)
+np.save(os.path.join(ATTACK_DIR, 'cross_entropy_adv.npy'), cross_entropy_adv)
+np.save(os.path.join(ATTACK_DIR, 'entropy.npy'), entropy)
+np.save(os.path.join(ATTACK_DIR, 'entropy_adv.npy'), entropy_adv)
+np.save(os.path.join(ATTACK_DIR, 'confidences.npy'), confidences)
+np.save(os.path.join(ATTACK_DIR, 'confidences_adv.npy'), confidences_adv)
+np.save(os.path.join(ATTACK_DIR, 'loss_contrastive.npy'), loss_contrastive)
+np.save(os.path.join(ATTACK_DIR, 'loss_contrastive_adv.npy'), loss_contrastive_adv)
+np.save(os.path.join(ATTACK_DIR, 'loss_entropy.npy'), loss_entropy)
+np.save(os.path.join(ATTACK_DIR, 'loss_entropy_adv.npy'), loss_entropy_adv)
 
 print('Calculating robustness metrics...')
 calc_robust_metrics(robustness_preds, robustness_preds_adv)
