@@ -344,7 +344,7 @@ for img_ind in tqdm(range(img_cnt)):
     train_loader = get_single_img_dataloader(args.dataset, X_test_adv, y_test, 2 * args.batch_size,
                                              pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
     train()
-    test('normal')
+    test('adv')
 
 
 if NUM_DEBUG_SAMPLES is not None:
