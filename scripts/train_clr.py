@@ -52,6 +52,7 @@ parser.add_argument('--lambda_ent', default=0.0, type=float, help='Regularizatio
 
 # eval
 parser.add_argument('--tta_size', default=50, type=int, help='number of test-time augmentations in eval phase')
+parser.add_argument('--debug_size', default=None, type=int, help='number of image to run in debug mode')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -59,7 +60,7 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 args = parser.parse_args()
 
 # debug
-NUM_DEBUG_SAMPLES = None
+NUM_DEBUG_SAMPLES = args.debug_size
 TRAIN_TIME_CNT = 0.0
 TEST_TIME_CNT = 0.0
 
