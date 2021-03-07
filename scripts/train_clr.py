@@ -43,12 +43,12 @@ parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attac
 
 # train
 parser.add_argument('--lr', default=0.0001, type=float, help='learning rate')
-parser.add_argument('--steps', default=15, type=int, help='number of training steps')
-parser.add_argument('--batch_size', default=32, type=int, help='batch size for the CLR training')
+parser.add_argument('--steps', default=7, type=int, help='number of training steps')
+parser.add_argument('--batch_size', default=16, type=int, help='batch size for the CLR training')
 parser.add_argument('--opt', default='adam', type=str, help='optimizer')
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
-parser.add_argument('--lambda_ent', default=1.0, type=float, help='Regularization for entropy loss')
+parser.add_argument('--lambda_ent', default=0.00001, type=float, help='Regularization for entropy loss')
 
 # eval
 parser.add_argument('--tta_size', default=50, type=int, help='number of test-time augmentations in eval phase')
@@ -243,11 +243,11 @@ def entropy_loss(logits):
 robustness_preds     = -1 * np.ones(test_size, dtype=np.int32)
 robustness_preds_adv = -1 * np.ones(test_size, dtype=np.int32)
 # multi TTAs
-robustness_probs     = -1 * np.ones((test_size, 2 * args.batch_size, len(classes)), dtype=np.float32)
-robustness_probs_adv = -1 * np.ones((test_size, 2 * args.batch_size, len(classes)), dtype=np.float32)
-embeddings_arr       = -1 * torch.ones((test_size, 2 * args.batch_size, net.linear.weight.shape[1]),
+robustness_probs     = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
+robustness_probs_adv = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
+embeddings_arr       = -1 * torch.ones((test_size, args.tta_size, net.linear.weight.shape[1]),
                                        dtype=torch.float32, device=device, requires_grad=False)
-embeddings_arr_adv   = -1 * torch.ones((test_size, 2 * args.batch_size, net.linear.weight.shape[1]),
+embeddings_arr_adv   = -1 * torch.ones((test_size, args.tta_size, net.linear.weight.shape[1]),
                                        dtype=torch.float32, device=device, requires_grad=False)
 robustness_preds_from_emb_enter     = -1 * np.ones(test_size, dtype=np.int32)
 robustness_preds_from_emb_enter_adv = -1 * np.ones(test_size, dtype=np.int32)
@@ -272,9 +272,9 @@ for img_ind in tqdm(range(img_cnt)):
     proj_head.eval()
     train_loader = get_single_img_dataloader(args.dataset, X_test, y_test_preds, 2 * args.batch_size,
                                              pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
-    (inputs, targets) = list(train_loader)[0]
-    inputs, targets = inputs.to(device), targets.to(device)
     for step in range(args.steps):
+        (inputs, targets) = list(train_loader)[0]
+        inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
         out = net(inputs)
         embeddings, logits = out['embeddings'], out['logits']
@@ -290,9 +290,18 @@ for img_ind in tqdm(range(img_cnt)):
     start_time = time.time()
     robustness_preds[img_ind] = classifier.predict(np.expand_dims(X_test[img_ind], 0)).squeeze().argmax()
     with torch.no_grad():
-        out = net(inputs)
-        embeddings_arr[img_ind] = out['embeddings']
-        robustness_probs[img_ind] = out['probs'].detach().cpu().numpy()
+        tta_cnt = 0
+        while tta_cnt < args.tta_size:
+            for batch_idx, (inputs, targets) in enumerate(train_loader):
+                inputs, targets = inputs.to(device), targets.to(device)
+                b = tta_cnt
+                e = min(tta_cnt + len(inputs), args.tta_size)
+                out = net(inputs)
+                embeddings_arr[img_ind, b:e] = out['embeddings'][0:(e-b)]
+                robustness_probs[img_ind, b:e] = out['probs'][0:(e-b)].detach().cpu().numpy()
+                tta_cnt += e-b
+                assert tta_cnt <= args.tta_size, 'not cool!'
+
         robustness_preds_from_emb_enter[img_ind] = get_preds_from_emb_center(embeddings_arr[img_ind])
     TEST_TIME_CNT += time.time() - start_time
 
@@ -306,9 +315,9 @@ for img_ind in tqdm(range(img_cnt)):
     proj_head.eval()
     train_loader = get_single_img_dataloader(args.dataset, X_test_adv, y_test_adv_preds, 2 * args.batch_size,
                                              pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
-    (inputs, targets) = list(train_loader)[0]
-    inputs, targets = inputs.to(device), targets.to(device)
     for step in range(args.steps):
+        (inputs, targets) = list(train_loader)[0]
+        inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
         out = net(inputs)
         embeddings, logits = out['embeddings'], out['logits']
@@ -324,9 +333,18 @@ for img_ind in tqdm(range(img_cnt)):
     start_time = time.time()
     robustness_preds_adv[img_ind] = classifier.predict(np.expand_dims(X_test_adv[img_ind], 0)).squeeze().argmax()
     with torch.no_grad():
-        out = net(inputs)
-        embeddings_arr_adv[img_ind] = out['embeddings']
-        robustness_probs_adv[img_ind] = out['probs'].detach().cpu().numpy()
+        tta_cnt = 0
+        while tta_cnt < args.tta_size:
+            for batch_idx, (inputs, targets) in enumerate(train_loader):
+                inputs, targets = inputs.to(device), targets.to(device)
+                b = tta_cnt
+                e = min(tta_cnt + len(inputs), args.tta_size)
+                out = net(inputs)
+                embeddings_arr_adv[img_ind, b:e] = out['embeddings'][0:(e-b)]
+                robustness_probs_adv[img_ind, b:e] = out['probs'][0:(e-b)].detach().cpu().numpy()
+                tta_cnt += e-b
+                assert tta_cnt <= args.tta_size, 'not cool!'
+
         robustness_preds_from_emb_enter_adv[img_ind] = get_preds_from_emb_center(embeddings_arr_adv[img_ind])
     TEST_TIME_CNT += time.time() - start_time
 
