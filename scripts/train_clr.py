@@ -321,7 +321,7 @@ def train(set):
         loss_cont = contrastive_loss(z)
         loss_ent = entropy_loss(logits)
         if step < args.steps_pre:
-            loss = loss_cont - args.lambda_ent * loss_ent
+            loss = - args.lambda_ent * loss_ent
         else:
             loss = loss_cont + args.lambda_ent * loss_ent
         get_debug(set, step=step)
