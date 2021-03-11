@@ -43,7 +43,8 @@ parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attac
 
 # train
 parser.add_argument('--lr', default=0.0001, type=float, help='learning rate')
-parser.add_argument('--steps_pre', default=7, type=int, help='number of pre-training steps to increase entropy')
+parser.add_argument('--steps_pre1', default=7, type=int, help='number of pre-training steps to decrease sim')
+parser.add_argument('--steps_pre2', default=7, type=int, help='number of pre-training steps to increase entropy')
 parser.add_argument('--steps', default=15, type=int, help='number of training steps')
 parser.add_argument('--batch_size', default=16, type=int, help='batch size for the CLR training')
 parser.add_argument('--opt', default='adam', type=str, help='optimizer')
@@ -314,13 +315,17 @@ def train(set):
     for step in range(args.steps):
         (inputs, targets) = list(train_loader)[0]
         inputs, targets = inputs.to(device), targets.to(device)
+        if step in [args.steps_pre1, args.steps_pre2]:
+            reset_opt()
         optimizer.zero_grad()
         out = net(inputs)
         embeddings, logits = out['embeddings'], out['logits']
         z = proj_head(embeddings)
         loss_cont = contrastive_loss(z)
         loss_ent = entropy_loss(logits)
-        if step < args.steps_pre:
+        if step < args.steps_pre1:
+            loss = loss_cont
+        elif step < args.steps_pre2:
             loss = - args.lambda_ent * loss_ent
         else:
             loss = loss_cont + args.lambda_ent * loss_ent
