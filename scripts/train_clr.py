@@ -43,7 +43,8 @@ parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attac
 
 # train
 parser.add_argument('--lr', default=0.0001, type=float, help='learning rate')
-parser.add_argument('--steps', default=7, type=int, help='number of training steps')
+parser.add_argument('--steps_pre', default=7, type=int, help='number of pre-training steps to increase entropy')
+parser.add_argument('--steps', default=15, type=int, help='number of training steps')
 parser.add_argument('--batch_size', default=16, type=int, help='batch size for the CLR training')
 parser.add_argument('--opt', default='adam', type=str, help='optimizer')
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
@@ -52,7 +53,7 @@ parser.add_argument('--lambda_ent', default=0.0, type=float, help='Regularizatio
 
 # eval
 parser.add_argument('--tta_size', default=50, type=int, help='number of test-time augmentations in eval phase')
-parser.add_argument('--debug_size', default=None, type=int, help='number of image to run in debug mode')
+parser.add_argument('--debug_size', default=100, type=int, help='number of image to run in debug mode')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -319,7 +320,10 @@ def train(set):
         z = proj_head(embeddings)
         loss_cont = contrastive_loss(z)
         loss_ent = entropy_loss(logits)
-        loss = loss_cont + args.lambda_ent * loss_ent
+        if step < args.steps_pre:
+            loss = loss_cont - args.lambda_ent * loss_ent
+        else:
+            loss = loss_cont + args.lambda_ent * loss_ent
         get_debug(set, step=step)
         loss.backward()
         optimizer.step()
@@ -411,6 +415,7 @@ np.save(os.path.join(ATTACK_DIR, 'loss_contrastive.npy'), loss_contrastive)
 np.save(os.path.join(ATTACK_DIR, 'loss_contrastive_adv.npy'), loss_contrastive_adv)
 np.save(os.path.join(ATTACK_DIR, 'loss_entropy.npy'), loss_entropy)
 np.save(os.path.join(ATTACK_DIR, 'loss_entropy_adv.npy'), loss_entropy_adv)
+
 
 print('Calculating robustness metrics...')
 calc_robust_metrics(robustness_preds, robustness_preds_adv)
