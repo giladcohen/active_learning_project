@@ -447,6 +447,8 @@ if args.dump:
     np.save(os.path.join(ATTACK_DIR, 'loss_contrastive_adv.npy'), loss_contrastive_adv)
     np.save(os.path.join(ATTACK_DIR, 'loss_entropy.npy'), loss_entropy)
     np.save(os.path.join(ATTACK_DIR, 'loss_entropy_adv.npy'), loss_entropy_adv)
+    np.save(os.path.join(ATTACK_DIR, 'loss_weight_difference.npy'), loss_weight_difference)
+    np.save(os.path.join(ATTACK_DIR, 'loss_weight_difference_adv.npy'), loss_weight_difference_adv)
 
 print('Calculating robustness metrics...')
 calc_robust_metrics(robustness_preds, robustness_preds_adv)

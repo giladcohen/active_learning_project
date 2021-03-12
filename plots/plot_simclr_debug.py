@@ -1,7 +1,7 @@
 """Plotting the debug stats values after each steps of re-training the network with SimCLR"""
 from active_learning_project.utils import convert_tensor_to_image
 
-NUM_DEBUG_SAMPLES = 50
+NUM_DEBUG_SAMPLES = 1000
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -11,18 +11,20 @@ sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 
 ATTACK_DIR = '/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00/cw_targeted'
-cross_entropy        = np.load(os.path.join(ATTACK_DIR, 'cross_entropy.npy'))
-cross_entropy_adv    = np.load(os.path.join(ATTACK_DIR, 'cross_entropy_adv.npy'))
-entropy              = np.load(os.path.join(ATTACK_DIR, 'entropy.npy'))
-entropy_adv          = np.load(os.path.join(ATTACK_DIR, 'entropy_adv.npy'))
-confidences          = np.load(os.path.join(ATTACK_DIR, 'confidences.npy'))
-confidences_adv      = np.load(os.path.join(ATTACK_DIR, 'confidences_adv.npy'))
-loss_contrastive     = np.load(os.path.join(ATTACK_DIR, 'loss_contrastive.npy'))
-loss_contrastive_adv = np.load(os.path.join(ATTACK_DIR, 'loss_contrastive_adv.npy'))
-loss_entropy         = np.load(os.path.join(ATTACK_DIR, 'loss_entropy.npy'))
-loss_entropy_adv     = np.load(os.path.join(ATTACK_DIR, 'loss_entropy_adv.npy'))
-robustness_preds     = np.load(os.path.join(ATTACK_DIR, 'robustness_preds.npy'))
-robustness_preds_adv = np.load(os.path.join(ATTACK_DIR, 'robustness_preds_adv.npy'))
+cross_entropy              = np.load(os.path.join(ATTACK_DIR, 'cross_entropy.npy'))
+cross_entropy_adv          = np.load(os.path.join(ATTACK_DIR, 'cross_entropy_adv.npy'))
+entropy                    = np.load(os.path.join(ATTACK_DIR, 'entropy.npy'))
+entropy_adv                = np.load(os.path.join(ATTACK_DIR, 'entropy_adv.npy'))
+confidences                = np.load(os.path.join(ATTACK_DIR, 'confidences.npy'))
+confidences_adv            = np.load(os.path.join(ATTACK_DIR, 'confidences_adv.npy'))
+loss_contrastive           = np.load(os.path.join(ATTACK_DIR, 'loss_contrastive.npy'))
+loss_contrastive_adv       = np.load(os.path.join(ATTACK_DIR, 'loss_contrastive_adv.npy'))
+loss_entropy               = np.load(os.path.join(ATTACK_DIR, 'loss_entropy.npy'))
+loss_entropy_adv           = np.load(os.path.join(ATTACK_DIR, 'loss_entropy_adv.npy'))
+robustness_preds           = np.load(os.path.join(ATTACK_DIR, 'robustness_preds.npy'))
+robustness_preds_adv       = np.load(os.path.join(ATTACK_DIR, 'robustness_preds_adv.npy'))
+loss_weight_difference     = np.load(os.path.join(ATTACK_DIR, 'loss_weight_difference.npy'))
+loss_weight_difference_adv = np.load(os.path.join(ATTACK_DIR, 'loss_weight_difference_adv.npy'))
 
 y_test               = np.load(os.path.join(os.path.dirname(ATTACK_DIR), 'normal', 'y_test.npy'))
 try:
@@ -78,6 +80,8 @@ for n in range(N_imgs):
     ax4.set_title('contrastive loss', fontdict={'fontsize': 12})
     ax5.plot(x, loss_entropy[n])
     ax5.set_title('entropy loss', fontdict={'fontsize': 12})
+    ax6.plot(x, loss_weight_difference[n], 'r')
+    ax6.set_title('weight diff loss', fontdict={'fontsize': 12})
     plt.tight_layout(h_pad=0.7)
     plt.show()
 
@@ -95,6 +99,8 @@ ax4.plot(x, loss_contrastive.mean(axis=0))
 ax4.set_title('contrastive loss', fontdict={'fontsize': 12})
 ax5.plot(x, loss_entropy.mean(axis=0))
 ax5.set_title('entropy loss', fontdict={'fontsize': 12})
+ax6.plot(x, loss_weight_difference.mean(axis=0))
+ax6.set_title('weight diff loss', fontdict={'fontsize': 12})
 plt.tight_layout(h_pad=0.7)
 plt.show()
 
@@ -112,6 +118,8 @@ for n in range(N_imgs):
     ax4.set_title('contrastive loss', fontdict={'fontsize': 12})
     ax5.plot(x, loss_entropy_adv[n], 'r')
     ax5.set_title('entropy loss', fontdict={'fontsize': 12})
+    ax6.plot(x, loss_weight_difference_adv[n], 'r')
+    ax6.set_title('weight diff loss', fontdict={'fontsize': 12})
     plt.tight_layout(h_pad=0.7)
     plt.show()
 
@@ -129,6 +137,8 @@ ax4.plot(x, loss_contrastive_adv.mean(axis=0), 'r')
 ax4.set_title('contrastive loss', fontdict={'fontsize': 12})
 ax5.plot(x, loss_entropy_adv.mean(axis=0), 'r')
 ax5.set_title('entropy loss', fontdict={'fontsize': 12})
+ax6.plot(x, loss_weight_difference_adv.mean(axis=0))
+ax6.set_title('weight diff loss', fontdict={'fontsize': 12})
 plt.tight_layout(h_pad=0.7)
 plt.show()
 
