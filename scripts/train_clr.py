@@ -50,6 +50,7 @@ parser.add_argument('--opt', default='sgd', type=str, help='optimizer')
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
 parser.add_argument('--lambda_ent', default=0.001, type=float, help='Regularization for entropy loss')
+parser.add_argument('--lambda_wdiff', default=0.0, type=float, help='Regularization for weight diff')
 
 # eval
 parser.add_argument('--tta_size', default=50, type=int, help='number of test-time augmentations in eval phase')
@@ -234,6 +235,14 @@ def reset_opt():
     else:
         raise AssertionError('optimizer {} is not expected'.format(args.opt))
 
+# copying original net params to model_params:
+reset_net()
+reset_opt()
+params = []
+for param in net.parameters():
+    params.append(param.view(-1))
+orig_params = torch.cat(params)
+
 def contrastive_loss(hidden, temperature=0.1):
     hidden1 = hidden[0:args.batch_size]
     hidden2 = hidden[args.batch_size:]
@@ -247,8 +256,17 @@ def entropy_loss(logits):
     b = -1.0 * b.sum()
     return b
 
+def weight_diff_loss():
+    global net
+    params = []
+    for param in net.parameters():
+        params.append(param.view(-1))
+    curr_params = torch.cat(params)
+    diff = torch.linalg.norm(curr_params - orig_params, ord=2)
+    return diff
+
 def get_debug(set, step):
-    global loss_cont, loss_ent
+    global loss_cont, loss_ent, loss_weight_diff
     if set == 'normal':
         x         = X_test
         cent_d      = cross_entropy
@@ -256,6 +274,7 @@ def get_debug(set, step):
         conf_d      = confidences
         loss_cont_d = loss_contrastive
         loss_ent_d  = loss_entropy
+        loss_w_d    = loss_weight_difference
     else:
         x         = X_test_adv
         cent_d      = cross_entropy_adv
@@ -263,6 +282,7 @@ def get_debug(set, step):
         conf_d      = confidences_adv
         loss_cont_d = loss_contrastive_adv
         loss_ent_d  = loss_entropy_adv
+        loss_w_d    = loss_weight_difference_adv
     with torch.no_grad():
         x_tensor = torch.from_numpy(np.expand_dims(x[img_ind], 0)).to(device)
         y_tensor = torch.from_numpy(np.expand_dims(y_test[img_ind], 0)).to(device)
@@ -272,8 +292,8 @@ def get_debug(set, step):
         conf_d[img_ind, step] = out['probs'].squeeze().max()
         loss_cont_d[img_ind, step] = loss_cont.item()
         loss_ent_d[img_ind, step] = loss_ent.item()
+        loss_w_d[img_ind, step] = loss_weight_diff.item()
 
-reset_opt()
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=contrastive_loss,
                                optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 
@@ -292,16 +312,19 @@ robustness_preds_from_emb_enter_adv = -1 * np.ones(test_size, dtype=np.int32)
 
 # debug stats
 img_cnt = NUM_DEBUG_SAMPLES if NUM_DEBUG_SAMPLES is not None else test_size
-cross_entropy        = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-entropy              = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-confidences          = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-loss_contrastive     = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-loss_entropy         = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-cross_entropy_adv    = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-entropy_adv          = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-confidences_adv      = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-loss_contrastive_adv = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-loss_entropy_adv     = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+cross_entropy              = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+entropy                    = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+confidences                = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+loss_contrastive           = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+loss_entropy               = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+cross_entropy_adv          = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+entropy_adv                = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+confidences_adv            = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+loss_contrastive_adv       = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+loss_entropy_adv           = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+loss_weight_difference     = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+loss_weight_difference_adv = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+
 
 def train(set):
     """set='normal' or 'adv'"""
@@ -317,18 +340,20 @@ def train(set):
     for step in range(args.steps):
         (inputs, targets) = list(train_loader)[0]
         inputs, targets = inputs.to(device), targets.to(device)
-        if step == args.steps_inc_ent:
-            reset_opt()
+        # if step == args.steps_inc_ent:
+        #     reset_opt()
         optimizer.zero_grad()
         out = net(inputs)
         embeddings, logits = out['embeddings'], out['logits']
         z = proj_head(embeddings)
         loss_cont = contrastive_loss(z)
         loss_ent = entropy_loss(logits)
-        if step < args.steps_inc_ent:
-            loss = -args.lambda_ent * loss_ent
-        else:
-            loss = loss_cont
+        loss_weight_diff = weight_diff_loss()
+        # if step < args.steps_inc_ent:
+        #     loss = -args.lambda_ent * loss_ent + args.lambda_wdiff * loss_weight_diff
+        # else:
+        #     loss = loss_cont + args.lambda_wdiff * loss_weight_diff
+        loss = loss_cont + args.lambda_wdiff * loss_weight_diff
         get_debug(set, step=step)
         loss.backward()
         optimizer.step()
