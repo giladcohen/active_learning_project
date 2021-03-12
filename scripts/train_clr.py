@@ -49,7 +49,7 @@ parser.add_argument('--batch_size', default=16, type=int, help='batch size for t
 parser.add_argument('--opt', default='sgd', type=str, help='optimizer')
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
-parser.add_argument('--lambda_ent', default=0.0, type=float, help='Regularization for entropy loss')
+parser.add_argument('--lambda_ent', default=0.001, type=float, help='Regularization for entropy loss')
 
 # eval
 parser.add_argument('--tta_size', default=50, type=int, help='number of test-time augmentations in eval phase')
@@ -322,7 +322,7 @@ def train(set):
         z = proj_head(embeddings)
         loss_cont = contrastive_loss(z)
         loss_ent = entropy_loss(logits)
-        if step in [0, 1, 2, 6, 7, 8, 12, 13, 14]:
+        if step % 2 == 0:
             loss = -args.lambda_ent * loss_ent
         else:
             loss = loss_cont
