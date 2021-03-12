@@ -328,7 +328,7 @@ loss_weight_difference_adv = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.fl
 
 def train(set):
     """set='normal' or 'adv'"""
-    global TRAIN_TIME_CNT, loss_cont, loss_ent
+    global TRAIN_TIME_CNT, loss_cont, loss_ent, loss_weight_diff
 
     start_time = time.time()
     reset_net()
