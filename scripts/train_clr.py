@@ -314,15 +314,15 @@ def train(set):
     for step in range(args.steps):
         (inputs, targets) = list(train_loader)[0]
         inputs, targets = inputs.to(device), targets.to(device)
-        if step == args.steps_inc_ent:
-            reset_opt()
+        # if step == args.steps_inc_ent:
+        #     reset_opt()
         optimizer.zero_grad()
         out = net(inputs)
         embeddings, logits = out['embeddings'], out['logits']
         z = proj_head(embeddings)
         loss_cont = contrastive_loss(z)
         loss_ent = entropy_loss(logits)
-        if step < args.steps_inc_ent:
+        if step in [0, 1, 2, 6, 7, 8, 12, 13, 14]:
             loss = -args.lambda_ent * loss_ent
         else:
             loss = loss_cont
