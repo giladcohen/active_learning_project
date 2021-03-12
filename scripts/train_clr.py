@@ -53,7 +53,10 @@ parser.add_argument('--lambda_ent', default=0.001, type=float, help='Regularizat
 
 # eval
 parser.add_argument('--tta_size', default=50, type=int, help='number of test-time augmentations in eval phase')
+
+# debug:
 parser.add_argument('--debug_size', default=100, type=int, help='number of image to run in debug mode')
+parser.add_argument('--dump', '-d', action='store_true', help='resume from checkpoint')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -399,25 +402,26 @@ else:
     average_test_time = TEST_TIME_CNT / (2 * test_size)
 print('average train/test time per sample: {}/{} secs'.format(average_train_time, average_test_time))
 
-np.save(os.path.join(ATTACK_DIR, 'robustness_preds.npy'), robustness_preds)
-np.save(os.path.join(ATTACK_DIR, 'robustness_preds_adv.npy'), robustness_preds_adv)
-np.save(os.path.join(ATTACK_DIR, 'robustness_probs.npy'), robustness_probs)
-np.save(os.path.join(ATTACK_DIR, 'robustness_probs_adv.npy'), robustness_probs_adv)
-np.save(os.path.join(ATTACK_DIR, 'robustness_preds_from_emb_enter.npy'), robustness_preds_from_emb_enter)
-np.save(os.path.join(ATTACK_DIR, 'robustness_preds_from_emb_enter_adv.npy'), robustness_preds_from_emb_enter_adv)
+if args.dump:
+    print('dumping results...')
+    np.save(os.path.join(ATTACK_DIR, 'robustness_preds.npy'), robustness_preds)
+    np.save(os.path.join(ATTACK_DIR, 'robustness_preds_adv.npy'), robustness_preds_adv)
+    np.save(os.path.join(ATTACK_DIR, 'robustness_probs.npy'), robustness_probs)
+    np.save(os.path.join(ATTACK_DIR, 'robustness_probs_adv.npy'), robustness_probs_adv)
+    np.save(os.path.join(ATTACK_DIR, 'robustness_preds_from_emb_enter.npy'), robustness_preds_from_emb_enter)
+    np.save(os.path.join(ATTACK_DIR, 'robustness_preds_from_emb_enter_adv.npy'), robustness_preds_from_emb_enter_adv)
 
-# debug
-np.save(os.path.join(ATTACK_DIR, 'cross_entropy.npy'), cross_entropy)
-np.save(os.path.join(ATTACK_DIR, 'cross_entropy_adv.npy'), cross_entropy_adv)
-np.save(os.path.join(ATTACK_DIR, 'entropy.npy'), entropy)
-np.save(os.path.join(ATTACK_DIR, 'entropy_adv.npy'), entropy_adv)
-np.save(os.path.join(ATTACK_DIR, 'confidences.npy'), confidences)
-np.save(os.path.join(ATTACK_DIR, 'confidences_adv.npy'), confidences_adv)
-np.save(os.path.join(ATTACK_DIR, 'loss_contrastive.npy'), loss_contrastive)
-np.save(os.path.join(ATTACK_DIR, 'loss_contrastive_adv.npy'), loss_contrastive_adv)
-np.save(os.path.join(ATTACK_DIR, 'loss_entropy.npy'), loss_entropy)
-np.save(os.path.join(ATTACK_DIR, 'loss_entropy_adv.npy'), loss_entropy_adv)
-
+    # debug
+    np.save(os.path.join(ATTACK_DIR, 'cross_entropy.npy'), cross_entropy)
+    np.save(os.path.join(ATTACK_DIR, 'cross_entropy_adv.npy'), cross_entropy_adv)
+    np.save(os.path.join(ATTACK_DIR, 'entropy.npy'), entropy)
+    np.save(os.path.join(ATTACK_DIR, 'entropy_adv.npy'), entropy_adv)
+    np.save(os.path.join(ATTACK_DIR, 'confidences.npy'), confidences)
+    np.save(os.path.join(ATTACK_DIR, 'confidences_adv.npy'), confidences_adv)
+    np.save(os.path.join(ATTACK_DIR, 'loss_contrastive.npy'), loss_contrastive)
+    np.save(os.path.join(ATTACK_DIR, 'loss_contrastive_adv.npy'), loss_contrastive_adv)
+    np.save(os.path.join(ATTACK_DIR, 'loss_entropy.npy'), loss_entropy)
+    np.save(os.path.join(ATTACK_DIR, 'loss_entropy_adv.npy'), loss_entropy_adv)
 
 print('Calculating robustness metrics...')
 calc_robust_metrics(robustness_preds, robustness_preds_adv)
