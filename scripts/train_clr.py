@@ -18,6 +18,8 @@ import time
 import sys
 import PIL
 import scipy
+import copy
+import pickle
 
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
@@ -50,7 +52,7 @@ parser.add_argument('--opt', default='sgd', type=str, help='optimizer')
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
 parser.add_argument('--lambda_ent', default=0.001, type=float, help='Regularization for entropy loss')
-parser.add_argument('--lambda_wdiff', default=0.0, type=float, help='Regularization for weight diff')
+parser.add_argument('--lambda_wdiff', default=2560, type=float, help='Regularization for weight diff')
 
 # eval
 parser.add_argument('--tta_size', default=50, type=int, help='number of test-time augmentations in eval phase')
@@ -184,12 +186,15 @@ test_size = len(X_test)
 
 # Model
 if train_args['net'] == 'resnet34':
-    net = ResNet34(num_classes=len(classes), activation=train_args['activation'])
+    net      = ResNet34(num_classes=len(classes), activation=train_args['activation'])
+    orig_net = ResNet34(num_classes=len(classes), activation=train_args['activation'])
 elif train_args['net'] == 'resnet101':
-    net = ResNet101(num_classes=len(classes), activation=train_args['activation'])
+    net      = ResNet101(num_classes=len(classes), activation=train_args['activation'])
+    orig_net = ResNet101(num_classes=len(classes), activation=train_args['activation'])
 else:
     raise AssertionError("network {} is unknown".format(train_args['net']))
 net = net.to(device)
+orig_net = orig_net.to(device)
 proj_head = ProjectobHead(512, 512, 128)
 proj_head = proj_head.to(device)
 
@@ -238,10 +243,8 @@ def reset_opt():
 # copying original net params to model_params:
 reset_net()
 reset_opt()
-params = []
-for param in net.parameters():
-    params.append(param.view(-1))
-orig_params = torch.cat(params)
+orig_net.load_state_dict(global_state['best_net'])
+orig_params = torch.nn.utils.parameters_to_vector(orig_net.parameters())
 
 def contrastive_loss(hidden, temperature=0.1):
     hidden1 = hidden[0:args.batch_size]
@@ -257,12 +260,11 @@ def entropy_loss(logits):
     return b
 
 def weight_diff_loss():
-    global net
-    params = []
-    for param in net.parameters():
-        params.append(param.view(-1))
-    curr_params = torch.cat(params)
-    diff = torch.linalg.norm(curr_params - orig_params, ord=2)
+    global net, orig_net, orig_params
+    diff = torch.tensor(0.0, requires_grad=True).to(device)
+    torch.nn.utils.vector_to_parameters(orig_params, orig_net.parameters())
+    for w1, w2 in zip(net.parameters(), orig_net.parameters()):
+        diff = diff + torch.linalg.norm((w1 - w2).view(-1), ord=2)
     return diff
 
 def get_debug(set, step):
@@ -340,8 +342,6 @@ def train(set):
     for step in range(args.steps):
         (inputs, targets) = list(train_loader)[0]
         inputs, targets = inputs.to(device), targets.to(device)
-        # if step == args.steps_inc_ent:
-        #     reset_opt()
         optimizer.zero_grad()
         out = net(inputs)
         embeddings, logits = out['embeddings'], out['logits']
@@ -349,10 +349,6 @@ def train(set):
         loss_cont = contrastive_loss(z)
         loss_ent = entropy_loss(logits)
         loss_weight_diff = weight_diff_loss()
-        # if step < args.steps_inc_ent:
-        #     loss = -args.lambda_ent * loss_ent + args.lambda_wdiff * loss_weight_diff
-        # else:
-        #     loss = loss_cont + args.lambda_wdiff * loss_weight_diff
         loss = loss_cont + args.lambda_wdiff * loss_weight_diff
         get_debug(set, step=step)
         loss.backward()
