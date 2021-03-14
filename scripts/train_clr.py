@@ -286,11 +286,11 @@ def get_debug(set, step):
         # tta stats - simple:
         tta_cent_d  = tta_cross_entropy
         tta_ent_d   = tta_entropy
-        tta_conf_d  = tta_confidence
+        tta_conf_d  = tta_confidences
         # tta stats - emb:
         tta_cent_emb_d  = tta_cross_entropy_emb
         tta_ent_emb_d   = tta_entropy_emb
-        tta_conf_emb_d  = tta_confidence_emb
+        tta_conf_emb_d  = tta_confidences_emb
     else:
         # inputs
         x           = X_test_adv
@@ -308,11 +308,11 @@ def get_debug(set, step):
         # tta stats - simple:
         tta_cent_d  = tta_cross_entropy_adv
         tta_ent_d   = tta_entropy_adv
-        tta_conf_d  = tta_confidence_adv
+        tta_conf_d  = tta_confidences_adv
         # tta stats - emb:
         tta_cent_emb_d  = tta_cross_entropy_emb_adv
         tta_ent_emb_d   = tta_entropy_emb_adv
-        tta_conf_emb_d  = tta_confidence_emb_adv
+        tta_conf_emb_d  = tta_confidences_emb_adv
 
     # collect last batch losses:
     loss_cont_d[img_ind, step] = loss_cont.item()
@@ -391,15 +391,15 @@ tta_cross_entropy           = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.f
 tta_cross_entropy_adv       = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
 tta_entropy                 = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
 tta_entropy_adv             = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-tta_confidence              = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-tta_confidence_adv          = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+tta_confidences             = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+tta_confidences_adv         = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
 # tta stats - emb
 tta_cross_entropy_emb       = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
 tta_cross_entropy_emb_adv   = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
 tta_entropy_emb             = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
 tta_entropy_emb_adv         = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-tta_confidence_emb          = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-tta_confidence_emb_adv      = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+tta_confidences_emb         = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+tta_confidences_emb_adv     = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
 
 def train(set):
     """set='normal' or 'adv'"""
@@ -525,15 +525,15 @@ if args.dump:
     np.save(os.path.join(ATTACK_DIR, 'tta_cross_entropy_adv.npy'), tta_cross_entropy_adv)
     np.save(os.path.join(ATTACK_DIR, 'tta_entropy.npy'), tta_entropy)
     np.save(os.path.join(ATTACK_DIR, 'tta_entropy_adv.npy'), tta_entropy_adv)
-    np.save(os.path.join(ATTACK_DIR, 'tta_confidence.npy'), tta_confidence)
-    np.save(os.path.join(ATTACK_DIR, 'tta_confidence_adv.npy'), tta_confidence_adv)
+    np.save(os.path.join(ATTACK_DIR, 'tta_confidences.npy'), tta_confidences)
+    np.save(os.path.join(ATTACK_DIR, 'tta_confidences_adv.npy'), tta_confidences_adv)
 
     np.save(os.path.join(ATTACK_DIR, 'tta_cross_entropy_emb.npy'), tta_cross_entropy_emb)
     np.save(os.path.join(ATTACK_DIR, 'tta_cross_entropy_emb_adv.npy'), tta_cross_entropy_emb_adv)
     np.save(os.path.join(ATTACK_DIR, 'tta_entropy_emb.npy'), tta_entropy_emb)
     np.save(os.path.join(ATTACK_DIR, 'tta_entropy_emb_adv.npy'), tta_entropy_emb_adv)
-    np.save(os.path.join(ATTACK_DIR, 'tta_confidence_emb.npy'), tta_confidence_emb)
-    np.save(os.path.join(ATTACK_DIR, 'tta_confidence_emb_adv.npy'), tta_confidence_emb_adv)
+    np.save(os.path.join(ATTACK_DIR, 'tta_confidences_emb.npy'), tta_confidences_emb)
+    np.save(os.path.join(ATTACK_DIR, 'tta_confidences_emb_adv.npy'), tta_confidences_emb_adv)
 
 print('Calculating robustness metrics...')
 calc_robust_metrics(robustness_preds, robustness_preds_adv)
