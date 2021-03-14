@@ -20,6 +20,7 @@ import PIL
 import scipy
 import copy
 import pickle
+from datetime import datetime
 
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
@@ -66,7 +67,6 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 
 args = parser.parse_args()
 
-print('lr={}'.format(args.lr * 30))
 # debug
 NUM_DEBUG_SAMPLES = args.debug_size
 TRAIN_TIME_CNT = 0.0
@@ -500,6 +500,18 @@ print('average train/test time per sample: {}/{} secs'.format(average_train_time
 
 if args.dump:
     print('dumping results...')
+    now = datetime.now()
+    dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+    dt_string = dt_string.replace('/', '')
+    dt_string = dt_string.replace(' ', '_')
+    dt_string = dt_string.replace(':', '')
+    DUMP_DIR = os.path.join(ATTACK_DIR, 'dump_' + dt_string)
+
+    # dumping args to txt file
+    os.makedirs(DUMP_DIR, exist_ok=True)
+    with open(os.path.join(DUMP_DIR, 'commandline_args.txt'), 'w') as f:
+        json.dump(args.__dict__, f, indent=2)
+
     np.save(os.path.join(ATTACK_DIR, 'robustness_preds.npy'), robustness_preds)
     np.save(os.path.join(ATTACK_DIR, 'robustness_preds_adv.npy'), robustness_preds_adv)
     np.save(os.path.join(ATTACK_DIR, 'robustness_probs.npy'), robustness_probs)
