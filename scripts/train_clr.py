@@ -528,6 +528,13 @@ if args.dump:
     np.save(os.path.join(ATTACK_DIR, 'tta_confidence.npy'), tta_confidence)
     np.save(os.path.join(ATTACK_DIR, 'tta_confidence_adv.npy'), tta_confidence_adv)
 
+    np.save(os.path.join(ATTACK_DIR, 'tta_cross_entropy_emb.npy'), tta_cross_entropy_emb)
+    np.save(os.path.join(ATTACK_DIR, 'tta_cross_entropy_emb_adv.npy'), tta_cross_entropy_emb_adv)
+    np.save(os.path.join(ATTACK_DIR, 'tta_entropy_emb.npy'), tta_entropy_emb)
+    np.save(os.path.join(ATTACK_DIR, 'tta_entropy_emb_adv.npy'), tta_entropy_emb_adv)
+    np.save(os.path.join(ATTACK_DIR, 'tta_confidence_emb.npy'), tta_confidence_emb)
+    np.save(os.path.join(ATTACK_DIR, 'tta_confidence_emb_adv.npy'), tta_confidence_emb_adv)
+
 print('Calculating robustness metrics...')
 calc_robust_metrics(robustness_preds, robustness_preds_adv)
 calc_robust_metrics_from_probs_majority_vote(robustness_probs, robustness_probs_adv)
