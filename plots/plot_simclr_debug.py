@@ -2,7 +2,7 @@
 from active_learning_project.utils import convert_tensor_to_image
 from utils import majority_vote
 
-NUM_DEBUG_SAMPLES = 20
+NUM_DEBUG_SAMPLES = 200
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -43,14 +43,14 @@ tta_cross_entropy          = np.load(os.path.join(ATTACK_DIR, 'tta_cross_entropy
 tta_cross_entropy_adv      = np.load(os.path.join(ATTACK_DIR, 'tta_cross_entropy_adv.npy'))
 tta_entropy                = np.load(os.path.join(ATTACK_DIR, 'tta_entropy.npy'))
 tta_entropy_adv            = np.load(os.path.join(ATTACK_DIR, 'tta_entropy_adv.npy'))
-tta_confidences            = np.load(os.path.join(ATTACK_DIR, 'tta_confidence.npy'))
-tta_confidences_adv        = np.load(os.path.join(ATTACK_DIR, 'tta_confidence_adv.npy'))
+tta_confidences            = np.load(os.path.join(ATTACK_DIR, 'tta_confidences.npy'))
+tta_confidences_adv        = np.load(os.path.join(ATTACK_DIR, 'tta_confidences_adv.npy'))
 tta_cross_entropy_emb      = np.load(os.path.join(ATTACK_DIR, 'tta_cross_entropy_emb.npy'))
 tta_cross_entropy_emb_adv  = np.load(os.path.join(ATTACK_DIR, 'tta_cross_entropy_emb_adv.npy'))
 tta_entropy_emb            = np.load(os.path.join(ATTACK_DIR, 'tta_entropy_emb.npy'))
 tta_entropy_emb_adv        = np.load(os.path.join(ATTACK_DIR, 'tta_entropy_emb_adv.npy'))
-tta_confidence_emb         = np.load(os.path.join(ATTACK_DIR, 'tta_confidence_emb.npy'))
-tta_confidence_emb_adv     = np.load(os.path.join(ATTACK_DIR, 'tta_confidence_emb_adv.npy'))
+tta_confidences_emb        = np.load(os.path.join(ATTACK_DIR, 'tta_confidences_emb.npy'))
+tta_confidences_emb_adv    = np.load(os.path.join(ATTACK_DIR, 'tta_confidences_emb_adv.npy'))
 
 y_test               = np.load(os.path.join(os.path.dirname(ATTACK_DIR), 'normal', 'y_test.npy'))
 try:
@@ -139,7 +139,7 @@ for n in range(N_imgs):
     ax10.set_title('confidence [simple]', fontdict={'fontsize': 12})
     ax11.plot(x, tta_confidences[n])
     ax11.set_title('confidence [summation]', fontdict={'fontsize': 12})
-    ax12.plot(x, tta_confidence_emb[n])
+    ax12.plot(x, tta_confidences_emb[n])
     ax12.set_title('confidence [emb center]', fontdict={'fontsize': 12})
 
     plt.tight_layout(h_pad=0.7)
@@ -174,7 +174,7 @@ for n in range(N_imgs):
     ax10.set_title('confidence [simple]', fontdict={'fontsize': 12})
     ax11.plot(x, tta_confidences_adv[n], 'r')
     ax11.set_title('confidence [summation]', fontdict={'fontsize': 12})
-    ax12.plot(x, tta_confidence_emb_adv[n], 'r')
+    ax12.plot(x, tta_confidences_emb_adv[n], 'r')
     ax12.set_title('confidence [emb center]', fontdict={'fontsize': 12})
 
     plt.tight_layout(h_pad=0.7)

@@ -66,6 +66,7 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 
 args = parser.parse_args()
 
+print('lr={}'.format(args.lr))
 # debug
 NUM_DEBUG_SAMPLES = args.debug_size
 TRAIN_TIME_CNT = 0.0
@@ -422,7 +423,7 @@ def train(set):
         loss_cont = contrastive_loss(z)
         loss_ent = entropy_loss(logits)
         loss_weight_diff = weight_diff_loss()
-        loss = loss_cont + args.lambda_wdiff * loss_weight_diff
+        loss = loss_cont + args.lambda_ent * loss_ent + args.lambda_wdiff * loss_weight_diff
         get_debug(set, step=step)
         loss.backward()
         optimizer.step()
