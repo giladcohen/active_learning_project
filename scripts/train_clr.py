@@ -66,7 +66,7 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 
 args = parser.parse_args()
 
-print('lr={}'.format(args.lr))
+print('lr={}'.format(args.lr * 30))
 # debug
 NUM_DEBUG_SAMPLES = args.debug_size
 TRAIN_TIME_CNT = 0.0
