@@ -44,7 +44,7 @@ parser.add_argument('--checkpoint_dir',
 parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attack directory')
 
 # train
-parser.add_argument('--lr', default=0.0001, type=float, help='learning rate')
+parser.add_argument('--lr', default=0.00001, type=float, help='learning rate')
 parser.add_argument('--steps_inc_ent', default=4, type=int, help='number of pre-training steps to decrease sim')
 parser.add_argument('--steps', default=15, type=int, help='number of training steps')
 parser.add_argument('--batch_size', default=16, type=int, help='batch size for the CLR training')
@@ -52,13 +52,13 @@ parser.add_argument('--opt', default='sgd', type=str, help='optimizer')
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
 parser.add_argument('--lambda_ent', default=0.001, type=float, help='Regularization for entropy loss')
-parser.add_argument('--lambda_wdiff', default=2560, type=float, help='Regularization for weight diff')
+parser.add_argument('--lambda_wdiff', default=100, type=float, help='Regularization for weight diff')
 
 # eval
 parser.add_argument('--tta_size', default=50, type=int, help='number of test-time augmentations in eval phase')
 
 # debug:
-parser.add_argument('--debug_size', default=100, type=int, help='number of image to run in debug mode')
+parser.add_argument('--debug_size', default=2, type=int, help='number of image to run in debug mode')
 parser.add_argument('--dump', '-d', action='store_true', help='resume from checkpoint')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -106,10 +106,10 @@ def calc_robust_metrics_from_probs_summation(tta_robustness_probs, tta_robustnes
     robustness_preds_adv = tta_robustness_probs_adv_sum.argmax(axis=1)
     calc_robust_metrics(robustness_preds, robustness_preds_adv)
 
-def get_preds_from_emb_center(tta_embedding):
+def get_probs_from_emb_center(tta_embedding):
     tta_embeddings_center = tta_embedding.mean(axis=0)
-    pred = net.linear(tta_embeddings_center).argmax().detach().cpu().numpy()
-    return pred
+    probs = F.softmax(net.linear(tta_embeddings_center))
+    return probs
 
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
@@ -270,21 +270,56 @@ def weight_diff_loss():
 def get_debug(set, step):
     global loss_cont, loss_ent, loss_weight_diff
     if set == 'normal':
-        x         = X_test
-        cent_d      = cross_entropy
-        ent_d       = entropy
-        conf_d      = confidences
+        # inputs
+        x           = X_test
+
+        # batch losses:
         loss_cont_d = loss_contrastive
         loss_ent_d  = loss_entropy
         loss_w_d    = loss_weight_difference
+
+        # per image stats:
+        cent_d      = cross_entropy
+        ent_d       = entropy
+        conf_d      = confidences
+
+        # tta stats - simple:
+        tta_cent_d  = tta_cross_entropy
+        tta_ent_d   = tta_entropy
+        tta_conf_d  = tta_confidence
+        # tta stats - emb:
+        tta_cent_emb_d  = tta_cross_entropy_emb
+        tta_ent_emb_d   = tta_entropy_emb
+        tta_conf_emb_d  = tta_confidence_emb
     else:
-        x         = X_test_adv
-        cent_d      = cross_entropy_adv
-        ent_d       = entropy_adv
-        conf_d      = confidences_adv
+        # inputs
+        x           = X_test_adv
+
+        # batch losses:
         loss_cont_d = loss_contrastive_adv
         loss_ent_d  = loss_entropy_adv
         loss_w_d    = loss_weight_difference_adv
+
+        # per image stats:
+        cent_d      = cross_entropy_adv
+        ent_d       = entropy_adv
+        conf_d      = confidences_adv
+
+        # tta stats - simple:
+        tta_cent_d  = tta_cross_entropy_adv
+        tta_ent_d   = tta_entropy_adv
+        tta_conf_d  = tta_confidence_adv
+        # tta stats - emb:
+        tta_cent_emb_d  = tta_cross_entropy_emb_adv
+        tta_ent_emb_d   = tta_entropy_emb_adv
+        tta_conf_emb_d  = tta_confidence_emb_adv
+
+    # collect last batch losses:
+    loss_cont_d[img_ind, step] = loss_cont.item()
+    loss_ent_d[img_ind, step] = loss_ent.item()
+    loss_w_d[img_ind, step] = loss_weight_diff.item()
+
+    # collect original image stats: cross-entropy, entropy, confidence:
     with torch.no_grad():
         x_tensor = torch.from_numpy(np.expand_dims(x[img_ind], 0)).to(device)
         y_tensor = torch.from_numpy(np.expand_dims(y_test[img_ind], 0)).to(device)
@@ -292,41 +327,79 @@ def get_debug(set, step):
         cent_d[img_ind, step] = F.cross_entropy(out['logits'], y_tensor)
         ent_d[img_ind, step] = entropy_loss(out['logits'])
         conf_d[img_ind, step] = out['probs'].squeeze().max()
-        loss_cont_d[img_ind, step] = loss_cont.item()
-        loss_ent_d[img_ind, step] = loss_ent.item()
-        loss_w_d[img_ind, step] = loss_weight_diff.item()
+
+    # collect TTA images stats: cross-entropy, entropy, confidence
+        emb_arr = -1 * torch.ones((args.tta_size, net.linear.weight.shape[1]),
+                                  dtype=torch.float32, device=device, requires_grad=False)
+        prob_arr = -1 * torch.ones((args.tta_size, len(classes)),
+                                   dtype=torch.float32, device=device, requires_grad=False)
+        tta_cnt = 0
+        while tta_cnt < args.tta_size:
+            (inputs, targets) = list(train_loader)[0]
+            inputs, targets = inputs.to(device), targets.to(device)
+            b = tta_cnt
+            e = min(tta_cnt + len(inputs), args.tta_size)
+            out = net(inputs)
+            emb_arr[b:e] = out['embeddings'][0:(e-b)]
+            prob_arr[b:e] = out['probs'][0:(e-b)]
+            tta_cnt += e-b
+            assert tta_cnt <= args.tta_size, 'not cool!'
+
+        tta_probs = prob_arr.mean(axis=0)
+        tta_probs = torch.unsqueeze(tta_probs, 0)
+        tta_cent_d[img_ind, step] = F.cross_entropy(tta_probs, y_tensor)
+        tta_ent_d[img_ind, step] = entropy_loss(tta_probs)
+        tta_conf_d[img_ind, step] = tta_probs.squeeze().max()
+
+        tta_emb_probs = get_probs_from_emb_center(emb_arr)
+        tta_emb_probs = torch.unsqueeze(tta_emb_probs, 0)
+        tta_cent_emb_d[img_ind, step] = F.cross_entropy(tta_emb_probs, y_tensor)
+        tta_ent_emb_d[img_ind, step] = entropy_loss(tta_emb_probs)
+        tta_conf_emb_d[img_ind, step] = tta_emb_probs.squeeze().max()
 
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=contrastive_loss,
                                optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 
-robustness_preds     = -1 * np.ones(test_size, dtype=np.int32)
-robustness_preds_adv = -1 * np.ones(test_size, dtype=np.int32)
-# multi TTAs
-robustness_probs     = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
-robustness_probs_adv = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
-embeddings_arr       = -1 * torch.ones((test_size, args.tta_size, net.linear.weight.shape[1]),
-                                       dtype=torch.float32, device=device, requires_grad=False)
-embeddings_arr_adv   = -1 * torch.ones((test_size, args.tta_size, net.linear.weight.shape[1]),
-                                       dtype=torch.float32, device=device, requires_grad=False)
-robustness_preds_from_emb_enter     = -1 * np.ones(test_size, dtype=np.int32)
-robustness_preds_from_emb_enter_adv = -1 * np.ones(test_size, dtype=np.int32)
+img_cnt = NUM_DEBUG_SAMPLES if NUM_DEBUG_SAMPLES is not None else test_size
 
+robustness_preds            = -1 * np.ones(test_size, dtype=np.int32)
+robustness_preds_adv        = -1 * np.ones(test_size, dtype=np.int32)
+
+# multi TTAs
+robustness_probs            = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
+robustness_probs_adv        = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
+robustness_probs_emb        = -1 * np.ones((test_size, len(classes)), dtype=np.float32)
+robustness_probs_emb_adv    = -1 * np.ones((test_size, len(classes)), dtype=np.float32)
 
 # debug stats
-img_cnt = NUM_DEBUG_SAMPLES if NUM_DEBUG_SAMPLES is not None else test_size
-cross_entropy              = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-entropy                    = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-confidences                = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-loss_contrastive           = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-loss_entropy               = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-cross_entropy_adv          = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-entropy_adv                = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-confidences_adv            = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-loss_contrastive_adv       = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-loss_entropy_adv           = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-loss_weight_difference     = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-loss_weight_difference_adv = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-
+# losses
+loss_contrastive            = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+loss_contrastive_adv        = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+loss_entropy                = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+loss_entropy_adv            = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+loss_weight_difference      = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+loss_weight_difference_adv  = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+# per image stats
+cross_entropy               = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+cross_entropy_adv           = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+entropy                     = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+entropy_adv                 = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+confidences                 = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+confidences_adv             = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+# tta stats - simple
+tta_cross_entropy           = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+tta_cross_entropy_adv       = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+tta_entropy                 = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+tta_entropy_adv             = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+tta_confidence              = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+tta_confidence_adv          = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+# tta stats - emb
+tta_cross_entropy_emb       = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+tta_cross_entropy_emb_adv   = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+tta_entropy_emb             = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+tta_entropy_emb_adv         = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+tta_confidence_emb          = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+tta_confidence_emb_adv      = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
 
 def train(set):
     """set='normal' or 'adv'"""
@@ -362,6 +435,7 @@ def train(set):
     z = proj_head(embeddings)
     loss_cont = contrastive_loss(z)
     loss_ent = entropy_loss(logits)
+    loss_weight_diff = weight_diff_loss()
     get_debug(set, step=args.steps)
 
     TRAIN_TIME_CNT += time.time() - start_time
@@ -371,33 +445,33 @@ def test(set):
     global TEST_TIME_CNT
     if set == 'normal':
         x = X_test
-        rob_preds = robustness_preds
-        emb_arr = embeddings_arr
-        rob_probs = robustness_probs
-        rob_preds_from_emb_enter = robustness_preds_from_emb_enter
+        rob_preds     = robustness_preds
+        rob_probs     = robustness_probs
+        rob_probs_emb = robustness_probs_emb
     else:
         x = X_test_adv
-        rob_preds = robustness_preds_adv
-        emb_arr = embeddings_arr_adv
-        rob_probs = robustness_probs_adv
-        rob_preds_from_emb_enter = robustness_preds_from_emb_enter_adv
+        rob_preds     = robustness_preds_adv
+        rob_probs     = robustness_probs_adv
+        rob_probs_emb = robustness_probs_emb_adv
 
     start_time = time.time()
     rob_preds[img_ind] = classifier.predict(np.expand_dims(x[img_ind], 0)).squeeze().argmax()
     with torch.no_grad():
+        emb_arr = -1 * torch.ones((args.tta_size, net.linear.weight.shape[1]),
+                                  dtype=torch.float32, device=device, requires_grad=False)
         tta_cnt = 0
         while tta_cnt < args.tta_size:
-            for batch_idx, (inputs, targets) in enumerate(train_loader):
-                inputs, targets = inputs.to(device), targets.to(device)
-                b = tta_cnt
-                e = min(tta_cnt + len(inputs), args.tta_size)
-                out = net(inputs)
-                emb_arr[img_ind, b:e] = out['embeddings'][0:(e-b)]
-                rob_probs[img_ind, b:e] = out['probs'][0:(e-b)].detach().cpu().numpy()
-                tta_cnt += e-b
-                assert tta_cnt <= args.tta_size, 'not cool!'
+            (inputs, targets) = list(train_loader)[0]
+            inputs, targets = inputs.to(device), targets.to(device)
+            b = tta_cnt
+            e = min(tta_cnt + len(inputs), args.tta_size)
+            out = net(inputs)
+            emb_arr[b:e] = out['embeddings'][0:(e-b)]
+            rob_probs[img_ind, b:e] = out['probs'][0:(e-b)].detach().cpu().numpy()
+            tta_cnt += e-b
+            assert tta_cnt <= args.tta_size, 'not cool!'
 
-        rob_preds_from_emb_enter[img_ind] = get_preds_from_emb_center(emb_arr[img_ind])
+        rob_probs_emb[img_ind] = get_probs_from_emb_center(emb_arr).detach().cpu().numpy()
     TEST_TIME_CNT += time.time() - start_time
 
 
@@ -429,16 +503,10 @@ if args.dump:
     np.save(os.path.join(ATTACK_DIR, 'robustness_preds_adv.npy'), robustness_preds_adv)
     np.save(os.path.join(ATTACK_DIR, 'robustness_probs.npy'), robustness_probs)
     np.save(os.path.join(ATTACK_DIR, 'robustness_probs_adv.npy'), robustness_probs_adv)
-    np.save(os.path.join(ATTACK_DIR, 'robustness_preds_from_emb_enter.npy'), robustness_preds_from_emb_enter)
-    np.save(os.path.join(ATTACK_DIR, 'robustness_preds_from_emb_enter_adv.npy'), robustness_preds_from_emb_enter_adv)
+    np.save(os.path.join(ATTACK_DIR, 'robustness_probs_emb.npy'), robustness_probs_emb)
+    np.save(os.path.join(ATTACK_DIR, 'robustness_probs_emb_adv.npy'), robustness_probs_emb_adv)
 
     # debug
-    np.save(os.path.join(ATTACK_DIR, 'cross_entropy.npy'), cross_entropy)
-    np.save(os.path.join(ATTACK_DIR, 'cross_entropy_adv.npy'), cross_entropy_adv)
-    np.save(os.path.join(ATTACK_DIR, 'entropy.npy'), entropy)
-    np.save(os.path.join(ATTACK_DIR, 'entropy_adv.npy'), entropy_adv)
-    np.save(os.path.join(ATTACK_DIR, 'confidences.npy'), confidences)
-    np.save(os.path.join(ATTACK_DIR, 'confidences_adv.npy'), confidences_adv)
     np.save(os.path.join(ATTACK_DIR, 'loss_contrastive.npy'), loss_contrastive)
     np.save(os.path.join(ATTACK_DIR, 'loss_contrastive_adv.npy'), loss_contrastive_adv)
     np.save(os.path.join(ATTACK_DIR, 'loss_entropy.npy'), loss_entropy)
@@ -446,11 +514,25 @@ if args.dump:
     np.save(os.path.join(ATTACK_DIR, 'loss_weight_difference.npy'), loss_weight_difference)
     np.save(os.path.join(ATTACK_DIR, 'loss_weight_difference_adv.npy'), loss_weight_difference_adv)
 
+    np.save(os.path.join(ATTACK_DIR, 'cross_entropy.npy'), cross_entropy)
+    np.save(os.path.join(ATTACK_DIR, 'cross_entropy_adv.npy'), cross_entropy_adv)
+    np.save(os.path.join(ATTACK_DIR, 'entropy.npy'), entropy)
+    np.save(os.path.join(ATTACK_DIR, 'entropy_adv.npy'), entropy_adv)
+    np.save(os.path.join(ATTACK_DIR, 'confidences.npy'), confidences)
+    np.save(os.path.join(ATTACK_DIR, 'confidences_adv.npy'), confidences_adv)
+
+    np.save(os.path.join(ATTACK_DIR, 'tta_cross_entropy.npy'), tta_cross_entropy)
+    np.save(os.path.join(ATTACK_DIR, 'tta_cross_entropy_adv.npy'), tta_cross_entropy_adv)
+    np.save(os.path.join(ATTACK_DIR, 'tta_entropy.npy'), tta_entropy)
+    np.save(os.path.join(ATTACK_DIR, 'tta_entropy_adv.npy'), tta_entropy_adv)
+    np.save(os.path.join(ATTACK_DIR, 'tta_confidence.npy'), tta_confidence)
+    np.save(os.path.join(ATTACK_DIR, 'tta_confidence_adv.npy'), tta_confidence_adv)
+
 print('Calculating robustness metrics...')
 calc_robust_metrics(robustness_preds, robustness_preds_adv)
 calc_robust_metrics_from_probs_majority_vote(robustness_probs, robustness_probs_adv)
 calc_robust_metrics_from_probs_summation(robustness_probs, robustness_probs_adv)
 print('Calculating robustness metrics via embedding center...')
-calc_robust_metrics(robustness_preds_from_emb_enter, robustness_preds_from_emb_enter_adv)
+calc_robust_metrics(robustness_probs_emb.argmax(axis=1), robustness_probs_emb_adv.argmax(axis=1))
 
 print('done')

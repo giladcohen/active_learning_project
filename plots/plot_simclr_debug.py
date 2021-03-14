@@ -1,7 +1,7 @@
 """Plotting the debug stats values after each steps of re-training the network with SimCLR"""
 from active_learning_project.utils import convert_tensor_to_image
 
-NUM_DEBUG_SAMPLES = 1000
+NUM_DEBUG_SAMPLES = 20
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -80,7 +80,7 @@ for n in range(N_imgs):
     ax4.set_title('contrastive loss', fontdict={'fontsize': 12})
     ax5.plot(x, loss_entropy[n])
     ax5.set_title('entropy loss', fontdict={'fontsize': 12})
-    ax6.plot(x, loss_weight_difference[n], 'r')
+    ax6.plot(x, loss_weight_difference[n])
     ax6.set_title('weight diff loss', fontdict={'fontsize': 12})
     plt.tight_layout(h_pad=0.7)
     plt.show()
