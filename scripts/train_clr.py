@@ -252,8 +252,8 @@ def contrastive_loss(hidden, temperature=0.1):
     hidden2 = hidden[args.batch_size:]
     hidden1 = nn.functional.normalize(hidden1)
     hidden2 = nn.functional.normalize(hidden2)
-    cosine_sim = torch.matmul(hidden1, hidden2.T).sum()
-    return -cosine_sim
+    cosine_sim = (1 - torch.matmul(hidden1, hidden2.T)).sum()
+    return cosine_sim
 
 def entropy_loss(logits):
     b = F.softmax(logits, dim=1) * F.log_softmax(logits, dim=1)
