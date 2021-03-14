@@ -12,6 +12,8 @@ sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 
 ATTACK_DIR = '/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00/cw_targeted'
+dump_subdir = ''
+DUMP_DIR = os.path.join(ATTACK_DIR, dump_subdir)
 
 # loading all stats:
 robustness_preds           = np.load(os.path.join(ATTACK_DIR, 'robustness_preds.npy'))
