@@ -48,12 +48,12 @@ parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attac
 parser.add_argument('--lr', default=0.00001, type=float, help='learning rate')
 parser.add_argument('--steps_inc_ent', default=4, type=int, help='number of pre-training steps to decrease sim')
 parser.add_argument('--steps', default=15, type=int, help='number of training steps')
-parser.add_argument('--batch_size', default=16, type=int, help='batch size for the CLR training')
+parser.add_argument('--batch_size', default=32, type=int, help='batch size for the CLR training')
 parser.add_argument('--opt', default='sgd', type=str, help='optimizer')
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
 parser.add_argument('--lambda_ent', default=0.0, type=float, help='Regularization for entropy loss')
-parser.add_argument('--lambda_wdiff', default=100, type=float, help='Regularization for weight diff')
+parser.add_argument('--lambda_wdiff', default=0.0, type=float, help='Regularization for weight diff')
 
 # eval
 parser.add_argument('--tta_size', default=50, type=int, help='number of test-time augmentations in eval phase')
