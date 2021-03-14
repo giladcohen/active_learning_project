@@ -2,7 +2,7 @@
 from active_learning_project.utils import convert_tensor_to_image
 from utils import majority_vote
 
-NUM_DEBUG_SAMPLES = 200
+NUM_DEBUG_SAMPLES = 100
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -12,47 +12,47 @@ sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 
 ATTACK_DIR = '/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00/cw_targeted'
-dump_subdir = ''
+dump_subdir = 'dump_14032021_124312'
 DUMP_DIR = os.path.join(ATTACK_DIR, dump_subdir)
 
 # loading all stats:
-robustness_preds           = np.load(os.path.join(ATTACK_DIR, 'robustness_preds.npy'))
-robustness_preds_adv       = np.load(os.path.join(ATTACK_DIR, 'robustness_preds_adv.npy'))
+robustness_preds           = np.load(os.path.join(DUMP_DIR, 'robustness_preds.npy'))
+robustness_preds_adv       = np.load(os.path.join(DUMP_DIR, 'robustness_preds_adv.npy'))
 
 # multi TTAs
-robustness_probs           = np.load(os.path.join(ATTACK_DIR, 'robustness_probs.npy'))
-robustness_probs_adv       = np.load(os.path.join(ATTACK_DIR, 'robustness_probs_adv.npy'))
-robustness_probs_emb       = np.load(os.path.join(ATTACK_DIR, 'robustness_probs_emb.npy'))
-robustness_probs_emb_adv   = np.load(os.path.join(ATTACK_DIR, 'robustness_probs_emb_adv.npy'))
+robustness_probs           = np.load(os.path.join(DUMP_DIR, 'robustness_probs.npy'))
+robustness_probs_adv       = np.load(os.path.join(DUMP_DIR, 'robustness_probs_adv.npy'))
+robustness_probs_emb       = np.load(os.path.join(DUMP_DIR, 'robustness_probs_emb.npy'))
+robustness_probs_emb_adv   = np.load(os.path.join(DUMP_DIR, 'robustness_probs_emb_adv.npy'))
 
 # debug stats
 # losses
-loss_contrastive           = np.load(os.path.join(ATTACK_DIR, 'loss_contrastive.npy'))
-loss_contrastive_adv       = np.load(os.path.join(ATTACK_DIR, 'loss_contrastive_adv.npy'))
-loss_entropy               = np.load(os.path.join(ATTACK_DIR, 'loss_entropy.npy'))
-loss_entropy_adv           = np.load(os.path.join(ATTACK_DIR, 'loss_entropy_adv.npy'))
-loss_weight_difference     = np.load(os.path.join(ATTACK_DIR, 'loss_weight_difference.npy'))
-loss_weight_difference_adv = np.load(os.path.join(ATTACK_DIR, 'loss_weight_difference_adv.npy'))
+loss_contrastive           = np.load(os.path.join(DUMP_DIR, 'loss_contrastive.npy'))
+loss_contrastive_adv       = np.load(os.path.join(DUMP_DIR, 'loss_contrastive_adv.npy'))
+loss_entropy               = np.load(os.path.join(DUMP_DIR, 'loss_entropy.npy'))
+loss_entropy_adv           = np.load(os.path.join(DUMP_DIR, 'loss_entropy_adv.npy'))
+loss_weight_difference     = np.load(os.path.join(DUMP_DIR, 'loss_weight_difference.npy'))
+loss_weight_difference_adv = np.load(os.path.join(DUMP_DIR, 'loss_weight_difference_adv.npy'))
 # per image stats
-cross_entropy              = np.load(os.path.join(ATTACK_DIR, 'cross_entropy.npy'))
-cross_entropy_adv          = np.load(os.path.join(ATTACK_DIR, 'cross_entropy_adv.npy'))
-entropy                    = np.load(os.path.join(ATTACK_DIR, 'entropy.npy'))
-entropy_adv                = np.load(os.path.join(ATTACK_DIR, 'entropy_adv.npy'))
-confidences                = np.load(os.path.join(ATTACK_DIR, 'confidences.npy'))
-confidences_adv            = np.load(os.path.join(ATTACK_DIR, 'confidences_adv.npy'))
+cross_entropy              = np.load(os.path.join(DUMP_DIR, 'cross_entropy.npy'))
+cross_entropy_adv          = np.load(os.path.join(DUMP_DIR, 'cross_entropy_adv.npy'))
+entropy                    = np.load(os.path.join(DUMP_DIR, 'entropy.npy'))
+entropy_adv                = np.load(os.path.join(DUMP_DIR, 'entropy_adv.npy'))
+confidences                = np.load(os.path.join(DUMP_DIR, 'confidences.npy'))
+confidences_adv            = np.load(os.path.join(DUMP_DIR, 'confidences_adv.npy'))
 # tta stats
-tta_cross_entropy          = np.load(os.path.join(ATTACK_DIR, 'tta_cross_entropy.npy'))
-tta_cross_entropy_adv      = np.load(os.path.join(ATTACK_DIR, 'tta_cross_entropy_adv.npy'))
-tta_entropy                = np.load(os.path.join(ATTACK_DIR, 'tta_entropy.npy'))
-tta_entropy_adv            = np.load(os.path.join(ATTACK_DIR, 'tta_entropy_adv.npy'))
-tta_confidences            = np.load(os.path.join(ATTACK_DIR, 'tta_confidences.npy'))
-tta_confidences_adv        = np.load(os.path.join(ATTACK_DIR, 'tta_confidences_adv.npy'))
-tta_cross_entropy_emb      = np.load(os.path.join(ATTACK_DIR, 'tta_cross_entropy_emb.npy'))
-tta_cross_entropy_emb_adv  = np.load(os.path.join(ATTACK_DIR, 'tta_cross_entropy_emb_adv.npy'))
-tta_entropy_emb            = np.load(os.path.join(ATTACK_DIR, 'tta_entropy_emb.npy'))
-tta_entropy_emb_adv        = np.load(os.path.join(ATTACK_DIR, 'tta_entropy_emb_adv.npy'))
-tta_confidences_emb        = np.load(os.path.join(ATTACK_DIR, 'tta_confidences_emb.npy'))
-tta_confidences_emb_adv    = np.load(os.path.join(ATTACK_DIR, 'tta_confidences_emb_adv.npy'))
+tta_cross_entropy          = np.load(os.path.join(DUMP_DIR, 'tta_cross_entropy.npy'))
+tta_cross_entropy_adv      = np.load(os.path.join(DUMP_DIR, 'tta_cross_entropy_adv.npy'))
+tta_entropy                = np.load(os.path.join(DUMP_DIR, 'tta_entropy.npy'))
+tta_entropy_adv            = np.load(os.path.join(DUMP_DIR, 'tta_entropy_adv.npy'))
+tta_confidences            = np.load(os.path.join(DUMP_DIR, 'tta_confidences.npy'))
+tta_confidences_adv        = np.load(os.path.join(DUMP_DIR, 'tta_confidences_adv.npy'))
+tta_cross_entropy_emb      = np.load(os.path.join(DUMP_DIR, 'tta_cross_entropy_emb.npy'))
+tta_cross_entropy_emb_adv  = np.load(os.path.join(DUMP_DIR, 'tta_cross_entropy_emb_adv.npy'))
+tta_entropy_emb            = np.load(os.path.join(DUMP_DIR, 'tta_entropy_emb.npy'))
+tta_entropy_emb_adv        = np.load(os.path.join(DUMP_DIR, 'tta_entropy_emb_adv.npy'))
+tta_confidences_emb        = np.load(os.path.join(DUMP_DIR, 'tta_confidences_emb.npy'))
+tta_confidences_emb_adv    = np.load(os.path.join(DUMP_DIR, 'tta_confidences_emb_adv.npy'))
 
 y_test               = np.load(os.path.join(os.path.dirname(ATTACK_DIR), 'normal', 'y_test.npy'))
 try:

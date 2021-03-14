@@ -52,7 +52,7 @@ parser.add_argument('--batch_size', default=16, type=int, help='batch size for t
 parser.add_argument('--opt', default='sgd', type=str, help='optimizer')
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
-parser.add_argument('--lambda_ent', default=0.001, type=float, help='Regularization for entropy loss')
+parser.add_argument('--lambda_ent', default=0.0, type=float, help='Regularization for entropy loss')
 parser.add_argument('--lambda_wdiff', default=100, type=float, help='Regularization for weight diff')
 
 # eval
