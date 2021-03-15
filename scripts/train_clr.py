@@ -52,14 +52,14 @@ parser.add_argument('--batch_size', default=32, type=int, help='batch size for t
 parser.add_argument('--opt', default='sgd', type=str, help='optimizer')
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
-parser.add_argument('--lambda_ent', default=0.0, type=float, help='Regularization for entropy loss')
-parser.add_argument('--lambda_wdiff', default=0.0, type=float, help='Regularization for weight diff')
+parser.add_argument('--lambda_ent', default=-0.001, type=float, help='Regularization for entropy loss')
+parser.add_argument('--lambda_wdiff', default=100.0, type=float, help='Regularization for weight diff')
 
 # eval
 parser.add_argument('--tta_size', default=50, type=int, help='number of test-time augmentations in eval phase')
 
 # debug:
-parser.add_argument('--debug_size', default=2, type=int, help='number of image to run in debug mode')
+parser.add_argument('--debug_size', default=100, type=int, help='number of image to run in debug mode')
 parser.add_argument('--dump', '-d', action='store_true', help='resume from checkpoint')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
