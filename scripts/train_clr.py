@@ -38,6 +38,8 @@ from active_learning_project.utils import remove_substr_from_keys, boolean_strin
 from torchsummary import summary
 import torchvision.transforms as transforms
 
+eps = 1e-8
+
 parser = argparse.ArgumentParser(description='PyTorch CLR training on base pretrained net')
 parser.add_argument('--checkpoint_dir',
                     default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00',
@@ -52,7 +54,7 @@ parser.add_argument('--batch_size', default=32, type=int, help='batch size for t
 parser.add_argument('--opt', default='sgd', type=str, help='optimizer')
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
-parser.add_argument('--lambda_ent', default=-0.001, type=float, help='Regularization for entropy loss')
+parser.add_argument('--lambda_ent', default=0.001, type=float, help='Regularization for entropy loss')
 parser.add_argument('--lambda_wdiff', default=100.0, type=float, help='Regularization for weight diff')
 
 # eval
@@ -422,8 +424,9 @@ def train(set):
         z = proj_head(embeddings)
         loss_cont = contrastive_loss(z)
         loss_ent = entropy_loss(logits)
+        one_over_loss_ent = 1/(eps + loss_ent)
         loss_weight_diff = weight_diff_loss()
-        loss = loss_cont + args.lambda_ent * loss_ent + args.lambda_wdiff * loss_weight_diff
+        loss = loss_cont + args.lambda_ent * one_over_loss_ent + args.lambda_wdiff * loss_weight_diff
         get_debug(set, step=step)
         loss.backward()
         optimizer.step()
