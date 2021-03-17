@@ -2,7 +2,7 @@
 from active_learning_project.utils import convert_tensor_to_image
 from utils import majority_vote
 
-NUM_DEBUG_SAMPLES = 100
+NUM_DEBUG_SAMPLES = 10
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -12,7 +12,7 @@ sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 
 ATTACK_DIR = '/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00/cw_targeted'
-dump_subdir = 'dump_14032021_124312'
+dump_subdir = 'dump_17032021_185238'
 DUMP_DIR = os.path.join(ATTACK_DIR, dump_subdir)
 
 # loading all stats:
