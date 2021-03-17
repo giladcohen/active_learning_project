@@ -79,7 +79,7 @@ DUMP_DIR = os.path.join(ATTACK_DIR, args.dump_dir)
 os.makedirs(DUMP_DIR, exist_ok=True)
 
 logging.basicConfig(filename=os.path.join(DUMP_DIR, 'log.log'),
-                    filemode='x',
+                    filemode='w',
                     format='%(asctime)s %(name)s %(levelname)s %(message)s',
                     datefmt='%m/%d/%Y %I:%M:%S %p',
                     level=logging.DEBUG)
