@@ -260,6 +260,7 @@ def contrastive_loss(hidden, temperature=0.1):
 def entropy_loss(logits):
     b = F.softmax(logits, dim=1) * F.log_softmax(logits, dim=1)
     b = -1.0 * b.sum()
+    b = 1 / (eps + b)
     return b
 
 def weight_diff_loss():
@@ -424,9 +425,8 @@ def train(set):
         z = proj_head(embeddings)
         loss_cont = contrastive_loss(z)
         loss_ent = entropy_loss(logits)
-        one_over_loss_ent = 1/(eps + loss_ent)
         loss_weight_diff = weight_diff_loss()
-        loss = loss_cont + args.lambda_ent * one_over_loss_ent + args.lambda_wdiff * loss_weight_diff
+        loss = loss_cont + args.lambda_ent * loss_ent + args.lambda_wdiff * loss_weight_diff
         get_debug(set, step=step)
         loss.backward()
         optimizer.step()
