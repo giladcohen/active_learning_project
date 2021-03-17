@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
-
+import logging
 import numpy as np
 import json
 import os
@@ -45,6 +45,7 @@ parser.add_argument('--checkpoint_dir',
                     default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00',
                     type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attack directory')
+parser.add_argument('--dump_dir', default='dump', type=str, help='attack directory')
 
 # train
 parser.add_argument('--lr', default=0.00001, type=float, help='learning rate')
@@ -61,7 +62,7 @@ parser.add_argument('--lambda_wdiff', default=100.0, type=float, help='Regulariz
 parser.add_argument('--tta_size', default=50, type=int, help='number of test-time augmentations in eval phase')
 
 # debug:
-parser.add_argument('--debug_size', default=100, type=int, help='number of image to run in debug mode')
+parser.add_argument('--debug_size', default=None, type=int, help='number of image to run in debug mode')
 parser.add_argument('--dump', '-d', action='store_true', help='resume from checkpoint')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -73,6 +74,15 @@ args = parser.parse_args()
 NUM_DEBUG_SAMPLES = args.debug_size
 TRAIN_TIME_CNT = 0.0
 TEST_TIME_CNT = 0.0
+ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
+DUMP_DIR = os.path.join(ATTACK_DIR, args.dump_dir)
+os.makedirs(DUMP_DIR, exist_ok=True)
+
+logging.basicConfig(filename=os.path.join(DUMP_DIR, 'log.log'),
+                    filemode='x',
+                    format='%(asctime)s %(name)s %(levelname)s %(message)s',
+                    datefmt='%m/%d/%Y %I:%M:%S %p',
+                    level=logging.DEBUG)
 
 def calc_robust_metrics(robustness_preds, robustness_preds_adv):
     if NUM_DEBUG_SAMPLES is not None:
@@ -118,7 +128,6 @@ with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
 args.dataset = train_args['dataset']
 
-ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
 with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'r') as f:
     attack_args = json.load(f)
 targeted = attack_args['targeted']
@@ -503,15 +512,7 @@ print('average train/test time per sample: {}/{} secs'.format(average_train_time
 
 if args.dump:
     print('dumping results...')
-    now = datetime.now()
-    dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
-    dt_string = dt_string.replace('/', '')
-    dt_string = dt_string.replace(' ', '_')
-    dt_string = dt_string.replace(':', '')
-    DUMP_DIR = os.path.join(ATTACK_DIR, 'dump_' + dt_string)
-
     # dumping args to txt file
-    os.makedirs(DUMP_DIR, exist_ok=True)
     with open(os.path.join(DUMP_DIR, 'commandline_args.txt'), 'w') as f:
         json.dump(args.__dict__, f, indent=2)
 
