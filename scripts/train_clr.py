@@ -84,11 +84,15 @@ logging.basicConfig(filename=os.path.join(DUMP_DIR, 'log.log'),
                     datefmt='%m/%d/%Y %I:%M:%S %p',
                     level=logging.DEBUG)
 
+def log(str):
+    logging.info(str)
+    print(str)
+
 def calc_robust_metrics(robustness_preds, robustness_preds_adv):
     if NUM_DEBUG_SAMPLES is not None:
         acc_all = np.mean(robustness_preds[0:NUM_DEBUG_SAMPLES] == y_test[0:NUM_DEBUG_SAMPLES])
         acc_all_adv = np.mean(robustness_preds_adv[0:NUM_DEBUG_SAMPLES] == y_test[0:NUM_DEBUG_SAMPLES])
-        print('Robust classification accuracy: all samples: {:.2f}/{:.2f}%'.format(acc_all * 100, acc_all_adv * 100))
+        log('Robust classification accuracy: all samples: {:.2f}/{:.2f}%'.format(acc_all * 100, acc_all_adv * 100))
     else:
         acc_all = np.mean(robustness_preds[test_inds] == y_test[test_inds])
         acc_f1 = np.mean(robustness_preds[f1_inds_test] == y_test[f1_inds_test])
@@ -100,11 +104,11 @@ def calc_robust_metrics(robustness_preds, robustness_preds_adv):
         acc_f2_adv = np.mean(robustness_preds_adv[f2_inds_test] == y_test[f2_inds_test])
         acc_f3_adv = np.mean(robustness_preds_adv[f3_inds_test] == y_test[f3_inds_test])
 
-        print('Robust classification accuracy: all samples: {:.2f}/{:.2f}%, f1 samples: {:.2f}/{:.2f}%, f2 samples: {:.2f}/{:.2f}%, f3 samples: {:.2f}/{:.2f}%'
-              .format(acc_all * 100, acc_all_adv * 100, acc_f1 * 100, acc_f1_adv * 100, acc_f2 * 100, acc_f2_adv * 100, acc_f3 * 100, acc_f3_adv * 100))
+        log('Robust classification accuracy: all samples: {:.2f}/{:.2f}%, f1 samples: {:.2f}/{:.2f}%, f2 samples: {:.2f}/{:.2f}%, f3 samples: {:.2f}/{:.2f}%'
+            .format(acc_all * 100, acc_all_adv * 100, acc_f1 * 100, acc_f1_adv * 100, acc_f2 * 100, acc_f2_adv * 100, acc_f3 * 100, acc_f3_adv * 100))
 
 def calc_robust_metrics_from_probs_majority_vote(tta_robustness_probs, tta_robustness_probs_adv):
-    print('Calculating robustness metrics from probs via majority vote...')
+    log('Calculating robustness metrics from probs via majority vote...')
     tta_robustness_preds = tta_robustness_probs.argmax(axis=2)
     robustness_preds = np.apply_along_axis(majority_vote, axis=1, arr=tta_robustness_preds)
     tta_robustness_preds_adv = tta_robustness_probs_adv.argmax(axis=2)
@@ -112,7 +116,7 @@ def calc_robust_metrics_from_probs_majority_vote(tta_robustness_probs, tta_robus
     calc_robust_metrics(robustness_preds, robustness_preds_adv)
 
 def calc_robust_metrics_from_probs_summation(tta_robustness_probs, tta_robustness_probs_adv):
-    print('Calculating robustness metrics from probs via summation...')
+    log('Calculating robustness metrics from probs via summation...')
     tta_robustness_probs_sum = tta_robustness_probs.sum(axis=1)
     robustness_preds = tta_robustness_probs_sum.argmax(axis=1)
     tta_robustness_probs_adv_sum = tta_robustness_probs_adv.sum(axis=1)
@@ -153,7 +157,7 @@ f2_inds_test = np.load(os.path.join(ATTACK_DIR, 'inds', 'f2_inds_test.npy'))
 f3_inds_test = np.load(os.path.join(ATTACK_DIR, 'inds', 'f3_inds_test.npy'))
 
 # Data
-print('==> Preparing data..')
+log('==> Preparing data..')
 testloader = get_test_loader(
     dataset=train_args['dataset'],
     batch_size=100,
@@ -508,10 +512,10 @@ if NUM_DEBUG_SAMPLES is not None:
 else:
     average_train_time = TRAIN_TIME_CNT / (2 * test_size)
     average_test_time = TEST_TIME_CNT / (2 * test_size)
-print('average train/test time per sample: {}/{} secs'.format(average_train_time, average_test_time))
+log('average train/test time per sample: {}/{} secs'.format(average_train_time, average_test_time))
 
 if args.dump:
-    print('dumping results...')
+    log('dumping results...')
     # dumping args to txt file
     with open(os.path.join(DUMP_DIR, 'commandline_args.txt'), 'w') as f:
         json.dump(args.__dict__, f, indent=2)
@@ -552,11 +556,11 @@ if args.dump:
     np.save(os.path.join(DUMP_DIR, 'tta_confidences_emb.npy'), tta_confidences_emb)
     np.save(os.path.join(DUMP_DIR, 'tta_confidences_emb_adv.npy'), tta_confidences_emb_adv)
 
-print('Calculating robustness metrics...')
+log('Calculating robustness metrics...')
 calc_robust_metrics(robustness_preds, robustness_preds_adv)
 calc_robust_metrics_from_probs_majority_vote(robustness_probs, robustness_probs_adv)
 calc_robust_metrics_from_probs_summation(robustness_probs, robustness_probs_adv)
-print('Calculating robustness metrics via embedding center...')
+log('Calculating robustness metrics via embedding center...')
 calc_robust_metrics(robustness_probs_emb.argmax(axis=1), robustness_probs_emb_adv.argmax(axis=1))
 
-print('done')
+log('done')
