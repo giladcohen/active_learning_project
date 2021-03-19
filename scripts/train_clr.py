@@ -84,7 +84,7 @@ logging.basicConfig(filename=os.path.join(DUMP_DIR, 'log.log'),
                     datefmt='%m/%d/%Y %I:%M:%S %p',
                     level=logging.DEBUG)
 
-logger = logging.getLogger()
+# logger = logging.getLogger()
 def log(str):
     logging.info(str)
     print(str)
@@ -565,4 +565,5 @@ log('Calculating robustness metrics via embedding center...')
 calc_robust_metrics(robustness_probs_emb.argmax(axis=1), robustness_probs_emb_adv.argmax(axis=1))
 
 log('done')
-logger.handlers[0].flush()
+# logger.handlers[0].flush()
+logging.shutdown()
