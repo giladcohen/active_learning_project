@@ -45,7 +45,6 @@ parser.add_argument('--checkpoint_dir',
                     default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00',
                     type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attack directory')
-parser.add_argument('--dump_dir', default='dump', type=str, help='attack directory')
 
 # train
 parser.add_argument('--lr', default=0.00001, type=float, help='learning rate')
@@ -61,10 +60,12 @@ parser.add_argument('--lambda_wdiff', default=100.0, type=float, help='Regulariz
 
 # eval
 parser.add_argument('--tta_size', default=50, type=int, help='number of test-time augmentations in eval phase')
+parser.add_argument('--mini_test', action='store_true', help='test only 1000 mini_test_inds')
 
 # debug:
 parser.add_argument('--debug_size', default=None, type=int, help='number of image to run in debug mode')
 parser.add_argument('--dump', '-d', action='store_true', help='get debug stats')
+parser.add_argument('--dump_dir', default='dump', type=str, help='the dump dir')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -72,7 +73,6 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 args = parser.parse_args()
 
 # debug
-NUM_DEBUG_SAMPLES = args.debug_size
 TRAIN_TIME_CNT = 0.0
 TEST_TIME_CNT = 0.0
 ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
@@ -91,23 +91,9 @@ def log(str):
     print(str)
 
 def calc_robust_metrics(robustness_preds, robustness_preds_adv):
-    if NUM_DEBUG_SAMPLES is not None:
-        acc_all = np.mean(robustness_preds[0:NUM_DEBUG_SAMPLES] == y_test[0:NUM_DEBUG_SAMPLES])
-        acc_all_adv = np.mean(robustness_preds_adv[0:NUM_DEBUG_SAMPLES] == y_test[0:NUM_DEBUG_SAMPLES])
-        log('Robust classification accuracy: all samples: {:.2f}/{:.2f}%'.format(acc_all * 100, acc_all_adv * 100))
-    else:
-        acc_all = np.mean(robustness_preds[test_inds] == y_test[test_inds])
-        acc_f1 = np.mean(robustness_preds[f1_inds_test] == y_test[f1_inds_test])
-        acc_f2 = np.mean(robustness_preds[f2_inds_test] == y_test[f2_inds_test])
-        acc_f3 = np.mean(robustness_preds[f3_inds_test] == y_test[f3_inds_test])
-
-        acc_all_adv = np.mean(robustness_preds_adv[test_inds] == y_test[test_inds])
-        acc_f1_adv = np.mean(robustness_preds_adv[f1_inds_test] == y_test[f1_inds_test])
-        acc_f2_adv = np.mean(robustness_preds_adv[f2_inds_test] == y_test[f2_inds_test])
-        acc_f3_adv = np.mean(robustness_preds_adv[f3_inds_test] == y_test[f3_inds_test])
-
-        log('Robust classification accuracy: all samples: {:.2f}/{:.2f}%, f1 samples: {:.2f}/{:.2f}%, f2 samples: {:.2f}/{:.2f}%, f3 samples: {:.2f}/{:.2f}%'
-            .format(acc_all * 100, acc_all_adv * 100, acc_f1 * 100, acc_f1_adv * 100, acc_f2 * 100, acc_f2_adv * 100, acc_f3 * 100, acc_f3_adv * 100))
+    acc_all = np.mean(robustness_preds[all_test_inds] == y_test[all_test_inds])
+    acc_all_adv = np.mean(robustness_preds_adv[all_test_inds] == y_test[all_test_inds])
+    log('Robust classification accuracy: all samples: {:.2f}/{:.2f}%'.format(acc_all * 100, acc_all_adv * 100))
 
 def calc_robust_metrics_from_probs_majority_vote(tta_robustness_probs, tta_robustness_probs_adv):
     log('Calculating robustness metrics from probs via majority vote...')
@@ -145,18 +131,6 @@ rand_gen = np.random.RandomState(12345)
 normal_writer = SummaryWriter(os.path.join(args.checkpoint_dir, 'normal_debug'))
 adv_writer    = SummaryWriter(os.path.join(args.checkpoint_dir, 'adv_debug'))
 batch_size = args.batch_size
-
-# get info about attack success:
-val_inds     = np.load(os.path.join(ATTACK_DIR, 'inds', 'val_inds.npy'))
-f0_inds_val  = np.load(os.path.join(ATTACK_DIR, 'inds', 'f0_inds_val.npy'))
-f1_inds_val  = np.load(os.path.join(ATTACK_DIR, 'inds', 'f1_inds_val.npy'))
-f2_inds_val  = np.load(os.path.join(ATTACK_DIR, 'inds', 'f2_inds_val.npy'))
-f3_inds_val  = np.load(os.path.join(ATTACK_DIR, 'inds', 'f3_inds_val.npy'))
-test_inds    = np.load(os.path.join(ATTACK_DIR, 'inds', 'test_inds.npy'))
-f0_inds_test = np.load(os.path.join(ATTACK_DIR, 'inds', 'f0_inds_test.npy'))
-f1_inds_test = np.load(os.path.join(ATTACK_DIR, 'inds', 'f1_inds_test.npy'))
-f2_inds_test = np.load(os.path.join(ATTACK_DIR, 'inds', 'f2_inds_test.npy'))
-f3_inds_test = np.load(os.path.join(ATTACK_DIR, 'inds', 'f3_inds_test.npy'))
 
 # Data
 log('==> Preparing data..')
@@ -379,7 +353,15 @@ def get_debug(set, step):
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=contrastive_loss,
                                optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 
-img_cnt = NUM_DEBUG_SAMPLES if NUM_DEBUG_SAMPLES is not None else test_size
+# test images inds:
+mini_test_inds = np.load(os.path.join(ATTACK_DIR, 'inds', 'mini_test_inds.npy'))
+if args.mini_test:
+    all_test_inds = mini_test_inds
+else:
+    all_test_inds = np.arange(len(X_test))
+if args.debug_size is not None:
+    all_test_inds = all_test_inds[:args.debug_size]
+img_cnt = len(all_test_inds)
 
 robustness_preds            = -1 * np.ones(test_size, dtype=np.int32)
 robustness_preds_adv        = -1 * np.ones(test_size, dtype=np.int32)
@@ -392,33 +374,33 @@ robustness_probs_emb_adv    = -1 * np.ones((test_size, len(classes)), dtype=np.f
 
 # debug stats
 # losses
-loss_contrastive            = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-loss_contrastive_adv        = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-loss_entropy                = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-loss_entropy_adv            = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-loss_weight_difference      = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-loss_weight_difference_adv  = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+loss_contrastive            = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+loss_contrastive_adv        = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+loss_entropy                = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+loss_entropy_adv            = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+loss_weight_difference      = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+loss_weight_difference_adv  = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
 # per image stats
-cross_entropy               = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-cross_entropy_adv           = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-entropy                     = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-entropy_adv                 = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-confidences                 = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-confidences_adv             = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+cross_entropy               = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+cross_entropy_adv           = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+entropy                     = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+entropy_adv                 = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+confidences                 = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+confidences_adv             = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
 # tta stats - simple
-tta_cross_entropy           = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-tta_cross_entropy_adv       = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-tta_entropy                 = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-tta_entropy_adv             = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-tta_confidences             = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-tta_confidences_adv         = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+tta_cross_entropy           = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+tta_cross_entropy_adv       = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+tta_entropy                 = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+tta_entropy_adv             = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+tta_confidences             = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+tta_confidences_adv         = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
 # tta stats - emb
-tta_cross_entropy_emb       = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-tta_cross_entropy_emb_adv   = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-tta_entropy_emb             = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-tta_entropy_emb_adv         = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-tta_confidences_emb         = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
-tta_confidences_emb_adv     = -1 * np.ones((img_cnt, args.steps + 1), dtype=np.float32)
+tta_cross_entropy_emb       = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+tta_cross_entropy_emb_adv   = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+tta_entropy_emb             = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+tta_entropy_emb_adv         = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+tta_confidences_emb         = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+tta_confidences_emb_adv     = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
 
 def train(set):
     """set='normal' or 'adv'"""
@@ -496,7 +478,8 @@ def test(set):
     TEST_TIME_CNT += time.time() - start_time
 
 
-for img_ind in tqdm(range(img_cnt)):
+for i in tqdm(range(img_cnt)):
+    img_ind = all_test_inds[i]
     # normal
     train_loader = get_single_img_dataloader(args.dataset, X_test, y_test, 2 * args.batch_size,
                                              pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
@@ -510,12 +493,8 @@ for img_ind in tqdm(range(img_cnt)):
     test('adv')
 
 
-if NUM_DEBUG_SAMPLES is not None:
-    average_train_time = TRAIN_TIME_CNT / (2 * NUM_DEBUG_SAMPLES)
-    average_test_time = TEST_TIME_CNT / (2 * NUM_DEBUG_SAMPLES)
-else:
-    average_train_time = TRAIN_TIME_CNT / (2 * test_size)
-    average_test_time = TEST_TIME_CNT / (2 * test_size)
+average_train_time = TRAIN_TIME_CNT / (2 * img_cnt)
+average_test_time = TEST_TIME_CNT / (2 * img_cnt)
 log('average train/test time per sample: {}/{} secs'.format(average_train_time, average_test_time))
 
 if args.dump:

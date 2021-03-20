@@ -312,6 +312,8 @@ if __name__ == "__main__":
     f2_inds_test = np.asarray([ind for ind in f2_inds if ind in test_inds])
     f3_inds_test = np.asarray([ind for ind in f3_inds if ind in test_inds])
 
+    # mini_test_inds = rand_gen.choice(test_inds, 1000, replace=False)
+
     np.save(os.path.join(ATTACK_DIR, 'inds', 'val_inds.npy'), val_inds)
     np.save(os.path.join(ATTACK_DIR, 'inds', 'f0_inds_val.npy'), f0_inds_val)
     np.save(os.path.join(ATTACK_DIR, 'inds', 'f1_inds_val.npy'), f1_inds_val)
@@ -323,3 +325,5 @@ if __name__ == "__main__":
     np.save(os.path.join(ATTACK_DIR, 'inds', 'f1_inds_test.npy'), f1_inds_test)
     np.save(os.path.join(ATTACK_DIR, 'inds', 'f2_inds_test.npy'), f2_inds_test)
     np.save(os.path.join(ATTACK_DIR, 'inds', 'f3_inds_test.npy'), f3_inds_test)
+
+    # np.save(os.path.join(ATTACK_DIR, 'inds', 'mini_test_inds.npy'), mini_test_inds)
