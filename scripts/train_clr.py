@@ -64,7 +64,7 @@ parser.add_argument('--tta_size', default=50, type=int, help='number of test-tim
 
 # debug:
 parser.add_argument('--debug_size', default=None, type=int, help='number of image to run in debug mode')
-parser.add_argument('--dump', '-d', action='store_true', help='resume from checkpoint')
+parser.add_argument('--dump', '-d', action='store_true', help='get debug stats')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -441,8 +441,9 @@ def train(set):
         loss_cont = contrastive_loss(z)
         loss_ent = entropy_loss(logits)
         loss_weight_diff = weight_diff_loss()
+        if args.dump:
+            get_debug(set, step=step)
         loss = args.lambda_cont * loss_cont + args.lambda_ent * loss_ent + args.lambda_wdiff * loss_weight_diff
-        get_debug(set, step=step)
         loss.backward()
         optimizer.step()
 
@@ -452,10 +453,11 @@ def train(set):
     out = net(inputs)
     embeddings, logits = out['embeddings'], out['logits']
     z = proj_head(embeddings)
-    loss_cont = contrastive_loss(z)
-    loss_ent = entropy_loss(logits)
-    loss_weight_diff = weight_diff_loss()
-    get_debug(set, step=args.steps)
+    if args.dump:
+        loss_cont = contrastive_loss(z)
+        loss_ent = entropy_loss(logits)
+        loss_weight_diff = weight_diff_loss()
+        get_debug(set, step=args.steps)
 
     TRAIN_TIME_CNT += time.time() - start_time
 
