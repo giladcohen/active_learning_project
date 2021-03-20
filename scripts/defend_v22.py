@@ -26,8 +26,8 @@ from art.classifiers import PyTorchClassifier
 # from active_learning_project.classifiers.pytorch_ext_classifier import PyTorchExtClassifier
 
 parser = argparse.ArgumentParser(description='Adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/Users/giladcohen/data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust/robust_resnet34_00', type=str, help='checkpoint dir')
-parser.add_argument('--attack_dir', default='ead', type=str, help='attack directory')
+parser.add_argument('--checkpoint_dir', default='/Users/giladcohen/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
+parser.add_argument('--attack_dir', default='fgsm_targeted', type=str, help='attack directory')
 parser.add_argument('--rev_dir', default='', type=str, help='reverse dir')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--net_pool', default='main', type=str, help='networks pool: main, ensemble, all')

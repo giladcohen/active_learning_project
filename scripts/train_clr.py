@@ -55,6 +55,7 @@ parser.add_argument('--batch_size', default=32, type=int, help='batch size for t
 parser.add_argument('--opt', default='sgd', type=str, help='optimizer: sgd, adam, rmsprop')
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
+parser.add_argument('--lambda_cont', default=1.0, type=float, help='weight of similarity loss')
 parser.add_argument('--lambda_ent', default=0.0, type=float, help='Regularization for entropy loss')
 parser.add_argument('--lambda_wdiff', default=100.0, type=float, help='Regularization for weight diff')
 
@@ -440,7 +441,7 @@ def train(set):
         loss_cont = contrastive_loss(z)
         loss_ent = entropy_loss(logits)
         loss_weight_diff = weight_diff_loss()
-        loss = loss_cont + args.lambda_ent * loss_ent + args.lambda_wdiff * loss_weight_diff
+        loss = args.lambda_cont * loss_cont + args.lambda_ent * loss_ent + args.lambda_wdiff * loss_weight_diff
         get_debug(set, step=step)
         loss.backward()
         optimizer.step()
