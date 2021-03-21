@@ -247,12 +247,12 @@ def contrastive_loss(hidden, temperature=0.1):
     return cosine_sim
 
 def entropy_loss(logits):
-    b = F.softmax(logits, dim=1) * F.log_softmax(logits, dim=1)
-    b = -1.0 * b.sum()
-    b = 1 / (eps + b)
-    return b
+    # ret = F.softmax(logits, dim=1) * F.log_softmax(logits, dim=1)
+    # ret = -1.0 * ret.sum()
+    # ret = 1 / (eps + ret)
+    # return ret
 
-def jsd_loss(logits):
+    #JSD:
     p_logits = logits[0:args.batch_size]
     q_logits = logits[args.batch_size:]
     p_probs = F.softmax(p_logits, dim=1)
@@ -260,8 +260,8 @@ def jsd_loss(logits):
 
     m = 0.5 * (p_probs + q_probs)
     ret = 0.0
-    ret += F.kl_div(p_probs, m, reduction="batchmean")
-    ret += F.kl_div(q_probs, m, reduction="batchmean")
+    ret += F.kl_div(F.log_softmax(p_logits, dim=1), m, reduction="batchmean")
+    ret += F.kl_div(F.log_softmax(q_logits, dim=1), m, reduction="batchmean")
     return 0.5 * ret
 
 def weight_diff_loss():
@@ -330,7 +330,7 @@ def get_debug(set, step):
         y_tensor = torch.from_numpy(np.expand_dims(y_test[img_ind], 0)).to(device)
         out = net(x_tensor)
         cent_d[img_ind, step] = F.cross_entropy(out['logits'], y_tensor)
-        ent_d[img_ind, step] = jsd_loss(out['logits'])
+        ent_d[img_ind, step] = entropy_loss(out['logits'])
         conf_d[img_ind, step] = out['probs'].squeeze().max()
 
     # collect TTA images stats: cross-entropy, entropy, confidence
@@ -353,13 +353,13 @@ def get_debug(set, step):
         tta_probs = prob_arr.mean(axis=0)
         tta_probs = torch.unsqueeze(tta_probs, 0)
         tta_cent_d[img_ind, step] = F.cross_entropy(tta_probs, y_tensor)
-        tta_ent_d[img_ind, step] = jsd_loss(tta_probs)
+        tta_ent_d[img_ind, step] = entropy_loss(tta_probs)
         tta_conf_d[img_ind, step] = tta_probs.squeeze().max()
 
         tta_emb_probs = get_probs_from_emb_center(emb_arr)
         tta_emb_probs = torch.unsqueeze(tta_emb_probs, 0)
         tta_cent_emb_d[img_ind, step] = F.cross_entropy(tta_emb_probs, y_tensor)
-        tta_ent_emb_d[img_ind, step] = jsd_loss(tta_emb_probs)
+        tta_ent_emb_d[img_ind, step] = entropy_loss(tta_emb_probs)
         tta_conf_emb_d[img_ind, step] = tta_emb_probs.squeeze().max()
 
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=contrastive_loss,
@@ -433,7 +433,7 @@ def train(set):
         embeddings, logits = out['embeddings'], out['logits']
         z = proj_head(embeddings)
         loss_cont = contrastive_loss(z)
-        loss_ent = jsd_loss(logits)
+        loss_ent = entropy_loss(logits)
         loss_weight_diff = weight_diff_loss()
         if args.dump:
             get_debug(set, step=step)
@@ -449,7 +449,7 @@ def train(set):
     z = proj_head(embeddings)
     if args.dump:
         loss_cont = contrastive_loss(z)
-        loss_ent = jsd_loss(logits)
+        loss_ent = entropy_loss(logits)
         loss_weight_diff = weight_diff_loss()
         get_debug(set, step=args.steps)
 
@@ -489,8 +489,8 @@ def test(set):
         rob_probs_emb[img_ind] = get_probs_from_emb_center(emb_arr).detach().cpu().numpy()
     TEST_TIME_CNT += time.time() - start_time
 
-
-for i in range(img_cnt):
+for i in tqdm(range(img_cnt)):
+# for i in range(img_cnt):  # debug
     img_ind = all_test_inds[i]
     # normal
     train_loader = get_single_img_dataloader(args.dataset, X_test, y_test, 2 * args.batch_size,
