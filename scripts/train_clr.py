@@ -490,7 +490,7 @@ def test(set):
     TEST_TIME_CNT += time.time() - start_time
 
 
-for i in tqdm(range(img_cnt)):
+for i in range(img_cnt):
     img_ind = all_test_inds[i]
     # normal
     train_loader = get_single_img_dataloader(args.dataset, X_test, y_test, 2 * args.batch_size,
