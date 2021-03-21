@@ -55,7 +55,7 @@ parser.add_argument('--opt', default='sgd', type=str, help='optimizer: sgd, adam
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
 parser.add_argument('--lambda_cont', default=1.0, type=float, help='weight of similarity loss')
-parser.add_argument('--lambda_ent', default=0.0001, type=float, help='Regularization for entropy loss')
+parser.add_argument('--lambda_ent', default=0.001, type=float, help='Regularization for entropy loss')
 parser.add_argument('--lambda_wdiff', default=100.0, type=float, help='Regularization for weight diff')
 
 # eval
@@ -72,7 +72,6 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 
 args = parser.parse_args()
 
-# debug
 TRAIN_TIME_CNT = 0.0
 TEST_TIME_CNT = 0.0
 ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
@@ -111,10 +110,10 @@ def calc_robust_metrics_from_probs_summation(tta_robustness_probs, tta_robustnes
     robustness_preds_adv = tta_robustness_probs_adv_sum.argmax(axis=1)
     calc_robust_metrics(robustness_preds, robustness_preds_adv)
 
-def get_probs_from_emb_center(tta_embedding):
+def get_logits_from_emb_center(tta_embedding):
     tta_embeddings_center = tta_embedding.mean(axis=0)
-    probs = F.softmax(net.linear(tta_embeddings_center))
-    return probs
+    logits = net.linear(tta_embeddings_center)
+    return logits
 
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
@@ -247,13 +246,17 @@ def contrastive_loss(hidden, temperature=0.1):
     return cosine_sim
 
 def entropy_loss(logits):
+    size = logits.size(0)
+    if size > 1:
+        assert size % 2 == 0
+
     # ret = F.softmax(logits, dim=1) * F.log_softmax(logits, dim=1)
     # ret = -1.0 * ret.sum()
     # ret = 1 / (eps + ret)
 
     # KL:
-    p_logits = logits[0:args.batch_size]
-    q_logits = logits[args.batch_size:]
+    p_logits = logits[0:int((size/2))]
+    q_logits = logits[int((size/2)):]
     ret = F.kl_div(F.log_softmax(p_logits, dim=1), F.softmax(q_logits, dim=1), reduction="batchmean")
 
     #JSD:
@@ -339,10 +342,10 @@ def get_debug(set, step):
         ent_d[img_ind, step] = entropy_loss(out['logits'])
         conf_d[img_ind, step] = out['probs'].squeeze().max()
 
-    # collect TTA images stats: cross-entropy, entropy, confidence
+        # collect TTA images stats: cross-entropy, entropy, confidence
         emb_arr = -1 * torch.ones((args.tta_size, net.linear.weight.shape[1]),
                                   dtype=torch.float32, device=device, requires_grad=False)
-        prob_arr = -1 * torch.ones((args.tta_size, len(classes)),
+        logits_arr = -1 * torch.ones((args.tta_size, len(classes)),
                                    dtype=torch.float32, device=device, requires_grad=False)
         tta_cnt = 0
         while tta_cnt < args.tta_size:
@@ -352,20 +355,22 @@ def get_debug(set, step):
             e = min(tta_cnt + len(inputs), args.tta_size)
             out = net(inputs)
             emb_arr[b:e] = out['embeddings'][0:(e-b)]
-            prob_arr[b:e] = out['probs'][0:(e-b)]
+            logits_arr[b:e] = out['logits'][0:(e-b)]
             tta_cnt += e-b
             assert tta_cnt <= args.tta_size, 'not cool!'
 
-        tta_probs = prob_arr.mean(axis=0)
+        probs_arr = F.softmax(logits_arr, dim=1)
+        tta_probs = probs_arr.mean(dim=0)
         tta_probs = torch.unsqueeze(tta_probs, 0)
         tta_cent_d[img_ind, step] = F.cross_entropy(tta_probs, y_tensor)
-        tta_ent_d[img_ind, step] = entropy_loss(tta_probs)
+        tta_ent_d[img_ind, step] = entropy_loss(logits_arr)
         tta_conf_d[img_ind, step] = tta_probs.squeeze().max()
 
-        tta_emb_probs = get_probs_from_emb_center(emb_arr)
-        tta_emb_probs = torch.unsqueeze(tta_emb_probs, 0)
+        tta_emb_logits = get_logits_from_emb_center(emb_arr)
+        tta_emb_logits = torch.unsqueeze(tta_emb_logits, 0)
+        tta_emb_probs = F.softmax(tta_emb_logits, dim=1)
         tta_cent_emb_d[img_ind, step] = F.cross_entropy(tta_emb_probs, y_tensor)
-        tta_ent_emb_d[img_ind, step] = entropy_loss(tta_emb_probs)
+        tta_ent_emb_d[img_ind, step] = entropy_loss(tta_emb_logits)
         tta_conf_emb_d[img_ind, step] = tta_emb_probs.squeeze().max()
 
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=contrastive_loss,
@@ -492,7 +497,7 @@ def test(set):
             tta_cnt += e-b
             assert tta_cnt <= args.tta_size, 'not cool!'
 
-        rob_probs_emb[img_ind] = get_probs_from_emb_center(emb_arr).detach().cpu().numpy()
+        rob_probs_emb[img_ind] = F.softmax(get_logits_from_emb_center(emb_arr)).detach().cpu().numpy()
     TEST_TIME_CNT += time.time() - start_time
 
 for i in tqdm(range(img_cnt)):

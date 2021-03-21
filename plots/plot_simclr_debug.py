@@ -2,7 +2,7 @@
 from active_learning_project.utils import convert_tensor_to_image
 from utils import majority_vote
 
-NUM_DEBUG_SAMPLES = 10
+NUM_DEBUG_SAMPLES = 20
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -12,7 +12,7 @@ sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 
 ATTACK_DIR = '/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00/cw_targeted'
-dump_subdir = 'dump_17032021_185238'
+dump_subdir = 'lambda_ent_0.001_KL'
 DUMP_DIR = os.path.join(ATTACK_DIR, dump_subdir)
 
 # loading all stats:
@@ -85,6 +85,7 @@ f0_inds.sort()
 f1_inds.sort()
 f2_inds.sort()
 f3_inds.sort()
+mini_test_inds = np.load(os.path.join(ATTACK_DIR, 'inds', 'mini_test_inds.npy'))
 
 # where did we misclassify after our re-training?
 # get methods predictions: 1: simple, 2: majority vote, 3: softmax summation, 4: emb cluster softmax
@@ -103,16 +104,29 @@ f0_robust_inds_normal = {}
 f0_robust_inds_adv    = {}
 f1_robust_inds_normal = {}
 f1_robust_inds_adv    = {}
-
 for key in preds.keys():
-    f0_robust_inds_normal[key] = np.where(preds[key][:NUM_DEBUG_SAMPLES]         != y_test[:NUM_DEBUG_SAMPLES])[0]
-    f0_robust_inds_adv[key]    = np.where(preds_adv[key][:NUM_DEBUG_SAMPLES]     != y_test[:NUM_DEBUG_SAMPLES])[0]
-    f1_robust_inds_normal[key] = np.where(preds[key][:NUM_DEBUG_SAMPLES]         == y_test[:NUM_DEBUG_SAMPLES])[0]
-    f1_robust_inds_adv[key]    = np.where(preds_adv[key][:NUM_DEBUG_SAMPLES]     == y_test[:NUM_DEBUG_SAMPLES])[0]
+    f0_robust_inds_normal[key] = []
+    f0_robust_inds_adv[key]    = []
+    f1_robust_inds_normal[key] = []
+    f1_robust_inds_adv[key]    = []
+    for i in range(len(y_test)):
+        if i in mini_test_inds[:NUM_DEBUG_SAMPLES]:
+            if preds[key][i] == y_test[i]:
+                f1_robust_inds_normal[key].append(i)
+            else:
+                f0_robust_inds_normal[key].append(i)
+            if preds_adv[key][i] == y_test[i]:
+                f1_robust_inds_adv[key].append(i)
+            else:
+                f0_robust_inds_adv[key].append(i)
 
-N_imgs, N_steps = cross_entropy.shape
+N_imgs = NUM_DEBUG_SAMPLES
+N_steps = cross_entropy.shape[1]
 x = np.arange(N_steps)
-for n in range(N_imgs):
+
+# for n in f1_robust_inds['summation'][0:10]:
+for i in range(N_imgs):
+    n = mini_test_inds[i]
     plt.close('all')
     fig, ((ax1, ax2, ax3), (ax4, ax5, ax6), (ax7, ax8, ax9), (ax10, ax11, ax12)) = plt.subplots(4, 3, figsize=(15, 15))
     fig.suptitle('normal image #{}'.format(n), horizontalalignment='center', fontdict={'fontsize': 8})
@@ -147,7 +161,9 @@ for n in range(N_imgs):
     plt.tight_layout(h_pad=0.7)
     plt.show()
 
-for n in range(N_imgs):
+# for n in f1_robust_inds_adv['summation'][0:10]:
+for i in range(N_imgs):
+    n = mini_test_inds[i]
     plt.close('all')
     fig, ((ax1, ax2, ax3), (ax4, ax5, ax6), (ax7, ax8, ax9), (ax10, ax11, ax12)) = plt.subplots(4, 3, figsize=(15, 15))
     fig.suptitle('adv image #{}'.format(n), horizontalalignment='center', fontdict={'fontsize': 8})
