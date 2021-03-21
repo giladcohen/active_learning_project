@@ -250,19 +250,25 @@ def entropy_loss(logits):
     # ret = F.softmax(logits, dim=1) * F.log_softmax(logits, dim=1)
     # ret = -1.0 * ret.sum()
     # ret = 1 / (eps + ret)
-    # return ret
 
-    #JSD:
+    # KL:
     p_logits = logits[0:args.batch_size]
     q_logits = logits[args.batch_size:]
-    p_probs = F.softmax(p_logits, dim=1)
-    q_probs = F.softmax(q_logits, dim=1)
+    ret = F.kl_div(F.log_softmax(p_logits, dim=1), F.softmax(q_logits, dim=1), reduction="batchmean")
 
-    m = 0.5 * (p_probs + q_probs)
-    ret = 0.0
-    ret += F.kl_div(F.log_softmax(p_logits, dim=1), m, reduction="batchmean")
-    ret += F.kl_div(F.log_softmax(q_logits, dim=1), m, reduction="batchmean")
-    return 0.5 * ret
+    #JSD:
+    # p_logits = logits[0:args.batch_size]
+    # q_logits = logits[args.batch_size:]
+    # p_probs = F.softmax(p_logits, dim=1)
+    # q_probs = F.softmax(q_logits, dim=1)
+    #
+    # m = 0.5 * (p_probs + q_probs)
+    # ret = 0.0
+    # ret += F.kl_div(F.log_softmax(p_logits, dim=1), m, reduction="batchmean")
+    # ret += F.kl_div(F.log_softmax(q_logits, dim=1), m, reduction="batchmean")
+    # ret *= 0.5
+
+    return ret
 
 def weight_diff_loss():
     global net, orig_net, orig_params
