@@ -97,6 +97,11 @@ def calc_robust_metrics(robustness_preds, robustness_preds_adv):
     acc_all_adv = np.mean(robustness_preds_adv[all_test_inds] == y_test[all_test_inds])
     log('Robust classification accuracy: all samples: {:.2f}/{:.2f}%'.format(acc_all * 100, acc_all_adv * 100))
 
+def calc_first_n_robust_metrics(robustness_preds, robustness_preds_adv, n):
+    acc_all = np.mean(robustness_preds[all_test_inds][0:n] == y_test[all_test_inds][0:n])
+    acc_all_adv = np.mean(robustness_preds_adv[all_test_inds][0:n] == y_test[all_test_inds][0:n])
+    print('accuracy on the fly (so far) after {} samples: all samples: {:.2f}/{:.2f}%'.format(n, acc_all * 100, acc_all_adv * 100))
+
 def calc_robust_metrics_from_probs_majority_vote(tta_robustness_probs, tta_robustness_probs_adv):
     log('Calculating robustness metrics from probs via majority vote...')
     tta_robustness_preds = tta_robustness_probs.argmax(axis=2)
@@ -518,6 +523,7 @@ for i in tqdm(range(img_cnt)):
     train('adv')
     test('adv')
 
+    calc_first_n_robust_metrics(robustness_preds, robustness_preds_adv, i + 1)
 
 average_train_time = TRAIN_TIME_CNT / (2 * img_cnt)
 average_test_time = TEST_TIME_CNT / (2 * img_cnt)
