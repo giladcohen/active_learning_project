@@ -77,6 +77,9 @@ TEST_TIME_CNT = 0.0
 ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
 DUMP_DIR = os.path.join(ATTACK_DIR, args.dump_dir)
 os.makedirs(DUMP_DIR, exist_ok=True)
+# dumping args to txt file
+with open(os.path.join(DUMP_DIR, 'commandline_args.txt'), 'w') as f:
+    json.dump(args.__dict__, f, indent=2)
 
 logging.basicConfig(filename=os.path.join(DUMP_DIR, 'log.log'),
                     filemode='w',
@@ -522,9 +525,6 @@ log('average train/test time per sample: {}/{} secs'.format(average_train_time, 
 
 if args.dump:
     log('dumping results...')
-    # dumping args to txt file
-    with open(os.path.join(DUMP_DIR, 'commandline_args.txt'), 'w') as f:
-        json.dump(args.__dict__, f, indent=2)
 
     np.save(os.path.join(DUMP_DIR, 'robustness_preds.npy'), robustness_preds)
     np.save(os.path.join(DUMP_DIR, 'robustness_preds_adv.npy'), robustness_preds_adv)
