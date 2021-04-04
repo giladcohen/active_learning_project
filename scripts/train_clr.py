@@ -252,6 +252,12 @@ def contrastive_loss(hidden, temperature=0.1):
     cosine_sim = (1 - torch.matmul(hidden1, hidden2.T)).sum()
     return cosine_sim
 
+# def contrastive_loss_v2(hidden, temperature=0.1):
+#     hidden = nn.functional.normalize(hidden, dim=1)
+#     ret = 1 - torch.matmul(hidden, hidden.T)
+#     cosine_sim = ret.triu(diagonal=1).sum()
+#     return cosine_sim
+
 def entropy_loss(logits):
     size = logits.size(0)
     if size > 1:
