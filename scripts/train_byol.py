@@ -50,7 +50,7 @@ parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attac
 
 # train
 parser.add_argument('--lr', default=0.0003, type=float, help='learning rate')
-parser.add_argument('--steps', default=15, type=int, help='number of training steps')
+parser.add_argument('--steps', default=50, type=int, help='number of training steps')
 parser.add_argument('--batch_size', default=32, type=int, help='batch size for the CLR training')
 parser.add_argument('--opt', default='adam', type=str, help='optimizer: sgd, adam, rmsprop')
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
@@ -97,13 +97,22 @@ def log(str):
 def calc_robust_metrics(robustness_preds, robustness_preds_adv):
     acc_all = np.mean(robustness_preds[all_test_inds] == y_test[all_test_inds])
     acc_all_adv = np.mean(robustness_preds_adv[all_test_inds] == y_test[all_test_inds])
-    log('Robust classification accuracy: all samples: {:.2f}/{:.2f}%'.format(acc_all * 100, acc_all_adv * 100))
+    return acc_all, acc_all_adv
+    # log('Robust classification accuracy: all samples: {:.2f}/{:.2f}%'.format(acc_all * 100, acc_all_adv * 100))
 
 def calc_first_n_robust_metrics(robustness_preds, robustness_preds_adv, n):
     acc_all = np.mean(robustness_preds[all_test_inds][0:n] == y_test[all_test_inds][0:n])
     acc_all_adv = np.mean(robustness_preds_adv[all_test_inds][0:n] == y_test[all_test_inds][0:n])
-    print('accuracy on the fly (so far) after {} samples: all samples: {:.2f}/{:.2f}%'.format(n, acc_all * 100, acc_all_adv * 100))
+    return acc_all, acc_all_adv
 
+def calc_first_n_robust_metrics_from_probs_summation(tta_robustness_probs, tta_robustness_probs_adv, n):
+    tta_robustness_probs_sum = tta_robustness_probs.sum(axis=1)
+    robustness_preds = tta_robustness_probs_sum.argmax(axis=1)
+    tta_robustness_probs_adv_sum = tta_robustness_probs_adv.sum(axis=1)
+    robustness_preds_adv = tta_robustness_probs_adv_sum.argmax(axis=1)
+    acc_all = np.mean(robustness_preds[all_test_inds][0:n] == y_test[all_test_inds][0:n])
+    acc_all_adv = np.mean(robustness_preds_adv[all_test_inds][0:n] == y_test[all_test_inds][0:n])
+    return acc_all, acc_all_adv
 
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
@@ -193,7 +202,7 @@ def reset_net():
     net = net.to(device)
 
     net.load_state_dict(global_state['best_net'])
-    learner = BYOL(net=net, image_size=32, hidden_layer='avgpool', augment_fn=tta_transforms)
+    learner = BYOL(net=net, image_size=32, hidden_layer='avgpool', augment_fn=tta_transforms, moving_average_decay=0.9)
 
 def reset_opt():
     global optimizer
@@ -235,6 +244,8 @@ img_cnt = len(all_test_inds)
 
 robustness_preds            = -1 * np.ones(test_size, dtype=np.int32)
 robustness_preds_adv        = -1 * np.ones(test_size, dtype=np.int32)
+robustness_probs            = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
+robustness_probs_adv        = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
 
 def train(set):
     """set='normal' or 'adv'"""
@@ -262,12 +273,25 @@ def test(set):
     if set == 'normal':
         x = X_test
         rob_preds     = robustness_preds
+        rob_probs     = robustness_probs
     else:
         x = X_test_adv
         rob_preds     = robustness_preds_adv
+        rob_probs     = robustness_probs_adv
 
     start_time = time.time()
     rob_preds[img_ind] = classifier.predict(np.expand_dims(x[img_ind], 0)).squeeze().argmax()
+    with torch.no_grad():
+        tta_cnt = 0
+        while tta_cnt < args.tta_size:
+            (inputs, targets) = list(train_loader)[0]
+            inputs, targets = inputs.to(device), targets.to(device)
+            b = tta_cnt
+            e = min(tta_cnt + len(inputs), args.tta_size)
+            out = net(inputs)
+            rob_probs[img_ind, b:e] = out['probs'][0:(e-b)].detach().cpu().numpy()
+            tta_cnt += e-b
+            assert tta_cnt <= args.tta_size, 'not cool!'
 
     TEST_TIME_CNT += time.time() - start_time
 
@@ -286,7 +310,10 @@ for i in tqdm(range(img_cnt)):
     train('adv')
     test('adv')
 
-    calc_first_n_robust_metrics(robustness_preds, robustness_preds_adv, i + 1)
+    acc_all, acc_all_adv = calc_first_n_robust_metrics(robustness_preds, robustness_preds_adv, i + 1)
+    tta_acc_all, tta_acc_all_adv = calc_first_n_robust_metrics_from_probs_summation(robustness_probs, robustness_probs_adv, i)
+    print('accuracy on the fly (so far) after {} samples: original image: {:.2f}/{:.2f}%, TTAs: {:.2f}/{:.2f}%'
+          .format(i, acc_all * 100, acc_all_adv * 100, tta_acc_all * 100, tta_acc_all_adv * 100))
 
 print('done')
 exit(0)
