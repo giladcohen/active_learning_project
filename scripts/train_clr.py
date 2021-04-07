@@ -466,12 +466,12 @@ def train(set):
         optimizer.step()
 
     # for debug, last step:
-    (inputs, targets) = list(train_loader)[0]
-    inputs, targets = inputs.to(device), targets.to(device)
-    out = net(inputs)
-    embeddings, logits = out['embeddings'], out['logits']
-    z = proj_head(embeddings)
     if args.dump:
+        (inputs, targets) = list(train_loader)[0]
+        inputs, targets = inputs.to(device), targets.to(device)
+        out = net(inputs)
+        embeddings, logits = out['embeddings'], out['logits']
+        z = proj_head(embeddings)
         loss_cont = contrastive_loss(z)
         loss_ent = entropy_loss(logits)
         loss_weight_diff = weight_diff_loss()
