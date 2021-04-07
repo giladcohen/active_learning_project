@@ -122,9 +122,9 @@ def calc_first_n_robust_metrics_from_probs_summation(tta_robustness_probs, tta_r
     acc_all_adv = np.mean(robustness_preds_adv[all_test_inds][0:n] == y_test[all_test_inds][0:n])
     return acc_all, acc_all_adv
 
-def get_logits_from_emb_center(tta_embedding, linear_layer):
+def get_logits_from_emb_center(tta_embedding, model):
     tta_embeddings_center = tta_embedding.mean(axis=0)
-    logits = linear_layer(tta_embeddings_center)
+    logits = model.linear(tta_embeddings_center)
     return logits
 
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
@@ -218,6 +218,14 @@ def reset_net():
     learner = BYOL(net=net, image_size=32, hidden_layer='avgpool', augment_fn=tta_transforms,
                    moving_average_decay=args.mom_mad)
 
+if train_args['net'] == 'resnet34':
+    orig_net = ResNet34(num_classes=len(classes), activation=train_args['activation'])
+elif train_args['net'] == 'resnet101':
+    orig_net = ResNet101(num_classes=len(classes), activation=train_args['activation'])
+else:
+    raise AssertionError("network {} is unknown".format(train_args['net']))
+orig_net = orig_net.to(device)
+
 def reset_opt():
     global optimizer
     if args.opt == 'sgd':
@@ -255,7 +263,8 @@ def reset_opt():
         raise AssertionError('optimizer {} is not expected'.format(args.opt))
 
 reset_net()
-orig_params = torch.nn.utils.parameters_to_vector(net.parameters())
+orig_net.load_state_dict(global_state['best_net'])
+orig_params = torch.nn.utils.parameters_to_vector(orig_net.parameters())
 
 # test images inds:
 mini_test_inds = np.load(os.path.join(ATTACK_DIR, 'inds', 'mini_test_inds.npy'))
@@ -318,9 +327,10 @@ def entropy_loss(logits):
     return ret
 
 def weight_diff_loss():
-    global net, orig_params, learner
+    global learner, orig_net, orig_params
     diff = torch.tensor(0.0, requires_grad=True).to(device)
-    for w1, w2 in zip(net.parameters(), learner.target_encoder.net.parameters()):
+    torch.nn.utils.vector_to_parameters(orig_params, orig_net.parameters())
+    for w1, w2 in zip(learner.net.parameters(), orig_net.parameters()):
         diff = diff + torch.linalg.norm((w1 - w2).view(-1), ord=2)
     return diff
 
@@ -378,15 +388,16 @@ def get_debug(set, step):
 
     net.eval()
     learner.eval()
+    if args.dump_on_target:
+        model = learner.target_encoder.net
+    else:
+        model = learner.net
 
-    # collect original image stats: cross-entropy, entropy, confidence:
+# collect original image stats: cross-entropy, entropy, confidence:
     x_tensor = torch.from_numpy(np.expand_dims(x[img_ind], 0)).to(device)
     y_tensor = torch.from_numpy(np.expand_dims(y_test[img_ind], 0)).to(device)
 
-    if args.dump_on_target:
-        out = learner.target_encoder.net(x_tensor)
-    else:
-        out = net(x_tensor)
+    out = model(x_tensor)
     cent_d[img_ind, step] = F.cross_entropy(out['logits'], y_tensor)
     ent_d[img_ind, step] = entropy_loss(out['logits'])
     conf_d[img_ind, step] = out['probs'].squeeze().max()
@@ -402,10 +413,7 @@ def get_debug(set, step):
         inputs, targets = inputs.to(device), targets.to(device)
         b = tta_cnt
         e = min(tta_cnt + len(inputs), args.tta_size)
-        if args.dump_on_target:
-            out = learner.target_encoder.net(inputs)
-        else:
-            out = net(inputs)
+        out = model(inputs)
         emb_arr[b:e] = out['embeddings'][0:(e-b)]
         logits_arr[b:e] = out['logits'][0:(e-b)]
         tta_cnt += e-b
@@ -418,10 +426,7 @@ def get_debug(set, step):
     tta_ent_d[img_ind, step] = entropy_loss(logits_arr)
     tta_conf_d[img_ind, step] = tta_probs.squeeze().max()
 
-    if args.dump_on_target:
-        tta_emb_logits = get_logits_from_emb_center(emb_arr, learner.target_encoder.net.linear)
-    else:
-        tta_emb_logits = get_logits_from_emb_center(emb_arr, net.linear)
+    tta_emb_logits = get_logits_from_emb_center(emb_arr, model)
     tta_emb_logits = torch.unsqueeze(tta_emb_logits, 0)
     tta_emb_probs = F.softmax(tta_emb_logits, dim=1)
     tta_cent_emb_d[img_ind, step] = F.cross_entropy(tta_emb_probs, y_tensor)
@@ -445,14 +450,16 @@ def train(set):
         (inputs, targets) = list(train_loader)[0]
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
-        loss_cont = learner(inputs)                    # on online only
+        loss_cont, online_logits, target_logits = learner(inputs)
+        loss_ent = entropy_loss(online_logits)         # on online only
+        loss_weight_diff = weight_diff_loss()          # on online only
+
         if args.dump:
             with torch.no_grad():
-                logits = net(inputs)['logits']         # on online only
-                loss_ent = entropy_loss(logits)        # on online only
-                loss_weight_diff = weight_diff_loss()  # on online only
                 get_debug(set, step=step)
-        loss_cont.backward()
+
+        loss = args.lambda_cont * loss_cont + args.lambda_ent * loss_ent + args.lambda_wdiff * loss_weight_diff
+        loss.backward()
         optimizer.step()
         learner.update_moving_average()
 
@@ -461,9 +468,8 @@ def train(set):
         with torch.no_grad():
             (inputs, targets) = list(train_loader)[0]
             inputs, targets = inputs.to(device), targets.to(device)
-            loss_cont = learner(inputs)            # on online only
-            logits = net(inputs)['logits']         # on online only
-            loss_ent = entropy_loss(logits)        # on online only
+            loss_cont, online_logits, target_logits = learner(inputs)
+            loss_ent = entropy_loss(online_logits)        # on online only
             loss_weight_diff = weight_diff_loss()  # on online only
             get_debug(set, step=args.steps)
 
@@ -503,7 +509,7 @@ def test(set):
             tta_cnt += e-b
             assert tta_cnt <= args.tta_size, 'not cool!'
 
-        rob_probs_emb[img_ind] = F.softmax(get_logits_from_emb_center(emb_arr, learner.target_encoder.net.linear)).detach().cpu().numpy()
+        rob_probs_emb[img_ind] = F.softmax(get_logits_from_emb_center(emb_arr, learner.target_encoder.net)).detach().cpu().numpy()
     TEST_TIME_CNT += time.time() - start_time
 
 for i in tqdm(range(img_cnt)):
