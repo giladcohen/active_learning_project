@@ -209,7 +209,7 @@ def reset_net():
 
     net.load_state_dict(global_state['best_net'])
     learner = BYOL(net=net, image_size=32, hidden_layer='avgpool', augment_fn=tta_transforms,
-                   use_momentum=args.mom_mad > 0, moving_average_decay=args.mom_mad)
+                   moving_average_decay=args.mom_mad)
 
 def reset_opt():
     global optimizer
@@ -439,8 +439,7 @@ def train(set):
                 get_debug(set, step=step)
         loss_cont.backward()
         optimizer.step()
-        if args.mom_mad > 0:
-            learner.update_moving_average()
+        learner.update_moving_average()
 
     TRAIN_TIME_CNT += time.time() - start_time
 
