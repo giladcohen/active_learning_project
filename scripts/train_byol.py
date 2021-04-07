@@ -55,8 +55,8 @@ parser.add_argument('--steps', default=15, type=int, help='number of training st
 parser.add_argument('--batch_size', default=32, type=int, help='batch size for the CLR training')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
 parser.add_argument('--lambda_cont', default=1.0, type=float, help='weight of similarity loss')
-parser.add_argument('--lambda_ent', default=0.0, type=float, help='Regularization for entropy loss')
-parser.add_argument('--lambda_wdiff', default=0.0, type=float, help='Regularization for weight diff')
+parser.add_argument('--lambda_ent', default=90.0, type=float, help='Regularization for entropy loss')
+parser.add_argument('--lambda_wdiff', default=100.0, type=float, help='Regularization for weight diff')
 
 # optimizer
 parser.add_argument('--opt', default='adam', type=str, help='optimizer: sgd, adam, rmsprop, lars')
