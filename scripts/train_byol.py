@@ -21,6 +21,7 @@ import scipy
 import copy
 import pickle
 from datetime import datetime
+from torchlars import LARS
 
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
@@ -52,12 +53,18 @@ parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attac
 parser.add_argument('--lr', default=0.0003, type=float, help='learning rate')
 parser.add_argument('--steps', default=15, type=int, help='number of training steps')
 parser.add_argument('--batch_size', default=32, type=int, help='batch size for the CLR training')
-parser.add_argument('--opt', default='adam', type=str, help='optimizer: sgd, adam, rmsprop')
-parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
 parser.add_argument('--lambda_cont', default=1.0, type=float, help='weight of similarity loss')
 parser.add_argument('--lambda_ent', default=0.0, type=float, help='Regularization for entropy loss')
 parser.add_argument('--lambda_wdiff', default=0.0, type=float, help='Regularization for weight diff')
+
+# optimizer
+parser.add_argument('--opt', default='adam', type=str, help='optimizer: sgd, adam, rmsprop, lars')
+parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
+parser.add_argument('--lars_eps', default=1e-8, type=float, help='for lars optimizer')
+parser.add_argument('--lars_coeff', default=0.001, type=float, help='for lars optimizer')
+
+# byol hyper-params:
 parser.add_argument('--mom_mad', default=0.5, type=float, help='Regularization for weight diff')
 
 # eval
@@ -236,6 +243,14 @@ def reset_opt():
             lr=args.lr,
             momentum=args.mom,
             weight_decay=args.wd)
+    elif args.opt == 'lars':
+        optimizer = optim.SGD(
+            learner.parameters(),
+            lr=args.lr,
+            momentum=args.mom,
+            weight_decay=args.wd,
+            nesterov=args.mom > 0)
+        optimizer = LARS(optimizer, trust_coef=args.lars_coeff, eps=args.lars_eps)
     else:
         raise AssertionError('optimizer {} is not expected'.format(args.opt))
 
@@ -440,6 +455,17 @@ def train(set):
         loss_cont.backward()
         optimizer.step()
         learner.update_moving_average()
+
+    # for debug, last step:
+    if args.dump:
+        with torch.no_grad():
+            (inputs, targets) = list(train_loader)[0]
+            inputs, targets = inputs.to(device), targets.to(device)
+            loss_cont = learner(inputs)            # on online only
+            logits = net(inputs)['logits']         # on online only
+            loss_ent = entropy_loss(logits)        # on online only
+            loss_weight_diff = weight_diff_loss()  # on online only
+            get_debug(set, step=args.steps)
 
     TRAIN_TIME_CNT += time.time() - start_time
 
