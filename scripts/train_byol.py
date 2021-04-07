@@ -58,10 +58,10 @@ parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
 parser.add_argument('--lambda_cont', default=1.0, type=float, help='weight of similarity loss')
 parser.add_argument('--lambda_ent', default=0.0, type=float, help='Regularization for entropy loss')
 parser.add_argument('--lambda_wdiff', default=0.0, type=float, help='Regularization for weight diff')
+parser.add_argument('--mom_mad', default=0.5, type=float, help='Regularization for weight diff')
 
 # eval
 parser.add_argument('--tta_size', default=50, type=int, help='number of test-time augmentations in eval phase')
-parser.add_argument('--mini_test', action='store_true', help='test only 1000 mini_test_inds')
 
 # debug:
 parser.add_argument('--debug_size', default=100, type=int, help='number of image to run in debug mode')
@@ -208,7 +208,8 @@ def reset_net():
     net = net.to(device)
 
     net.load_state_dict(global_state['best_net'])
-    learner = BYOL(net=net, image_size=32, hidden_layer='avgpool', augment_fn=tta_transforms, moving_average_decay=0.9)
+    learner = BYOL(net=net, image_size=32, hidden_layer='avgpool', augment_fn=tta_transforms,
+                   moving_average_decay=args.mom_mad)
 
 def reset_opt():
     global optimizer
