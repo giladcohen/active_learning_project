@@ -503,6 +503,49 @@ for i in tqdm(range(img_cnt)):
           .format(i + 1, acc_all * 100, acc_all_adv * 100, tta_acc_all * 100, tta_acc_all_adv * 100,
                   tta_emb_acc_all * 100, tta_emb_acc_all_adv * 100))
 
+average_train_time = TRAIN_TIME_CNT / (2 * img_cnt)
+average_test_time = TEST_TIME_CNT / (2 * img_cnt)
+log('average train/test time per sample: {}/{} secs'.format(average_train_time, average_test_time))
+
+if args.dump:
+    log('dumping results...')
+
+    np.save(os.path.join(DUMP_DIR, 'robustness_preds.npy'), robustness_preds)
+    np.save(os.path.join(DUMP_DIR, 'robustness_preds_adv.npy'), robustness_preds_adv)
+    np.save(os.path.join(DUMP_DIR, 'robustness_probs.npy'), robustness_probs)
+    np.save(os.path.join(DUMP_DIR, 'robustness_probs_adv.npy'), robustness_probs_adv)
+    np.save(os.path.join(DUMP_DIR, 'robustness_probs_emb.npy'), robustness_probs_emb)
+    np.save(os.path.join(DUMP_DIR, 'robustness_probs_emb_adv.npy'), robustness_probs_emb_adv)
+
+    # debug
+    np.save(os.path.join(DUMP_DIR, 'loss_contrastive.npy'), loss_contrastive)
+    np.save(os.path.join(DUMP_DIR, 'loss_contrastive_adv.npy'), loss_contrastive_adv)
+    np.save(os.path.join(DUMP_DIR, 'loss_entropy.npy'), loss_entropy)
+    np.save(os.path.join(DUMP_DIR, 'loss_entropy_adv.npy'), loss_entropy_adv)
+    np.save(os.path.join(DUMP_DIR, 'loss_weight_difference.npy'), loss_weight_difference)
+    np.save(os.path.join(DUMP_DIR, 'loss_weight_difference_adv.npy'), loss_weight_difference_adv)
+
+    np.save(os.path.join(DUMP_DIR, 'cross_entropy.npy'), cross_entropy)
+    np.save(os.path.join(DUMP_DIR, 'cross_entropy_adv.npy'), cross_entropy_adv)
+    np.save(os.path.join(DUMP_DIR, 'entropy.npy'), entropy)
+    np.save(os.path.join(DUMP_DIR, 'entropy_adv.npy'), entropy_adv)
+    np.save(os.path.join(DUMP_DIR, 'confidences.npy'), confidences)
+    np.save(os.path.join(DUMP_DIR, 'confidences_adv.npy'), confidences_adv)
+
+    np.save(os.path.join(DUMP_DIR, 'tta_cross_entropy.npy'), tta_cross_entropy)
+    np.save(os.path.join(DUMP_DIR, 'tta_cross_entropy_adv.npy'), tta_cross_entropy_adv)
+    np.save(os.path.join(DUMP_DIR, 'tta_entropy.npy'), tta_entropy)
+    np.save(os.path.join(DUMP_DIR, 'tta_entropy_adv.npy'), tta_entropy_adv)
+    np.save(os.path.join(DUMP_DIR, 'tta_confidences.npy'), tta_confidences)
+    np.save(os.path.join(DUMP_DIR, 'tta_confidences_adv.npy'), tta_confidences_adv)
+
+    np.save(os.path.join(DUMP_DIR, 'tta_cross_entropy_emb.npy'), tta_cross_entropy_emb)
+    np.save(os.path.join(DUMP_DIR, 'tta_cross_entropy_emb_adv.npy'), tta_cross_entropy_emb_adv)
+    np.save(os.path.join(DUMP_DIR, 'tta_entropy_emb.npy'), tta_entropy_emb)
+    np.save(os.path.join(DUMP_DIR, 'tta_entropy_emb_adv.npy'), tta_entropy_emb_adv)
+    np.save(os.path.join(DUMP_DIR, 'tta_confidences_emb.npy'), tta_confidences_emb)
+    np.save(os.path.join(DUMP_DIR, 'tta_confidences_emb_adv.npy'), tta_confidences_emb_adv)
+
 log('done')
 logging.shutdown()
 exit(0)
