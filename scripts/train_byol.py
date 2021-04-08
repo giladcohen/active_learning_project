@@ -19,6 +19,7 @@ import PIL
 from torchlars import LARS
 
 sys.path.insert(0, ".")
+sys.path.insert(0, "./adversarial_robustness_toolbox")
 sys.path.insert(0, "./byol_pytorch")
 
 from byol_pytorch import BYOL
