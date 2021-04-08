@@ -1,6 +1,5 @@
 """
-This script loads a pretrained checkpoint and used the base model to extract features (h), which on top of them we
-calculate the contrastive loss using a simple MLP g(h).
+This script uses BYOL technique for adversarial robustness
 """
 import torch
 import torch.nn as nn
@@ -17,10 +16,6 @@ from tqdm import tqdm
 import time
 import sys
 import PIL
-import scipy
-import copy
-import pickle
-from datetime import datetime
 from torchlars import LARS
 
 sys.path.insert(0, ".")
@@ -28,15 +23,10 @@ sys.path.insert(0, "./byol_pytorch")
 
 from byol_pytorch import BYOL
 
-from art.estimators.classification import PyTorchClassifier
-
 from active_learning_project.models.resnet import ResNet34, ResNet101
-from active_learning_project.models.projection_head import ProjectobHead
 import active_learning_project.datasets.my_transforms as my_transforms
-from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
-    get_all_data_loader, get_normalized_tensor, get_single_img_dataloader
-from active_learning_project.utils import remove_substr_from_keys, boolean_string, save_features, pytorch_evaluate, \
-    majority_vote
+from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_normalized_tensor,\
+    get_single_img_dataloader
 from torchsummary import summary
 import torchvision.transforms as transforms
 
@@ -54,11 +44,11 @@ parser.add_argument('--steps', default=15, type=int, help='number of training st
 parser.add_argument('--batch_size', default=32, type=int, help='batch size for the CLR training')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
 parser.add_argument('--lambda_cont', default=1.0, type=float, help='weight of similarity loss')
-parser.add_argument('--lambda_ent', default=90.0, type=float, help='Regularization for entropy loss')
-parser.add_argument('--lambda_wdiff', default=100.0, type=float, help='Regularization for weight diff')
+parser.add_argument('--lambda_ent', default=0.0, type=float, help='Regularization for entropy loss')
+parser.add_argument('--lambda_wdiff', default=0.0, type=float, help='Regularization for weight diff')
 
 # optimizer
-parser.add_argument('--opt', default='adam', type=str, help='optimizer: sgd, adam, rmsprop, lars')
+parser.add_argument('--opt', default='lars', type=str, help='optimizer: sgd, adam, rmsprop, lars')
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
 parser.add_argument('--lars_eps', default=1e-8, type=float, help='for lars optimizer')
 parser.add_argument('--lars_coeff', default=0.001, type=float, help='for lars optimizer')
