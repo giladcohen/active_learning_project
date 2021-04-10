@@ -2,7 +2,7 @@
 from active_learning_project.utils import convert_tensor_to_image
 from utils import majority_vote
 
-NUM_DEBUG_SAMPLES = 100
+NUM_DEBUG_SAMPLES = 5
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -11,7 +11,7 @@ import os
 sys.path.insert(0, ".")
 
 ATTACK_DIR = '/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00/cw_targeted'
-dump_subdir = 'byol_training_steps_100_lr_1e_5_adams_bs_32_mom_mad_0.1_ent_90_wdiff_100'
+dump_subdir = 'lars_bs_1700_lr_0.01_mom_mad_0.1'
 DUMP_DIR = os.path.join(ATTACK_DIR, dump_subdir)
 
 # loading all stats:
