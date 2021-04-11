@@ -18,7 +18,7 @@ from active_learning_project.models.wide_resnet_28_10 import WideResNet28_10
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 
-from active_learning_project.models.resnet import ResNet34, ResNet101
+from active_learning_project.models.resnet import ResNet34, ResNet50, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
     get_all_data_loader
 from active_learning_project.utils import remove_substr_from_keys, boolean_string, save_features, pytorch_evaluate
@@ -29,12 +29,12 @@ parser.add_argument('--dataset', default='cifar10', type=str, help='dataset: cif
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
-parser.add_argument('--net', default='resnet34', type=str, help='network architecture')
+parser.add_argument('--net', default='resnet50', type=str, help='network architecture')
 parser.add_argument('--activation', default='relu', type=str, help='network activation: relu or softplus')
 parser.add_argument('--checkpoint_dir', default='/Users/giladcohen/data/gilad/logs/adv_robustness/debug', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='300', type=int, help='number of epochs')
 parser.add_argument('--record', default=False, type=boolean_string, help='record all layers in each epoch')
-parser.add_argument('--wd', default=0.0005, type=float, help='weight decay')  # was 5e-4 for batch_size=128
+parser.add_argument('--wd', default=0.0001, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
 parser.add_argument('--patience', default=3, type=int, help='LR schedule patience')
 parser.add_argument('--cooldown', default=0, type=int, help='LR cooldown')
@@ -96,6 +96,8 @@ test_size  = len(testloader.dataset)
 print('==> Building model..')
 if args.net == 'resnet34':
     net = ResNet34(num_classes=len(classes), activation=args.activation)
+if args.net == 'resnet50':
+    net = ResNet50(num_classes=len(classes), activation=args.activation)
 elif args.net == 'resnet101':
     net = ResNet101(num_classes=len(classes), activation=args.activation)
 elif args.net == 'wrn28_10':

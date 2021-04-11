@@ -2,7 +2,7 @@
 from active_learning_project.utils import convert_tensor_to_image
 from utils import majority_vote
 
-NUM_DEBUG_SAMPLES = 5
+NUM_DEBUG_SAMPLES = 1
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -11,7 +11,7 @@ import os
 sys.path.insert(0, ".")
 
 ATTACK_DIR = '/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00/cw_targeted'
-dump_subdir = 'lars_bs_1700_lr_0.01_mom_mad_0.1'
+dump_subdir = 'debug_1_steps_100_lars_bs_128_lr_0.1_mom_mad_0.1_lars_coeff_0.01_eps_1e6_wdiff_0.01'
 DUMP_DIR = os.path.join(ATTACK_DIR, dump_subdir)
 
 # loading all stats:
@@ -124,45 +124,45 @@ N_steps = cross_entropy.shape[1]
 x = np.arange(N_steps)
 
 # for n in f1_robust_inds['summation'][0:10]:
-for i in range(N_imgs):
-    n = mini_test_inds[i]
-    plt.close('all')
-    fig, ((ax1, ax2, ax3), (ax4, ax5, ax6), (ax7, ax8, ax9), (ax10, ax11, ax12)) = plt.subplots(4, 3, figsize=(15, 15))
-    fig.suptitle('normal image #{}'.format(n), horizontalalignment='center', fontdict={'fontsize': 8})
-    ax1.plot(x, loss_contrastive[n])
-    ax1.set_title('contrastive loss', fontdict={'fontsize': 12})
-    ax2.plot(x, loss_entropy[n])
-    ax2.set_title('entropy loss', fontdict={'fontsize': 12})
-    ax3.plot(x, loss_weight_difference[n])
-    ax3.set_title('weight diff loss', fontdict={'fontsize': 12})
+# for i in range(N_imgs):
+#     n = mini_test_inds[i]
+#     plt.close('all')
+#     fig, ((ax1, ax2, ax3), (ax4, ax5, ax6), (ax7, ax8, ax9), (ax10, ax11, ax12)) = plt.subplots(4, 3, figsize=(15, 15))
+#     fig.suptitle('normal image #{}'.format(n), horizontalalignment='center', fontdict={'fontsize': 8})
+#     ax1.plot(x, loss_contrastive[n])
+#     ax1.set_title('contrastive loss', fontdict={'fontsize': 12})
+#     ax2.plot(x, loss_entropy[n])
+#     ax2.set_title('entropy loss', fontdict={'fontsize': 12})
+#     ax3.plot(x, loss_weight_difference[n])
+#     ax3.set_title('weight diff loss', fontdict={'fontsize': 12})
+#
+#     ax4.plot(x, cross_entropy[n])
+#     ax4.set_title('cross entropy [simple]', fontdict={'fontsize': 12})
+#     ax5.plot(x, tta_cross_entropy[n])
+#     ax5.set_title('cross entropy [summation]', fontdict={'fontsize': 12})
+#     ax6.plot(x, tta_cross_entropy_emb[n])
+#     ax6.set_title('cross entropy [emb center]', fontdict={'fontsize': 12})
+#
+#     ax7.plot(x, entropy[n])
+#     ax7.set_title('entropy [simple]', fontdict={'fontsize': 12})
+#     ax8.plot(x, tta_entropy[n])
+#     ax8.set_title('entropy [summation]', fontdict={'fontsize': 12})
+#     ax9.plot(x, tta_entropy_emb[n])
+#     ax9.set_title('entropy [emb center]', fontdict={'fontsize': 12})
+#
+#     ax10.plot(x, confidences[n])
+#     ax10.set_title('confidence [simple]', fontdict={'fontsize': 12})
+#     ax11.plot(x, tta_confidences[n])
+#     ax11.set_title('confidence [summation]', fontdict={'fontsize': 12})
+#     ax12.plot(x, tta_confidences_emb[n])
+#     ax12.set_title('confidence [emb center]', fontdict={'fontsize': 12})
+#
+#     plt.tight_layout(h_pad=0.7)
+#     plt.show()
 
-    ax4.plot(x, cross_entropy[n])
-    ax4.set_title('cross entropy [simple]', fontdict={'fontsize': 12})
-    ax5.plot(x, tta_cross_entropy[n])
-    ax5.set_title('cross entropy [summation]', fontdict={'fontsize': 12})
-    ax6.plot(x, tta_cross_entropy_emb[n])
-    ax6.set_title('cross entropy [emb center]', fontdict={'fontsize': 12})
-
-    ax7.plot(x, entropy[n])
-    ax7.set_title('entropy [simple]', fontdict={'fontsize': 12})
-    ax8.plot(x, tta_entropy[n])
-    ax8.set_title('entropy [summation]', fontdict={'fontsize': 12})
-    ax9.plot(x, tta_entropy_emb[n])
-    ax9.set_title('entropy [emb center]', fontdict={'fontsize': 12})
-
-    ax10.plot(x, confidences[n])
-    ax10.set_title('confidence [simple]', fontdict={'fontsize': 12})
-    ax11.plot(x, tta_confidences[n])
-    ax11.set_title('confidence [summation]', fontdict={'fontsize': 12})
-    ax12.plot(x, tta_confidences_emb[n])
-    ax12.set_title('confidence [emb center]', fontdict={'fontsize': 12})
-
-    plt.tight_layout(h_pad=0.7)
-    plt.show()
-
-# for n in f1_robust_inds_adv['summation'][0:5]:
-for i in range(N_imgs):
-    n = mini_test_inds[i]
+for n in f1_robust_inds_adv['summation'][0:5]:
+    #for i in range(N_imgs):
+    #    n = mini_test_inds[i]
     plt.close('all')
     fig, ((ax1, ax2, ax3), (ax4, ax5, ax6), (ax7, ax8, ax9), (ax10, ax11, ax12)) = plt.subplots(4, 3, figsize=(15, 15))
     fig.suptitle('adv image #{}'.format(n), horizontalalignment='center', fontdict={'fontsize': 8})
