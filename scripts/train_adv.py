@@ -24,7 +24,7 @@ from active_learning_project.models.resnet import ResNet34, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader
 from active_learning_project.utils import remove_substr_from_keys
 
-from utils import fgsm
+from FreeAdversarialTraining.lib.utils import fgsm
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 # dataset
