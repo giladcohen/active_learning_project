@@ -20,7 +20,7 @@ sys.path.insert(0, "./adversarial_robustness_toolbox")
 sys.path.insert(0, "./FreeAdversarialTraining")
 sys.path.insert(0, "./FreeAdversarialTraining/lib")
 
-from active_learning_project.models.resnet import ResNet34, ResNet101
+from active_learning_project.models.resnet import ResNet34, ResNet50, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader
 from active_learning_project.utils import remove_substr_from_keys
 
@@ -98,6 +98,8 @@ test_size  = len(testloader.dataset)
 print('==> Building model..')
 if args.net == 'resnet34':
     net = ResNet34(num_classes=len(classes), activation=args.activation)
+if args.net == 'resnet50':
+    net = ResNet50(num_classes=len(classes), activation=args.activation)
 elif args.net == 'resnet101':
     net = ResNet101(num_classes=len(classes), activation=args.activation)
 else:
