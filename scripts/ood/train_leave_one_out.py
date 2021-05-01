@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 from active_learning_project.models.wide_resnet_28_10 import WideResNet28_10
 
 sys.path.insert(0, ".")
+sys.path.insert(0, "./adversarial_robustness_toolbox")
 
 from active_learning_project.models.resnet import ResNet34, ResNet50, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
