@@ -60,7 +60,8 @@ def get_train_valid_loader(dataset,
                            valid_size=0.1,
                            shuffle=True,
                            num_workers=4,
-                           pin_memory=False):
+                           pin_memory=False,
+                           cls_to_omit=None):
     """
     Utility function for loading and returning train and valid
     multi-process iterators over the CIFAR-10 train_dataset. A sample
@@ -92,12 +93,12 @@ def get_train_valid_loader(dataset,
     # load the dataset
     train_dataset = database(
         root=data_dir, train=True,
-        download=True, transform=train_transform,
+        download=True, transform=train_transform, cls_to_omit=cls_to_omit
     )
 
     valid_dataset = database(
         root=data_dir, train=True,
-        download=True, transform=test_transform,
+        download=True, transform=test_transform, cls_to_omit=cls_to_omit
     )
 
     num_train_val = len(train_dataset)
@@ -159,7 +160,8 @@ def get_loader_with_specific_inds(dataset,
 def get_all_data_loader(dataset,
                    batch_size,
                    num_workers=4,
-                   pin_memory=False):
+                   pin_memory=False,
+                   cls_to_omit=None):
     """
     Same like get_train_valid_loader but with exact indices for training and validation
     """
@@ -168,7 +170,7 @@ def get_all_data_loader(dataset,
     # load the dataset
     dataset = database(
         root=data_dir, train=True,
-        download=True, transform=test_transform,
+        download=True, transform=test_transform, cls_to_omit=cls_to_omit
     )
 
     loader = torch.utils.data.DataLoader(
@@ -182,7 +184,8 @@ def get_test_loader(dataset,
                     batch_size,
                     num_workers=4,
                     pin_memory=False,
-                    transforms=None):
+                    transforms=None,
+                    cls_to_omit=None):
     """
     Utility function for loading and returning a multi-process
     test iterator over the CIFAR-10 dataset.
@@ -206,7 +209,7 @@ def get_test_loader(dataset,
 
     dataset = database(
         root=data_dir, train=False,
-        download=True, transform=transforms
+        download=True, transform=transforms, cls_to_omit=cls_to_omit
     )
 
     data_loader = torch.utils.data.DataLoader(
