@@ -47,7 +47,7 @@ parser.add_argument('--ood_set', default='cifar100', type=str, help='OOD set: ci
 parser.add_argument('--tta_size', default=50, type=int, help='number of test-time augmentations in eval phase')
 
 # debug:
-parser.add_argument('--dump_dir', default='dump_only_200', type=str, help='the dump dir')
+parser.add_argument('--dump_dir', default='dump', type=str, help='the dump dir')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -203,7 +203,7 @@ metric_keys = ['avg_l2_dist', 'avg_l1_dist', 'max_l2_dist', 'max_l1_dist', 'entr
                'avg_l2_dist_to_nn', 'avg_l1_dist_to_nn', 'min_l2_dist_to_nn', 'min_l1_dist_to_nn']
 metrics = {}
 for key in metric_keys:
-    metrics[key] = -1 * np.ones((200, 2))
+    metrics[key] = -1 * np.ones((test_size, 2))
 
 # metrics functions
 @njit
@@ -267,7 +267,7 @@ def dist_to_nn_l2(x: np.ndarray) -> Tuple[float, float]:
     return avg, minn
 
 log('running over all test samples in original trainset and OOD set...')
-for i in tqdm(range(200)):
+for i in tqdm(range(test_size)):
     # normal
     loader = get_single_img_dataloader(args.dataset, X_test, y_test, args.tta_size,
                                        pin_memory=device=='cuda', transform=tta_transforms, index=i, use_one_hot=False)
