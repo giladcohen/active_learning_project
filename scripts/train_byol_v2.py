@@ -354,7 +354,7 @@ def get_debug(set, step):
         # collect TTA images stats: cross-entropy, entropy, confidence
         t_emb_arr = -1 * torch.ones((args.tta_size, net.linear.weight.shape[1]),
                                     dtype=torch.float32, device=device, requires_grad=False)
-        s_emb_arr = -1 * torch.ones((args.tta_size, net.linear.weight.shape[1]),
+        s_emb_arr = -1 * torch.ones((args.tta_size, sfs_net.linear.weight.shape[1]),
                                     dtype=torch.float32, device=device, requires_grad=False)
 
         t_logits_arr = -1 * torch.ones((args.tta_size, len(classes)),
