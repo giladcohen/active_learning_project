@@ -292,8 +292,9 @@ tta_confidences_emb_adv     = -1 * np.ones((test_size, args.steps + 1), dtype=np
 
 #TODO: Try to switch arguments
 def kl_loss(s_logits, t_logits):
-    ret = F.kl_div(F.log_softmax(s_logits, dim=1), F.softmax(t_logits, dim=1), reduction="batchmean")
-    return ret
+    ret1 = F.kl_div(F.log_softmax(s_logits, dim=1), F.softmax(t_logits, dim=1), reduction="batchmean")
+    ret2 = F.kl_div(F.log_softmax(t_logits, dim=1), F.softmax(s_logits, dim=1), reduction="batchmean")
+    return 0.5 * (ret1 + ret2)
 
 def get_debug(set, step):
     global loss_ent

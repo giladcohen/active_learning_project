@@ -1,8 +1,7 @@
 """Plotting the debug stats values after each steps of re-training the network with BYOL v2"""
+import json
 from active_learning_project.utils import convert_tensor_to_image
 from utils import majority_vote
-
-NUM_DEBUG_SAMPLES = 20
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -11,8 +10,11 @@ import os
 sys.path.insert(0, ".")
 
 ATTACK_DIR = '/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00/cw_targeted'
-dump_subdir = 'resnet18_steps_100_sgd_size_20'
+dump_subdir = 'sfs_resnet18_steps_20_batch_32_tta_size_250_mom_0.9_debug_size_200'
 DUMP_DIR = os.path.join(ATTACK_DIR, dump_subdir)
+with open(os.path.join(DUMP_DIR, 'commandline_args.txt'), 'r') as f:
+    command_args = json.load(f)
+NUM_DEBUG_SAMPLES = command_args['debug_size']
 
 # loading all stats:
 robustness_preds           = np.load(os.path.join(DUMP_DIR, 'robustness_preds.npy'))
@@ -157,7 +159,7 @@ x = np.arange(N_steps)
 #     plt.tight_layout(h_pad=0.7)
 #     plt.show()
 
-for n in f0_robust_inds_adv['summation']:
+for n in f0_robust_inds_adv['summation'][0:10]:
     #for i in range(N_imgs):
     #    n = mini_test_inds[i]
     plt.close('all')
