@@ -16,6 +16,8 @@ import time
 import sys
 import PIL
 from torchlars import LARS
+import matplotlib.pyplot as plt
+
 
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
@@ -24,7 +26,7 @@ from active_learning_project.models.resnet import ResNet18, ResNet34, ResNet50, 
 import active_learning_project.datasets.my_transforms as my_transforms
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_normalized_tensor, \
     get_single_img_dataloader
-
+from active_learning_project.utils import convert_tensor_to_image
 from art.estimators.classification import PyTorchClassifier
 
 from torchsummary import summary
@@ -492,7 +494,7 @@ def test(set):
 
 for i in tqdm(range(img_cnt)):
     # for i in range(img_cnt):  # debug
-    img_ind = all_test_inds[i]
+    img_ind = 22 # all_test_inds[i]
     # normal
     train_loader = get_single_img_dataloader(args.dataset, X_test, y_test, args.batch_size,
                                              pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
