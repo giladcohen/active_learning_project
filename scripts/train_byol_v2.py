@@ -370,7 +370,7 @@ def get_debug(set, step):
             e = min(tta_cnt + len(inputs), args.tta_size)
             t_out = net(inputs)
             t_emb_arr[b:e] = t_out['embeddings'][0:(e-b)]
-            t_logits_arr[b:e] = s_out['logits'][0:(e-b)]
+            t_logits_arr[b:e] = t_out['logits'][0:(e-b)]
             s_out = sfs_net(inputs)
             s_emb_arr[b:e] = s_out['embeddings'][0:(e-b)]
             s_logits_arr[b:e] = s_out['logits'][0:(e-b)]

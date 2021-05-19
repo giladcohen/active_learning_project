@@ -45,7 +45,7 @@ parser.add_argument('--sfs_arch', default='resnet18', type=str, help='the new ar
 
 # train
 parser.add_argument('--lr', default=0.0003, type=float, help='learning rate')
-parser.add_argument('--steps', default=15, type=int, help='number of training steps')
+parser.add_argument('--steps', default=20, type=int, help='number of training steps')
 parser.add_argument('--batch_size', default=32, type=int, help='batch size for the CLR training')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
 
@@ -371,7 +371,7 @@ def get_debug(set, step):
             e = min(tta_cnt + len(inputs), args.tta_size)
             t_out = net(inputs)
             t_emb_arr[b:e] = t_out['embeddings'][0:(e-b)]
-            t_logits_arr[b:e] = s_out['logits'][0:(e-b)]
+            t_logits_arr[b:e] = t_out['logits'][0:(e-b)]
             s_out = sfs_net(inputs)
             s_emb_arr[b:e] = s_out['embeddings'][0:(e-b)]
             s_logits_arr[b:e] = s_out['logits'][0:(e-b)]
