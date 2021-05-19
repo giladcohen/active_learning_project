@@ -18,8 +18,6 @@ import sys
 import PIL
 from torchlars import LARS
 
-from utils import EMA, update_moving_average
-
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 
@@ -27,6 +25,8 @@ from active_learning_project.models.resnet import ResNet18, ResNet34, ResNet50, 
 import active_learning_project.datasets.my_transforms as my_transforms
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_normalized_tensor, \
     get_single_img_dataloader
+from active_learning_project.utils import EMA, update_moving_average
+
 
 from art.estimators.classification import PyTorchClassifier
 
@@ -43,7 +43,7 @@ parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attac
 
 # train
 parser.add_argument('--lr', default=0.0003, type=float, help='learning rate')
-parser.add_argument('--steps', default=15, type=int, help='number of training steps')
+parser.add_argument('--steps', default=20, type=int, help='number of training steps')
 parser.add_argument('--batch_size', default=32, type=int, help='batch size for the CLR training')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
 parser.add_argument('--ema_mom', default=0.95, type=float, help='weight decay')
@@ -60,8 +60,8 @@ parser.add_argument('--tta_size', default=50, type=int, help='number of test-tim
 
 # debug:
 parser.add_argument('--debug_size', default=100, type=int, help='number of image to run in debug mode')
-parser.add_argument('--dump_dir', default='tmp', type=str, help='the dump dir')
 parser.add_argument('--debug', '-d', action='store_true', help='use debug')
+parser.add_argument('--dump_dir', default='tmp', type=str, help='the dump dir')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
