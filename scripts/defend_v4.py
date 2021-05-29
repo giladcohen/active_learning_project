@@ -43,7 +43,7 @@ parser.add_argument('--tta_size', default=1000, type=int, help='number of test-t
 parser.add_argument('--batch_size', default=100, type=int, help='batch size for the TTA evaluation')
 
 # debug:
-parser.add_argument('--debug_size', default=200, type=int, help='number of image to run in debug mode')
+parser.add_argument('--debug_size', default=None, type=int, help='number of image to run in debug mode')
 parser.add_argument('--dump_dir', default='tmp', type=str, help='the dump dir')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
