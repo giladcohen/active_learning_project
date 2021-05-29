@@ -42,6 +42,9 @@ parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attac
 parser.add_argument('--tta_size', default=1000, type=int, help='number of test-time augmentations')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size for the TTA evaluation')
 
+# transforms:
+parser.add_argument('--gaussian_std', default=0.015, type=float, help='Standard deviation of Gaussian noise')
+
 # debug:
 parser.add_argument('--debug_size', default=None, type=int, help='number of image to run in debug mode')
 parser.add_argument('--dump_dir', default='tmp', type=str, help='the dump dir')
@@ -142,7 +145,7 @@ tta_transforms = transforms.Compose([
     transforms.GaussianBlur(kernel_size=5, sigma=[0.001, 0.5]),
     transforms.CenterCrop(size=32),
     transforms.RandomHorizontalFlip(p=p_hflip),
-    my_transforms.GaussianNoise(0, 0.015),
+    my_transforms.GaussianNoise(0, args.gaussian_std),
     my_transforms.Clip(0.0, 1.0)
 ])
 
