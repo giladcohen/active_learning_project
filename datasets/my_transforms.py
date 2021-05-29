@@ -7,6 +7,30 @@ from PIL import Image
 from torchvision.transforms import ColorJitter, Compose, Lambda
 from numpy import random
 
+class GaussianNoise(torch.nn.Module):
+    def __init__(self, mean=0., std=1.):
+        super().__init__()
+        self.std = std
+        self.mean = mean
+
+    def forward(self, img):
+        return img + torch.randn(img.size()) * self.std + self.mean
+
+    def __repr__(self):
+        return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
+
+class Clip(torch.nn.Module):
+    def __init__(self, min_val=0., max_val=1.):
+        super().__init__()
+        self.min_val = min_val
+        self.max_val = max_val
+
+    def forward(self, img):
+        return torch.clip(img, self.min_val, self.max_val)
+
+    def __repr__(self):
+        return self.__class__.__name__ + '(min_val={0}, max_val={1})'.format(self.min_val, self.max_val)
+
 class ColorJitterPro(ColorJitter):
     """Randomly change the brightness, contrast, saturation, and gamma correction of an image."""
 

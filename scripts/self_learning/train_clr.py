@@ -22,7 +22,7 @@ import copy
 import pickle
 from datetime import datetime
 
-sys.path.insert(0, ".")
+sys.path.insert(0, "..")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 
 from art.estimators.classification import PyTorchClassifier

@@ -108,6 +108,7 @@ class ResNet(nn.Module):
         out = self.linear(out)
         net['logits'] = out
         net['probs'] = F.softmax(out, dim=1)
+        net['preds'] = net['probs'].argmax(dim=1)
         return net
 
 

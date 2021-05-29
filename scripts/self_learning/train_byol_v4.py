@@ -18,13 +18,15 @@ import sys
 import PIL
 from torchlars import LARS
 
-sys.path.insert(0, ".")
+sys.path.insert(0, "..")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 
 from active_learning_project.models.resnet import ResNet18, ResNet34, ResNet50, ResNet101
 import active_learning_project.datasets.my_transforms as my_transforms
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_normalized_tensor, \
     get_single_img_dataloader
+from active_learning_project.utils import EMA, update_moving_average
+
 
 from art.estimators.classification import PyTorchClassifier
 
@@ -39,14 +41,12 @@ parser.add_argument('--checkpoint_dir',
                     type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attack directory')
 
-# new architecture
-parser.add_argument('--sfs_arch', default='resnet18', type=str, help='the new architecture: resnet18/34/50/101')
-
 # train
 parser.add_argument('--lr', default=0.0003, type=float, help='learning rate')
-parser.add_argument('--steps', default=15, type=int, help='number of training steps')
+parser.add_argument('--steps', default=20, type=int, help='number of training steps')
 parser.add_argument('--batch_size', default=32, type=int, help='batch size for the CLR training')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
+parser.add_argument('--ema_mom', default=0.95, type=float, help='weight decay')
 
 # optimizer
 parser.add_argument('--opt', default='sgd', type=str, help='optimizer: sgd, adam, rmsprop, lars')
@@ -59,8 +59,8 @@ parser.add_argument('--tta_size', default=50, type=int, help='number of test-tim
 
 # debug:
 parser.add_argument('--debug_size', default=100, type=int, help='number of image to run in debug mode')
-parser.add_argument('--dump_dir', default='tmp', type=str, help='the dump dir')
 parser.add_argument('--debug', '-d', action='store_true', help='use debug')
+parser.add_argument('--dump_dir', default='tmp', type=str, help='the dump dir')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -179,31 +179,30 @@ if device == 'cuda':
     cudnn.benchmark = True
 
 # Model
-if train_args['net'] == 'resnet34':
-    net      = ResNet34(num_classes=len(classes), activation=train_args['activation'])
+if train_args['net'] == 'resnet18':
+    model = ResNet18
+elif train_args['net'] == 'resnet34':
+    model = ResNet34
 elif train_args['net'] == 'resnet50':
-    net      = ResNet50(num_classes=len(classes), activation=train_args['activation'])
+    model = ResNet50
 elif train_args['net'] == 'resnet101':
-    net      = ResNet101(num_classes=len(classes), activation=train_args['activation'])
+    model = ResNet101
 else:
     raise AssertionError("network {} is unknown".format(train_args['net']))
+net = model(num_classes=len(classes), activation=train_args['activation'])
 net = net.to(device)
 net.load_state_dict(global_state['best_net'])
 net.eval()
+# orig_params = torch.nn.utils.parameters_to_vector(net.parameters())
 
 # New architecture
 def reset_net():
-    global sfs_net
-    if args.sfs_arch == 'resnet18':
-        sfs_net      = ResNet18(num_classes=len(classes), activation=train_args['activation'])
-    elif args.sfs_arch == 'resnet34':
-        sfs_net      = ResNet34(num_classes=len(classes), activation=train_args['activation'])
-    elif args.sfs_arch == 'resnet50':
-        sfs_net      = ResNet50(num_classes=len(classes), activation=train_args['activation'])
-    elif args.sfs_arch == 'resnet101':
-        sfs_net      = ResNet101(num_classes=len(classes), activation=train_args['activation'])
-    else:
-        raise AssertionError("network {} is unknown".format(train_args['net']))
+    global net_copy, sfs_net
+    net_copy = model(num_classes=len(classes), activation=train_args['activation'])
+    net_copy = net_copy.to(device)
+    net_copy.load_state_dict(global_state['best_net'])
+    net_copy.eval()
+    sfs_net = model(num_classes=len(classes), activation=train_args['activation'])
     sfs_net = sfs_net.to(device)
 
 def reset_opt():
@@ -244,10 +243,11 @@ def reset_opt():
 
 reset_net()
 reset_opt()
-# orig_params = torch.nn.utils.parameters_to_vector(net.parameters())
 
-classifier = PyTorchClassifier(model=sfs_net, clip_values=(0, 1), loss=None,
+classifier = PyTorchClassifier(model=net_copy, clip_values=(0, 1), loss=None,
                                optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
+
+ema_updater = EMA(args.ema_mom)
 
 # test images inds:
 all_test_inds = np.arange(len(X_test))
@@ -296,7 +296,7 @@ def kl_loss(s_logits, t_logits):
     return 0.5 * (ret1 + ret2)
 
 def get_debug(set, step):
-    global loss_ent
+    global loss_ent, net_copy, net, sfs_net
     if set == 'normal':
         # inputs
         x           = X_test
@@ -341,23 +341,31 @@ def get_debug(set, step):
     # collect last batch losses:
     loss_ent_d[img_ind, step] = loss_ent.item()
 
+    net_copy.eval()
+    sfs_net.eval()
+
     # collect original image stats: cross-entropy, entropy, confidence:
     with torch.no_grad():
         x_tensor = torch.from_numpy(np.expand_dims(x[img_ind], 0)).to(device)
         y_tensor = torch.from_numpy(np.expand_dims(y_test[img_ind], 0)).to(device)
         t_out = net(x_tensor)
+        c_out = net_copy(x_tensor)
         s_out = sfs_net(x_tensor)
-        cent_d[img_ind, step] = F.cross_entropy(s_out['logits'], y_tensor)
+        cent_d[img_ind, step] = F.cross_entropy(c_out['logits'], y_tensor)
         ent_d[img_ind, step] = kl_loss(s_out['logits'], t_out['logits'])
-        conf_d[img_ind, step] = s_out['probs'].squeeze().max()
+        conf_d[img_ind, step] = c_out['probs'].squeeze().max()
 
         # collect TTA images stats: cross-entropy, entropy, confidence
         t_emb_arr = -1 * torch.ones((args.tta_size, net.linear.weight.shape[1]),
+                                    dtype=torch.float32, device=device, requires_grad=False)
+        c_emb_arr = -1 * torch.ones((args.tta_size, net_copy.linear.weight.shape[1]),
                                     dtype=torch.float32, device=device, requires_grad=False)
         s_emb_arr = -1 * torch.ones((args.tta_size, sfs_net.linear.weight.shape[1]),
                                     dtype=torch.float32, device=device, requires_grad=False)
 
         t_logits_arr = -1 * torch.ones((args.tta_size, len(classes)),
+                                       dtype=torch.float32, device=device, requires_grad=False)
+        c_logits_arr = -1 * torch.ones((args.tta_size, len(classes)),
                                        dtype=torch.float32, device=device, requires_grad=False)
         s_logits_arr = -1 * torch.ones((args.tta_size, len(classes)),
                                        dtype=torch.float32, device=device, requires_grad=False)
@@ -371,13 +379,16 @@ def get_debug(set, step):
             t_out = net(inputs)
             t_emb_arr[b:e] = t_out['embeddings'][0:(e-b)]
             t_logits_arr[b:e] = t_out['logits'][0:(e-b)]
+            c_out = net_copy(inputs)
+            c_emb_arr[b:e] = c_out['embeddings'][0:(e-b)]
+            c_logits_arr[b:e] = c_out['logits'][0:(e-b)]
             s_out = sfs_net(inputs)
             s_emb_arr[b:e] = s_out['embeddings'][0:(e-b)]
             s_logits_arr[b:e] = s_out['logits'][0:(e-b)]
             tta_cnt += e-b
             assert tta_cnt <= args.tta_size, 'not cool!'
 
-        probs_arr = F.softmax(s_logits_arr, dim=1)
+        probs_arr = F.softmax(c_logits_arr, dim=1)
         tta_probs = probs_arr.mean(dim=0)
         tta_probs = torch.unsqueeze(tta_probs, 0)
         tta_cent_d[img_ind, step] = F.cross_entropy(tta_probs, y_tensor)
@@ -387,12 +398,15 @@ def get_debug(set, step):
         t_tta_emb_logits = get_logits_from_emb_center(t_emb_arr, net)
         t_tta_emb_logits = torch.unsqueeze(t_tta_emb_logits, 0)
         # t_tta_emb_probs = F.softmax(t_tta_emb_logits, dim=1)
+        c_tta_emb_logits = get_logits_from_emb_center(c_emb_arr, net)
+        c_tta_emb_logits = torch.unsqueeze(c_tta_emb_logits, 0)
+        c_tta_emb_probs = F.softmax(c_tta_emb_logits, dim=1)
         s_tta_emb_logits = get_logits_from_emb_center(s_emb_arr, sfs_net)
         s_tta_emb_logits = torch.unsqueeze(s_tta_emb_logits, 0)
-        s_tta_emb_probs = F.softmax(s_tta_emb_logits, dim=1)
-        tta_cent_emb_d[img_ind, step] = F.cross_entropy(s_tta_emb_probs, y_tensor)
+        # s_tta_emb_probs = F.softmax(s_tta_emb_logits, dim=1)
+        tta_cent_emb_d[img_ind, step] = F.cross_entropy(c_tta_emb_probs, y_tensor)
         tta_ent_emb_d[img_ind, step] = kl_loss(s_tta_emb_logits, t_tta_emb_logits)
-        tta_conf_emb_d[img_ind, step] = s_tta_emb_probs.squeeze().max()
+        tta_conf_emb_d[img_ind, step] = c_tta_emb_probs.squeeze().max()
 
 def train(set):
     """set='normal' or 'adv'"""
@@ -418,6 +432,7 @@ def train(set):
         loss = loss_ent
         loss.backward()
         optimizer.step()
+        update_moving_average(ema_updater, net_copy, sfs_net)
 
     # for debug, last step:
     if args.debug:
@@ -445,12 +460,11 @@ def test(set):
         rob_probs_emb = robustness_probs_emb_adv
 
     start_time = time.time()
-    net.eval()
-    sfs_net.eval()
+    net_copy.eval()
 
     rob_preds[img_ind] = classifier.predict(np.expand_dims(x[img_ind], 0)).squeeze().argmax()
     with torch.no_grad():
-        s_emb_arr = -1 * torch.ones((args.tta_size, sfs_net.linear.weight.shape[1]),
+        c_emb_arr = -1 * torch.ones((args.tta_size, net_copy.linear.weight.shape[1]),
                                     dtype=torch.float32, device=device, requires_grad=False)
         tta_cnt = 0
         while tta_cnt < args.tta_size:
@@ -458,13 +472,13 @@ def test(set):
             inputs, targets = inputs.to(device), targets.to(device)
             b = tta_cnt
             e = min(tta_cnt + len(inputs), args.tta_size)
-            s_out = sfs_net(inputs)
-            s_emb_arr[b:e] = s_out['embeddings'][0:(e-b)]
-            rob_probs[img_ind, b:e] = s_out['probs'][0:(e-b)].detach().cpu().numpy()
+            c_out = net_copy(inputs)
+            c_emb_arr[b:e] = c_out['embeddings'][0:(e-b)]
+            rob_probs[img_ind, b:e] = c_out['probs'][0:(e-b)].detach().cpu().numpy()
             tta_cnt += e-b
             assert tta_cnt <= args.tta_size, 'not cool!'
 
-        rob_probs_emb[img_ind] = F.softmax(get_logits_from_emb_center(s_emb_arr, sfs_net)).detach().cpu().numpy()
+        rob_probs_emb[img_ind] = F.softmax(get_logits_from_emb_center(c_emb_arr, net_copy)).detach().cpu().numpy()
     TEST_TIME_CNT += time.time() - start_time
 
 for i in tqdm(range(img_cnt)):

@@ -18,18 +18,16 @@ import sys
 import PIL
 from torchlars import LARS
 
-sys.path.insert(0, ".")
+sys.path.insert(0, "..")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
+sys.path.insert(0, "./byol_pytorch")
 
-from active_learning_project.models.resnet import ResNet18, ResNet34, ResNet50, ResNet101
+from byol_pytorch import BYOL
+
+from active_learning_project.models.resnet import ResNet34, ResNet101
 import active_learning_project.datasets.my_transforms as my_transforms
-from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_normalized_tensor, \
+from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_normalized_tensor,\
     get_single_img_dataloader
-from active_learning_project.utils import EMA, update_moving_average
-
-
-from art.estimators.classification import PyTorchClassifier
-
 from torchsummary import summary
 import torchvision.transforms as transforms
 
@@ -43,36 +41,42 @@ parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attac
 
 # train
 parser.add_argument('--lr', default=0.0003, type=float, help='learning rate')
-parser.add_argument('--steps', default=20, type=int, help='number of training steps')
+parser.add_argument('--steps', default=15, type=int, help='number of training steps')
 parser.add_argument('--batch_size', default=32, type=int, help='batch size for the CLR training')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
-parser.add_argument('--ema_mom', default=0.95, type=float, help='weight decay')
+parser.add_argument('--lambda_cont', default=1.0, type=float, help='weight of similarity loss')
+parser.add_argument('--lambda_ent', default=0.0, type=float, help='Regularization for entropy loss')
+parser.add_argument('--lambda_wdiff', default=0.0, type=float, help='Regularization for weight diff')
 
 # optimizer
-parser.add_argument('--opt', default='sgd', type=str, help='optimizer: sgd, adam, rmsprop, lars')
+parser.add_argument('--opt', default='lars', type=str, help='optimizer: sgd, adam, rmsprop, lars')
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
 parser.add_argument('--lars_eps', default=1e-8, type=float, help='for lars optimizer')
 parser.add_argument('--lars_coeff', default=0.001, type=float, help='for lars optimizer')
+
+# byol hyper-params:
+parser.add_argument('--mom_mad', default=0.5, type=float, help='Regularization for weight diff')
 
 # eval
 parser.add_argument('--tta_size', default=50, type=int, help='number of test-time augmentations in eval phase')
 
 # debug:
 parser.add_argument('--debug_size', default=100, type=int, help='number of image to run in debug mode')
-parser.add_argument('--debug', '-d', action='store_true', help='use debug')
-parser.add_argument('--dump_dir', default='tmp', type=str, help='the dump dir')
+parser.add_argument('--dump', '-d', action='store_true', help='get debug stats')
+parser.add_argument('--dump_on_target', '-dt', action='store_true', help='get debug stats from target net')
+parser.add_argument('--dump_dir', default='dump', type=str, help='the dump dir')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 
 args = parser.parse_args()
 
+args.mini_test = True  # always use mini testset
 TRAIN_TIME_CNT = 0.0
 TEST_TIME_CNT = 0.0
 ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
 DUMP_DIR = os.path.join(ATTACK_DIR, args.dump_dir)
 os.makedirs(DUMP_DIR, exist_ok=True)
-
 # dumping args to txt file
 with open(os.path.join(DUMP_DIR, 'commandline_args.txt'), 'w') as f:
     json.dump(args.__dict__, f, indent=2)
@@ -178,61 +182,68 @@ if device == 'cuda':
     # net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
 
-# Model
-if train_args['net'] == 'resnet18':
-    model = ResNet18
-elif train_args['net'] == 'resnet34':
-    model = ResNet34
-elif train_args['net'] == 'resnet50':
-    model = ResNet50
+def reset_net():
+    global net, learner
+
+    try:
+        del net
+    except:
+        log('net was not constructed yet')
+
+    try:
+        del learner
+    except:
+        log('learner was not constructed yet')
+
+    # Model
+    if train_args['net'] == 'resnet34':
+        net      = ResNet34(num_classes=len(classes), activation=train_args['activation'])
+    elif train_args['net'] == 'resnet101':
+        net      = ResNet101(num_classes=len(classes), activation=train_args['activation'])
+    else:
+        raise AssertionError("network {} is unknown".format(train_args['net']))
+    net = net.to(device)
+
+    net.load_state_dict(global_state['best_net'])
+    learner = BYOL(net=net, image_size=32, hidden_layer='avgpool', augment_fn=tta_transforms,
+                   moving_average_decay=args.mom_mad)
+
+if train_args['net'] == 'resnet34':
+    orig_net = ResNet34(num_classes=len(classes), activation=train_args['activation'])
 elif train_args['net'] == 'resnet101':
-    model = ResNet101
+    orig_net = ResNet101(num_classes=len(classes), activation=train_args['activation'])
 else:
     raise AssertionError("network {} is unknown".format(train_args['net']))
-net = model(num_classes=len(classes), activation=train_args['activation'])
-net = net.to(device)
-net.load_state_dict(global_state['best_net'])
-net.eval()
-# orig_params = torch.nn.utils.parameters_to_vector(net.parameters())
-
-# New architecture
-def reset_net():
-    global net_copy, sfs_net
-    net_copy = model(num_classes=len(classes), activation=train_args['activation'])
-    net_copy = net_copy.to(device)
-    net_copy.load_state_dict(global_state['best_net'])
-    net_copy.eval()
-    sfs_net = model(num_classes=len(classes), activation=train_args['activation'])
-    sfs_net = sfs_net.to(device)
+orig_net = orig_net.to(device)
 
 def reset_opt():
     global optimizer
     if args.opt == 'sgd':
         optimizer = optim.SGD(
-            sfs_net.parameters(),
+            learner.parameters(),
             lr=args.lr,
             momentum=args.mom,
             weight_decay=args.wd,
             nesterov=args.mom > 0)
     elif args.opt == 'adam':
         optimizer = optim.Adam(
-            sfs_net.parameters(),
+            learner.parameters(),
             lr=args.lr,
             weight_decay=args.wd)
     elif args.opt == 'adamw':
         optimizer = optim.AdamW(
-            sfs_net.parameters(),
+            learner.parameters(),
             lr=args.lr,
             weight_decay=args.wd)
     elif args.opt == 'rmsprop':
         optimizer = optim.RMSprop(
-            sfs_net.parameters(),
+            learner.parameters(),
             lr=args.lr,
             momentum=args.mom,
             weight_decay=args.wd)
     elif args.opt == 'lars':
         optimizer = optim.SGD(
-            sfs_net.parameters(),
+            learner.parameters(),
             lr=args.lr,
             momentum=args.mom,
             weight_decay=args.wd,
@@ -242,15 +253,15 @@ def reset_opt():
         raise AssertionError('optimizer {} is not expected'.format(args.opt))
 
 reset_net()
-reset_opt()
-
-classifier = PyTorchClassifier(model=net_copy, clip_values=(0, 1), loss=None,
-                               optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
-
-ema_updater = EMA(args.ema_mom)
+orig_net.load_state_dict(global_state['best_net'])
+orig_params = torch.nn.utils.parameters_to_vector(orig_net.parameters())
 
 # test images inds:
-all_test_inds = np.arange(len(X_test))
+mini_test_inds = np.load(os.path.join(ATTACK_DIR, 'inds', 'mini_test_inds.npy'))
+if args.mini_test:
+    all_test_inds = mini_test_inds
+else:
+    all_test_inds = np.arange(len(X_test))
 if args.debug_size is not None:
     all_test_inds = all_test_inds[:args.debug_size]
 img_cnt = len(all_test_inds)
@@ -266,8 +277,12 @@ robustness_probs_emb_adv    = -1 * np.ones((test_size, len(classes)), dtype=np.f
 
 # debug stats
 # losses
+loss_contrastive            = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+loss_contrastive_adv        = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
 loss_entropy                = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
 loss_entropy_adv            = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+loss_weight_difference      = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
+loss_weight_difference_adv  = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
 # per image stats
 cross_entropy               = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
 cross_entropy_adv           = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
@@ -290,19 +305,35 @@ tta_entropy_emb_adv         = -1 * np.ones((test_size, args.steps + 1), dtype=np
 tta_confidences_emb         = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
 tta_confidences_emb_adv     = -1 * np.ones((test_size, args.steps + 1), dtype=np.float32)
 
-def kl_loss(s_logits, t_logits):
-    ret1 = F.kl_div(F.log_softmax(s_logits, dim=1), F.softmax(t_logits, dim=1), reduction="batchmean")
-    ret2 = F.kl_div(F.log_softmax(t_logits, dim=1), F.softmax(s_logits, dim=1), reduction="batchmean")
-    return 0.5 * (ret1 + ret2)
+def entropy_loss(logits):
+    size = logits.size(0)
+    if size > 1:
+        assert size % 2 == 0
+
+    p_logits = logits[0:int((size/2))]
+    q_logits = logits[int((size/2)):]
+    ret = F.kl_div(F.log_softmax(p_logits, dim=1), F.softmax(q_logits, dim=1), reduction="batchmean")
+
+    return ret
+
+def weight_diff_loss():
+    global learner, orig_net, orig_params
+    diff = torch.tensor(0.0, requires_grad=True).to(device)
+    torch.nn.utils.vector_to_parameters(orig_params, orig_net.parameters())
+    for w1, w2 in zip(learner.net.parameters(), orig_net.parameters()):
+        diff = diff + torch.linalg.norm((w1 - w2).view(-1), ord=2)
+    return diff
 
 def get_debug(set, step):
-    global loss_ent, net_copy, net, sfs_net
+    global loss_cont, loss_ent, loss_weight_diff
     if set == 'normal':
         # inputs
         x           = X_test
 
         # batch losses:
+        loss_cont_d = loss_contrastive
         loss_ent_d  = loss_entropy
+        loss_w_d    = loss_weight_difference
 
         # per image stats:
         cent_d      = cross_entropy
@@ -322,7 +353,9 @@ def get_debug(set, step):
         x           = X_test_adv
 
         # batch losses:
+        loss_cont_d = loss_contrastive_adv
         loss_ent_d  = loss_entropy_adv
+        loss_w_d    = loss_weight_difference_adv
 
         # per image stats:
         cent_d      = cross_entropy_adv
@@ -339,109 +372,95 @@ def get_debug(set, step):
         tta_conf_emb_d  = tta_confidences_emb_adv
 
     # collect last batch losses:
+    loss_cont_d[img_ind, step] = loss_cont.item()
     loss_ent_d[img_ind, step] = loss_ent.item()
+    loss_w_d[img_ind, step] = loss_weight_diff.item()
 
-    net_copy.eval()
-    sfs_net.eval()
+    net.eval()
+    learner.eval()
+    if args.dump_on_target:
+        model = learner.target_encoder.net
+    else:
+        model = learner.net
 
-    # collect original image stats: cross-entropy, entropy, confidence:
-    with torch.no_grad():
-        x_tensor = torch.from_numpy(np.expand_dims(x[img_ind], 0)).to(device)
-        y_tensor = torch.from_numpy(np.expand_dims(y_test[img_ind], 0)).to(device)
-        t_out = net(x_tensor)
-        c_out = net_copy(x_tensor)
-        s_out = sfs_net(x_tensor)
-        cent_d[img_ind, step] = F.cross_entropy(c_out['logits'], y_tensor)
-        ent_d[img_ind, step] = kl_loss(s_out['logits'], t_out['logits'])
-        conf_d[img_ind, step] = c_out['probs'].squeeze().max()
+# collect original image stats: cross-entropy, entropy, confidence:
+    x_tensor = torch.from_numpy(np.expand_dims(x[img_ind], 0)).to(device)
+    y_tensor = torch.from_numpy(np.expand_dims(y_test[img_ind], 0)).to(device)
 
-        # collect TTA images stats: cross-entropy, entropy, confidence
-        t_emb_arr = -1 * torch.ones((args.tta_size, net.linear.weight.shape[1]),
-                                    dtype=torch.float32, device=device, requires_grad=False)
-        c_emb_arr = -1 * torch.ones((args.tta_size, net_copy.linear.weight.shape[1]),
-                                    dtype=torch.float32, device=device, requires_grad=False)
-        s_emb_arr = -1 * torch.ones((args.tta_size, sfs_net.linear.weight.shape[1]),
-                                    dtype=torch.float32, device=device, requires_grad=False)
+    out = model(x_tensor)
+    cent_d[img_ind, step] = F.cross_entropy(out['logits'], y_tensor)
+    ent_d[img_ind, step] = entropy_loss(out['logits'])
+    conf_d[img_ind, step] = out['probs'].squeeze().max()
 
-        t_logits_arr = -1 * torch.ones((args.tta_size, len(classes)),
-                                       dtype=torch.float32, device=device, requires_grad=False)
-        c_logits_arr = -1 * torch.ones((args.tta_size, len(classes)),
-                                       dtype=torch.float32, device=device, requires_grad=False)
-        s_logits_arr = -1 * torch.ones((args.tta_size, len(classes)),
-                                       dtype=torch.float32, device=device, requires_grad=False)
+    # collect TTA images stats: cross-entropy, entropy, confidence
+    emb_arr = -1 * torch.ones((args.tta_size, net.linear.weight.shape[1]),
+                              dtype=torch.float32, device=device, requires_grad=False)
+    logits_arr = -1 * torch.ones((args.tta_size, len(classes)),
+                                 dtype=torch.float32, device=device, requires_grad=False)
+    tta_cnt = 0
+    while tta_cnt < args.tta_size:
+        (inputs, targets) = list(train_loader)[0]
+        inputs, targets = inputs.to(device), targets.to(device)
+        b = tta_cnt
+        e = min(tta_cnt + len(inputs), args.tta_size)
+        out = model(inputs)
+        emb_arr[b:e] = out['embeddings'][0:(e-b)]
+        logits_arr[b:e] = out['logits'][0:(e-b)]
+        tta_cnt += e-b
+        assert tta_cnt <= args.tta_size, 'not cool!'
 
-        tta_cnt = 0
-        while tta_cnt < args.tta_size:
-            (inputs, targets) = list(train_loader)[0]
-            inputs, targets = inputs.to(device), targets.to(device)
-            b = tta_cnt
-            e = min(tta_cnt + len(inputs), args.tta_size)
-            t_out = net(inputs)
-            t_emb_arr[b:e] = t_out['embeddings'][0:(e-b)]
-            t_logits_arr[b:e] = t_out['logits'][0:(e-b)]
-            c_out = net_copy(inputs)
-            c_emb_arr[b:e] = c_out['embeddings'][0:(e-b)]
-            c_logits_arr[b:e] = c_out['logits'][0:(e-b)]
-            s_out = sfs_net(inputs)
-            s_emb_arr[b:e] = s_out['embeddings'][0:(e-b)]
-            s_logits_arr[b:e] = s_out['logits'][0:(e-b)]
-            tta_cnt += e-b
-            assert tta_cnt <= args.tta_size, 'not cool!'
+    probs_arr = F.softmax(logits_arr, dim=1)
+    tta_probs = probs_arr.mean(dim=0)
+    tta_probs = torch.unsqueeze(tta_probs, 0)
+    tta_cent_d[img_ind, step] = F.cross_entropy(tta_probs, y_tensor)
+    tta_ent_d[img_ind, step] = entropy_loss(logits_arr)
+    tta_conf_d[img_ind, step] = tta_probs.squeeze().max()
 
-        probs_arr = F.softmax(c_logits_arr, dim=1)
-        tta_probs = probs_arr.mean(dim=0)
-        tta_probs = torch.unsqueeze(tta_probs, 0)
-        tta_cent_d[img_ind, step] = F.cross_entropy(tta_probs, y_tensor)
-        tta_ent_d[img_ind, step] = kl_loss(s_logits_arr, t_logits_arr)
-        tta_conf_d[img_ind, step] = tta_probs.squeeze().max()
+    tta_emb_logits = get_logits_from_emb_center(emb_arr, model)
+    tta_emb_logits = torch.unsqueeze(tta_emb_logits, 0)
+    tta_emb_probs = F.softmax(tta_emb_logits, dim=1)
+    tta_cent_emb_d[img_ind, step] = F.cross_entropy(tta_emb_probs, y_tensor)
+    tta_ent_emb_d[img_ind, step] = entropy_loss(tta_emb_logits)
+    tta_conf_emb_d[img_ind, step] = tta_emb_probs.squeeze().max()
 
-        t_tta_emb_logits = get_logits_from_emb_center(t_emb_arr, net)
-        t_tta_emb_logits = torch.unsqueeze(t_tta_emb_logits, 0)
-        # t_tta_emb_probs = F.softmax(t_tta_emb_logits, dim=1)
-        c_tta_emb_logits = get_logits_from_emb_center(c_emb_arr, net)
-        c_tta_emb_logits = torch.unsqueeze(c_tta_emb_logits, 0)
-        c_tta_emb_probs = F.softmax(c_tta_emb_logits, dim=1)
-        s_tta_emb_logits = get_logits_from_emb_center(s_emb_arr, sfs_net)
-        s_tta_emb_logits = torch.unsqueeze(s_tta_emb_logits, 0)
-        # s_tta_emb_probs = F.softmax(s_tta_emb_logits, dim=1)
-        tta_cent_emb_d[img_ind, step] = F.cross_entropy(c_tta_emb_probs, y_tensor)
-        tta_ent_emb_d[img_ind, step] = kl_loss(s_tta_emb_logits, t_tta_emb_logits)
-        tta_conf_emb_d[img_ind, step] = c_tta_emb_probs.squeeze().max()
+    net.train()
+    learner.train()
 
 def train(set):
     """set='normal' or 'adv'"""
-    global TRAIN_TIME_CNT, loss_ent
+    global TRAIN_TIME_CNT, loss_cont, loss_ent, loss_weight_diff
 
     start_time = time.time()
     reset_net()
     reset_opt()
-    sfs_net.train()
+    net.train()
+    learner.train()
 
     for step in range(args.steps):
         (inputs, targets) = list(train_loader)[0]
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
-        t_out = net(inputs)
-        s_out = sfs_net(inputs)
-        loss_ent = kl_loss(s_out['logits'], t_out['logits'])
+        loss_cont, online_logits, target_logits = learner(inputs)
+        loss_ent = entropy_loss(online_logits)         # on online only
+        loss_weight_diff = weight_diff_loss()          # on online only
 
-        if args.debug:
+        if args.dump:
             with torch.no_grad():
                 get_debug(set, step=step)
 
-        loss = loss_ent
+        loss = args.lambda_cont * loss_cont + args.lambda_ent * loss_ent + args.lambda_wdiff * loss_weight_diff
         loss.backward()
         optimizer.step()
-        update_moving_average(ema_updater, net_copy, sfs_net)
+        learner.update_moving_average()
 
     # for debug, last step:
-    if args.debug:
+    if args.dump:
         with torch.no_grad():
             (inputs, targets) = list(train_loader)[0]
             inputs, targets = inputs.to(device), targets.to(device)
-            t_out = net(inputs)
-            s_out = sfs_net(inputs)
-            loss_ent = kl_loss(s_out['logits'], t_out['logits'])
+            loss_cont, online_logits, target_logits = learner(inputs)
+            loss_ent = entropy_loss(online_logits)        # on online only
+            loss_weight_diff = weight_diff_loss()  # on online only
             get_debug(set, step=args.steps)
 
     TRAIN_TIME_CNT += time.time() - start_time
@@ -460,38 +479,40 @@ def test(set):
         rob_probs_emb = robustness_probs_emb_adv
 
     start_time = time.time()
-    net_copy.eval()
+    net.eval()
+    learner.eval()
 
-    rob_preds[img_ind] = classifier.predict(np.expand_dims(x[img_ind], 0)).squeeze().argmax()
     with torch.no_grad():
-        c_emb_arr = -1 * torch.ones((args.tta_size, net_copy.linear.weight.shape[1]),
-                                    dtype=torch.float32, device=device, requires_grad=False)
+        x_tensor = torch.from_numpy(np.expand_dims(x[img_ind], 0)).to(device)
+        rob_preds[img_ind] = learner.target_encoder.net(x_tensor)['logits'].squeeze().argmax()  # on target only
+        emb_arr = -1 * torch.ones((args.tta_size, net.linear.weight.shape[1]),
+                                  dtype=torch.float32, device=device, requires_grad=False)
         tta_cnt = 0
         while tta_cnt < args.tta_size:
             (inputs, targets) = list(train_loader)[0]
             inputs, targets = inputs.to(device), targets.to(device)
             b = tta_cnt
             e = min(tta_cnt + len(inputs), args.tta_size)
-            c_out = net_copy(inputs)
-            c_emb_arr[b:e] = c_out['embeddings'][0:(e-b)]
-            rob_probs[img_ind, b:e] = c_out['probs'][0:(e-b)].detach().cpu().numpy()
+            out = learner.target_encoder.net(inputs)  # on target only
+            emb_arr[b:e] = out['embeddings'][0:(e-b)]
+            rob_probs[img_ind, b:e] = out['probs'][0:(e-b)].detach().cpu().numpy()
             tta_cnt += e-b
             assert tta_cnt <= args.tta_size, 'not cool!'
 
-        rob_probs_emb[img_ind] = F.softmax(get_logits_from_emb_center(c_emb_arr, net_copy)).detach().cpu().numpy()
+        rob_probs_emb[img_ind] = F.softmax(get_logits_from_emb_center(emb_arr, learner.target_encoder.net)).detach().cpu().numpy()
     TEST_TIME_CNT += time.time() - start_time
 
 for i in tqdm(range(img_cnt)):
     # for i in range(img_cnt):  # debug
     img_ind = all_test_inds[i]
     # normal
-    train_loader = get_single_img_dataloader(args.dataset, X_test, y_test, args.batch_size,
+    train_loader = get_single_img_dataloader(args.dataset, X_test, y_test, 2 * args.batch_size,
                                              pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
     train('normal')
     test('normal')
 
     # adv
-    train_loader = get_single_img_dataloader(args.dataset, X_test_adv, y_test, args.batch_size,
+    train_loader = get_single_img_dataloader(args.dataset, X_test_adv, y_test, 2 * args.batch_size,
                                              pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
     train('adv')
     test('adv')
@@ -501,14 +522,14 @@ for i in tqdm(range(img_cnt)):
     tta_emb_acc_all, tta_emb_acc_all_adv = calc_first_n_robust_metrics(robustness_probs_emb.argmax(axis=1), robustness_probs_emb_adv.argmax(axis=1), i + 1)
 
     log('accuracy on the fly after {} samples: original image: {:.2f}/{:.2f}%, TTAs: {:.2f}/{:.2f}%, TTAs_emb: {:.2f}/{:.2f}%,'
-        .format(i + 1, acc_all * 100, acc_all_adv * 100, tta_acc_all * 100, tta_acc_all_adv * 100,
-                tta_emb_acc_all * 100, tta_emb_acc_all_adv * 100))
+          .format(i + 1, acc_all * 100, acc_all_adv * 100, tta_acc_all * 100, tta_acc_all_adv * 100,
+                  tta_emb_acc_all * 100, tta_emb_acc_all_adv * 100))
 
 average_train_time = TRAIN_TIME_CNT / (2 * img_cnt)
 average_test_time = TEST_TIME_CNT / (2 * img_cnt)
 log('average train/test time per sample: {}/{} secs'.format(average_train_time, average_test_time))
 
-if args.debug:
+if args.dump:
     log('dumping results...')
 
     np.save(os.path.join(DUMP_DIR, 'robustness_preds.npy'), robustness_preds)
@@ -519,8 +540,12 @@ if args.debug:
     np.save(os.path.join(DUMP_DIR, 'robustness_probs_emb_adv.npy'), robustness_probs_emb_adv)
 
     # debug
+    np.save(os.path.join(DUMP_DIR, 'loss_contrastive.npy'), loss_contrastive)
+    np.save(os.path.join(DUMP_DIR, 'loss_contrastive_adv.npy'), loss_contrastive_adv)
     np.save(os.path.join(DUMP_DIR, 'loss_entropy.npy'), loss_entropy)
     np.save(os.path.join(DUMP_DIR, 'loss_entropy_adv.npy'), loss_entropy_adv)
+    np.save(os.path.join(DUMP_DIR, 'loss_weight_difference.npy'), loss_weight_difference)
+    np.save(os.path.join(DUMP_DIR, 'loss_weight_difference_adv.npy'), loss_weight_difference_adv)
 
     np.save(os.path.join(DUMP_DIR, 'cross_entropy.npy'), cross_entropy)
     np.save(os.path.join(DUMP_DIR, 'cross_entropy_adv.npy'), cross_entropy_adv)
@@ -549,17 +574,17 @@ exit(0)
 
 
 # debug:
-# import matplotlib.pyplot as plt
-# from active_learning_project.utils import convert_tensor_to_image
-# # X_test_img       = convert_tensor_to_image(x.detach().cpu().numpy())
-# X_test_img       = convert_tensor_to_image(X_test)
-# X_tta_test_img_1 = convert_tensor_to_image(image_one.detach().cpu().numpy())
-# X_tta_test_img_2 = convert_tensor_to_image(image_two.detach().cpu().numpy())
-#
-# ind = 9
-# plt.imshow(X_test_img[1])
-# plt.show()
-# plt.imshow(X_tta_test_img_1[ind])
-# plt.show()
-# plt.imshow(X_tta_test_img_2[ind])
-# plt.show()
+import matplotlib.pyplot as plt
+from active_learning_project.utils import convert_tensor_to_image
+# X_test_img       = convert_tensor_to_image(x.detach().cpu().numpy())
+X_test_img       = convert_tensor_to_image(X_test)
+X_tta_test_img_1 = convert_tensor_to_image(image_one.detach().cpu().numpy())
+X_tta_test_img_2 = convert_tensor_to_image(image_two.detach().cpu().numpy())
+
+ind = 9
+plt.imshow(X_test_img[1])
+plt.show()
+plt.imshow(X_tta_test_img_1[ind])
+plt.show()
+plt.imshow(X_tta_test_img_2[ind])
+plt.show()
