@@ -20,8 +20,6 @@ import time
 import sys
 import PIL
 from torchlars import LARS
-
-from utils import convert_image_to_tensor
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, "..")
