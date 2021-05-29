@@ -25,7 +25,6 @@ from utils import convert_image_to_tensor
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, "..")
-sys.path.insert(0, "./adversarial_robustness_toolbox")
 
 from active_learning_project.models.resnet import ResNet18, ResNet34, ResNet50, ResNet101
 import active_learning_project.datasets.my_transforms as my_transforms
