@@ -32,13 +32,14 @@ from active_learning_project.utils import EMA, update_moving_average, convert_te
 
 parser = argparse.ArgumentParser(description='PyTorch CLR training on base pretrained net')
 parser.add_argument('--checkpoint_dir',
-                    default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00',
+                    default='/data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00',
                     type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attack directory')
 
 # eval
 parser.add_argument('--tta_size', default=1000, type=int, help='number of test-time augmentations')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size for the TTA evaluation')
+parser.add_argument('--mini_test', action='store_true', help='test only 2500 mini_test_inds')
 
 # transforms:
 parser.add_argument('--gaussian_std', default=0.015, type=float, help='Standard deviation of Gaussian noise')
@@ -185,7 +186,11 @@ def reset_net():
 reset_net()
 
 # test images inds:
-all_test_inds = np.arange(len(X_test))
+mini_test_inds = np.load(os.path.join(args.checkpoint_dir, 'mini_test_inds.npy'))
+if args.mini_test:
+    all_test_inds = mini_test_inds
+else:
+    all_test_inds = np.arange(len(X_test))
 if args.debug_size is not None:
     all_test_inds = all_test_inds[:args.debug_size]
 img_cnt = len(all_test_inds)

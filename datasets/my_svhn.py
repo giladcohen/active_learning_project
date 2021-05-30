@@ -9,7 +9,7 @@ class MySVHN(SVHN):
 
     def __init__(self, *args, **kwargs) -> None:
         cls_to_omit = kwargs.pop('cls_to_omit', None)
-        super(MySVHN, self).__init__(*args, **kwargs)
+        super(MySVHN, self).__init__(kwargs['root'], transform=kwargs['transform'])
         train = kwargs['train']
         download = kwargs['download']
 
