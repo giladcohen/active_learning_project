@@ -235,7 +235,7 @@ def get_normalized_tensor(loader: torch.utils.data.DataLoader, batch_size=None):
 
     return X
 
-def get_single_img_dataloader(dataset, x, targets, batch_size, pin_memory=False, transform=None, index=None,
+def get_single_img_dataloader(dataset, x, targets, batch_size, tta_size, pin_memory=False, transform=None, index=None,
                               use_one_hot=True):
     data_dir, database, train_transform, test_transform = dataset_factory(dataset)
     dataset = database(root=data_dir, train=False, download=False, transform=transform)  # just a dummy database
@@ -244,8 +244,8 @@ def get_single_img_dataloader(dataset, x, targets, batch_size, pin_memory=False,
     if use_one_hot:
         targets = to_categorical(targets, nb_classes=len(dataset.classes))
     if index is not None:
-        x = np.expand_dims(x[index, ...], 0).repeat(batch_size, axis=0)
-        targets = np.expand_dims(targets[index, ...], 0).repeat(batch_size, axis=0)
+        x = np.expand_dims(x[index, ...], 0).repeat(tta_size, axis=0)
+        targets = np.expand_dims(targets[index, ...], 0).repeat(tta_size, axis=0)
 
     x_tensor = torch.from_numpy(x.astype(np.float32))
     targets_tensor = torch.from_numpy(targets.astype(np.float32))
@@ -254,7 +254,7 @@ def get_single_img_dataloader(dataset, x, targets, batch_size, pin_memory=False,
 
     #loader:
     data_loader = torch.utils.data.DataLoader(
-        dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=pin_memory
+        dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=pin_memory
     )
 
     return data_loader

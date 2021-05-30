@@ -30,9 +30,9 @@ from active_learning_project.datasets.train_val_test_data_loaders import get_tes
     get_single_img_dataloader
 from active_learning_project.utils import EMA, update_moving_average, convert_tensor_to_image
 
-parser = argparse.ArgumentParser(description='PyTorch CLR training on base pretrained net')
+parser = argparse.ArgumentParser(description='PyTorch TTA defense V4')
 parser.add_argument('--checkpoint_dir',
-                    default='/data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00',
+                    default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00',
                     type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attack directory')
 
@@ -42,7 +42,7 @@ parser.add_argument('--batch_size', default=100, type=int, help='batch size for 
 parser.add_argument('--mini_test', action='store_true', help='test only 2500 mini_test_inds')
 
 # transforms:
-parser.add_argument('--gaussian_std', default=0.015, type=float, help='Standard deviation of Gaussian noise')
+parser.add_argument('--gaussian_std', default=0.0125, type=float, help='Standard deviation of Gaussian noise')
 
 # debug:
 parser.add_argument('--debug_size', default=None, type=int, help='number of image to run in debug mode')
@@ -52,6 +52,7 @@ parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm 
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 
 args = parser.parse_args()
+args.mini_test = True
 
 TEST_TIME_CNT = 0.0
 ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
@@ -224,27 +225,27 @@ def eval(set):
     with torch.no_grad():
         rob_preds[img_ind] = net(torch.from_numpy(np.expand_dims(x[img_ind], 0)).to(device))['preds'].squeeze().detach().cpu().numpy()
         tta_cnt = 0
-        while tta_cnt < args.tta_size:
-            inputs, targets = list(tta_loader)[0]
+        for batch_idx, (inputs, targets) in enumerate(tta_loader):
             inputs, targets = inputs.to(device), targets.to(device)
             b = tta_cnt
             e = min(tta_cnt + len(inputs), args.tta_size)
             rob_probs[img_ind, b:e] = net(inputs)['probs'][0:(e-b)].detach().cpu().numpy()
             tta_cnt += e-b
-            assert tta_cnt <= args.tta_size, 'not cool!'
-
+            if tta_cnt >= args.tta_size:
+                break
+    assert tta_cnt == args.tta_size, 'tta_cnt={} must match the args.tta_size'.format(tta_cnt)
     TEST_TIME_CNT += time.time() - start_time
 
 for i in tqdm(range(img_cnt)):
     # for i in range(img_cnt):  # debug
     img_ind = all_test_inds[i]
     # normal
-    tta_loader = get_single_img_dataloader(args.dataset, X_test, y_test, args.batch_size,
+    tta_loader = get_single_img_dataloader(args.dataset, X_test, y_test, args.batch_size, args.tta_size,
                                            pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
     eval('normal')
 
     # adv
-    tta_loader = get_single_img_dataloader(args.dataset, X_test_adv, y_test, args.batch_size,
+    tta_loader = get_single_img_dataloader(args.dataset, X_test_adv, y_test, args.batch_size, args.tta_size,
                                            pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
     eval('adv')
 
