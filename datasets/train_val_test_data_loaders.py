@@ -7,17 +7,20 @@ Easily extended to MNIST, CIFAR-100 and Imagenet.
 import torch
 import numpy as np
 import os
-
+import sys
 from torchvision import datasets
 from torchvision import transforms
 from torch.utils.data.sampler import SubsetRandomSampler, SequentialSampler
 from sklearn.model_selection import train_test_split
 from torch.utils.data.dataset import Subset
+import matplotlib.pyplot as plt
+
+sys.path.insert(0, "..")
+sys.path.insert(0, "./adversarial_robustness_toolbox")
 
 from active_learning_project.datasets.my_cifar10 import MyCIFAR10
 from active_learning_project.datasets.my_cifar100 import MyCIFAR100
 from active_learning_project.datasets.my_svhn import MySVHN
-import matplotlib.pyplot as plt
 
 from art.utils import get_labels_np_array, to_categorical
 
