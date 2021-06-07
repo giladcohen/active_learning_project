@@ -370,7 +370,7 @@ def save_features(data, path):
         pickle.dump(data, f, protocol=4)
 
 
-class EMA(object):
+class EMAOld(object):
     def __init__(self, beta):
         super().__init__()
         self.beta = beta
@@ -384,3 +384,21 @@ def update_moving_average(ema_updater, ma_model, current_model):
     for current_params, ma_params in zip(current_model.parameters(), ma_model.parameters()):
         old_weight, up_weight = ma_params.data, current_params.data
         ma_params.data = ema_updater.update_average(old_weight, up_weight)
+
+class EMA(object):
+    def __init__(self, decay):
+        self.decay = decay
+        self.shadow = {}
+
+    def register(self, model):
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                self.shadow[name] = param.data.clone()
+        self.params = self.shadow.keys()
+
+    def __call__(self, model):
+        if self.decay > 0:
+            for name, param in model.named_parameters():
+                if name in self.params and param.requires_grad:
+                    self.shadow[name] -= (1 - self.decay) * (self.shadow[name] - param.data)
+                    param.data = self.shadow[name]

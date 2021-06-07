@@ -36,9 +36,26 @@ parser.add_argument('--checkpoint_dir',
                     type=str, help='checkpoint dir')
 parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attack directory')
 
+# train
+parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
+parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
+parser.add_argument('--mega_steps', default=10, type=int, help='number of different TTA batches')
+parser.add_argument('--train_batch_size', default=100, type=int, help='batch size for the CLR training')
+parser.add_argument('--ema_decay', default=0.998, type=float, help='EMA decay')
+parser.add_argument('--mini_steps', default=10, type=int, help='number of steps with the same TTAs in the batch')
+
+# loss
+parser.add_argument('--lambda1', default=0.01, type=float, help='lambda_t in the paper')
+parser.add_argument('--lambda2', default=0.01, type=float, help='betha_t in the paper')
+
+# optimizer
+parser.add_argument('--opt', default='adam', type=str, help='optimizer: sgd, adam, rmsprop, lars')
+parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
+parser.add_argument('--adam_b1', default=0.5, type=float, help='momentum of optimizer')
+
 # eval
 parser.add_argument('--tta_size', default=1000, type=int, help='number of test-time augmentations')
-parser.add_argument('--batch_size', default=100, type=int, help='batch size for the TTA evaluation')
+parser.add_argument('--eval_batch_size', default=100, type=int, help='batch size for the CLR training')
 parser.add_argument('--mini_test', action='store_true', help='test only 2500 mini_test_inds')
 
 # transforms:
@@ -54,6 +71,7 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 args = parser.parse_args()
 args.mini_test = True
 
+TRAIN_TIME_CNT = 0.0
 TEST_TIME_CNT = 0.0
 ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
 DUMP_DIR = os.path.join(ATTACK_DIR, args.dump_dir)
@@ -113,13 +131,12 @@ CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 rand_gen = np.random.RandomState(12345)
 normal_writer = SummaryWriter(os.path.join(args.checkpoint_dir, 'normal_debug'))
 adv_writer    = SummaryWriter(os.path.join(args.checkpoint_dir, 'adv_debug'))
-batch_size = args.batch_size
 
 # Data
 log('==> Preparing data..')
 testloader = get_test_loader(
     dataset=train_args['dataset'],
-    batch_size=100,
+    batch_size=args.eval_batch_size,
     num_workers=1,
     pin_memory=True
 )
@@ -177,14 +194,53 @@ elif train_args['net'] == 'resnet101':
 else:
     raise AssertionError("network {} is unknown".format(train_args['net']))
 
+ema = EMA(args.ema_decay)
 def reset_net():
     global net
     net = model(num_classes=len(classes), activation=train_args['activation'])
     net = net.to(device)
     net.load_state_dict(global_state['best_net'])
-    net.eval()
+    ema.register(net)
+
+def reset_opt():
+    global optimizer
+    if args.opt == 'sgd':
+        optimizer = optim.SGD(
+            net.parameters(),
+            lr=args.lr,
+            momentum=args.mom,
+            weight_decay=args.wd,
+            nesterov=args.mom > 0)
+    elif args.opt == 'adam':
+        optimizer = optim.Adam(
+            net.parameters(),
+            lr=args.lr,
+            betas=(args.adam_b1, 0.999),
+            weight_decay=args.wd)
+    elif args.opt == 'adamw':
+        optimizer = optim.AdamW(
+            net.parameters(),
+            lr=args.lr,
+            weight_decay=args.wd)
+    elif args.opt == 'rmsprop':
+        optimizer = optim.RMSprop(
+            net.parameters(),
+            lr=args.lr,
+            momentum=args.mom,
+            weight_decay=args.wd)
+    elif args.opt == 'lars':
+        optimizer = optim.SGD(
+            net.parameters(),
+            lr=args.lr,
+            momentum=args.mom,
+            weight_decay=args.wd,
+            nesterov=args.mom > 0)
+        optimizer = LARS(optimizer, trust_coef=args.lars_coeff, eps=args.lars_eps)
+    else:
+        raise AssertionError('optimizer {} is not expected'.format(args.opt))
 
 reset_net()
+reset_opt()
 
 # test images inds:
 mini_test_inds = np.load(os.path.join(args.checkpoint_dir, 'mini_test_inds.npy'))
@@ -203,11 +259,44 @@ robustness_preds_adv        = -1 * np.ones(test_size, dtype=np.int32)
 robustness_probs            = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
 robustness_probs_adv        = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
 
+def entropy_loss(logits):
+    ret = F.softmax(logits, dim=1) * F.log_softmax(logits, dim=1)
+    ret = -1.0 * ret.sum()
+    return ret
+
 def kl_loss(s_logits, t_logits):
     ret1 = F.kl_div(F.log_softmax(s_logits, dim=1), F.softmax(t_logits, dim=1), reduction="batchmean")
     ret2 = F.kl_div(F.log_softmax(t_logits, dim=1), F.softmax(s_logits, dim=1), reduction="batchmean")
     return 0.5 * (ret1 + ret2)
 
+def train(set):
+    global TRAIN_TIME_CNT, loss_ent, loss_kl
+    start_time = time.time()
+    reset_net()
+    reset_opt()
+    net.train()
+
+    tta_cnt = 0
+    for batch_idx, (inputs, targets) in enumerate(tta_loader):  # happens mega_steps times
+        inputs, targets = inputs.to(device), targets.to(device)
+        prev_logits = None
+        for mini_step in range(args.mini_steps):
+            optimizer.zero_grad()
+            out = net(inputs)
+            loss_ent = entropy_loss(out['logits'])
+            loss = args.lambda1 * loss_ent
+            if prev_logits is not None:
+                loss_kl = kl_loss(out['logits'], prev_logits)
+                loss += args.lambda2 * loss_kl
+            loss.backward()
+            optimizer.step()
+            ema(net)
+            prev_logits = out['logits'].detach()
+            tta_cnt += inputs.size(0)
+    assert tta_cnt == args.train_batch_size * args.mini_steps * args.mega_steps, 'at the end of the training cnt ({}) != samples({})'.\
+        format(tta_cnt, args.train_batch_size * args.mini_steps * args.mega_steps)
+
+    TRAIN_TIME_CNT += time.time() - start_time
 
 def eval(set):
     global TEST_TIME_CNT, net
@@ -221,6 +310,7 @@ def eval(set):
         rob_probs     = robustness_probs_adv
 
     start_time = time.time()
+    net.eval()
 
     with torch.no_grad():
         rob_preds[img_ind] = net(torch.from_numpy(np.expand_dims(x[img_ind], 0)).to(device))['preds'].squeeze().detach().cpu().numpy()
@@ -233,19 +323,26 @@ def eval(set):
             tta_cnt += e-b
             if tta_cnt >= args.tta_size:
                 break
-    assert tta_cnt == args.tta_size, 'tta_cnt={} must match the args.tta_size'.format(tta_cnt)
+    assert tta_cnt == args.tta_size, 'tta_cnt={} must match args.tta_size'.format(tta_cnt)
     TEST_TIME_CNT += time.time() - start_time
 
 for i in tqdm(range(img_cnt)):
-    # for i in range(img_cnt):  # debug
+# for i in range(img_cnt):  # debug
     img_ind = all_test_inds[i]
     # normal
-    tta_loader = get_single_img_dataloader(args.dataset, X_test, y_test, args.batch_size, args.tta_size,
+    tta_loader = get_single_img_dataloader(args.dataset, X_test, y_test, args.train_batch_size, args.mega_steps * args.train_batch_size,
+                                           pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
+    train('normal')
+
+    tta_loader = get_single_img_dataloader(args.dataset, X_test, y_test, args.eval_batch_size, args.tta_size,
                                            pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
     eval('normal')
 
     # adv
-    tta_loader = get_single_img_dataloader(args.dataset, X_test_adv, y_test, args.batch_size, args.tta_size,
+    tta_loader = get_single_img_dataloader(args.dataset, X_test_adv, y_test, args.train_batch_size, args.mega_steps * args.train_batch_size,
+                                           pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
+    train('adv')
+    tta_loader = get_single_img_dataloader(args.dataset, X_test_adv, y_test, args.eval_batch_size, args.tta_size,
                                            pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
     eval('adv')
 
