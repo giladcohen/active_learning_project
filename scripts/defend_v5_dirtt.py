@@ -135,8 +135,16 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 
 rand_gen = np.random.RandomState(12345)
-normal_writer = SummaryWriter(os.path.join(args.checkpoint_dir, 'normal_debug'))
-adv_writer    = SummaryWriter(os.path.join(args.checkpoint_dir, 'adv_debug'))
+train_normal_writer = SummaryWriter(os.path.join(DUMP_DIR, 'train_normal'))
+train_adv_writer    = SummaryWriter(os.path.join(DUMP_DIR, 'train_adv'))
+eval_normal_writer = SummaryWriter(os.path.join(DUMP_DIR, 'eval_normal'))
+eval_adv_writer    = SummaryWriter(os.path.join(DUMP_DIR, 'eval_adv'))
+
+def flush():
+    train_normal_writer.flush()
+    train_adv_writer.flush()
+    eval_normal_writer.flush()
+    eval_adv_writer.flush()
 
 # Data
 log('==> Preparing data..')
@@ -302,6 +310,11 @@ cent = ConditionalEntropyLoss().to(device)
 vat_loss = VAT(args.n_power, args.xi, args.radius)
 
 def train(set):
+    if set == 'normal':
+        writer = train_normal_writer
+    else:
+        writer = train_adv_writer
+
     global TRAIN_TIME_CNT, loss_ent, loss_kl
     start_time = time.time()
     reset_net()
@@ -309,6 +322,7 @@ def train(set):
     net.train()
 
     tta_cnt = 0
+    cnt = 0
     for batch_idx, (inputs, targets) in enumerate(tta_loader):  # happens mega_steps times
         inputs, targets = inputs.to(device), targets.to(device)
         prev_logits = None
@@ -319,11 +333,21 @@ def train(set):
             loss_vat = vat_loss(inputs, out['logits'])
             loss_kl = kl_loss(out['logits'], prev_logits) if prev_logits is not None else 0.0
             loss = args.lambda_cent * loss_ent + args.lambda_vat * loss_vat + args.lambda_param * loss_kl
+
+            # collect for tensorboard:
+            writer.add_scalar('img_ind_{}/losses/loss'.format(img_ind), loss, cnt)
+            writer.add_scalar('img_ind_{}/losses/loss_ent'.format(img_ind), args.lambda_cent * loss_ent, cnt)
+            writer.add_scalar('img_ind_{}/losses/loss_vat'.format(img_ind), args.lambda_vat * loss_vat, cnt)
+            if prev_logits is not None:
+                writer.add_scalar('img_ind_{}/losses/loss_kl_param'.format(img_ind), args.lambda_param * loss_kl, cnt)
+
             loss.backward()
             optimizer.step()
             ema(net)
             prev_logits = out['logits'].detach()
+            cnt += 1
             tta_cnt += inputs.size(0)
+
     assert tta_cnt == args.train_batch_size * args.mini_steps * args.mega_steps, 'at the end of the training cnt ({}) != samples({})'.\
         format(tta_cnt, args.train_batch_size * args.mini_steps * args.mega_steps)
 
@@ -342,6 +366,10 @@ def eval(set):
 
     start_time = time.time()
     net.eval()
+
+    # eval_loss = 0.0
+    # eval_loss_ent = 0.0
+    # eval_loss_vat = 0.0
 
     with torch.no_grad():
         rob_preds[img_ind] = net(torch.from_numpy(np.expand_dims(x[img_ind], 0)).to(device))['preds'].squeeze().detach().cpu().numpy()
@@ -382,6 +410,7 @@ for i in tqdm(range(img_cnt)):
 
     log('accuracy on the fly after {} samples: original image: {:.2f}/{:.2f}%, TTAs: {:.2f}/{:.2f}%'
         .format(i + 1, acc_all * 100, acc_all_adv * 100, tta_acc_all * 100, tta_acc_all_adv * 100))
+    flush()
 
 average_test_time = TEST_TIME_CNT / (2 * img_cnt)
 log('average eval time per sample: {} secs'.format(average_test_time))
