@@ -29,6 +29,8 @@ import active_learning_project.datasets.my_transforms as my_transforms
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_normalized_tensor, \
     get_single_img_dataloader
 from active_learning_project.utils import EMA, update_moving_average, convert_tensor_to_image
+from active_learning_project.losses.vat import ConditionalEntropyLoss, kl_loss
+
 
 parser = argparse.ArgumentParser(description='PyTorch TTA defense V4')
 parser.add_argument('--checkpoint_dir',
@@ -45,13 +47,17 @@ parser.add_argument('--ema_decay', default=0.998, type=float, help='EMA decay')
 parser.add_argument('--mini_steps', default=10, type=int, help='number of steps with the same TTAs in the batch')
 
 # loss
-parser.add_argument('--lambda1', default=0.01, type=float, help='lambda_t in the paper')
-parser.add_argument('--lambda2', default=0.01, type=float, help='betha_t in the paper')
+parser.add_argument('--lambda_cent', default=0.01, type=float, help='lambda_t in the paper')
+parser.add_argument('--lambda_param', default=0.01, type=float, help='betha_t in the paper')
+parser.add_argument('--lambda_vat', default=0.01, type=float, help='lambda_t in the paper, but I duplicate')
+parser.add_argument('--n_power', default=1, type=int, help='VAT number of adversarial steps')
+parser.add_argument('--xi', default=1e-6, type=float, help='VAT factor to multiply the adv perturbation noise')
+parser.add_argument('--radius', default=3.5, type=float, help='VAT perturbation 2-norm ball radius')
 
 # optimizer
 parser.add_argument('--opt', default='adam', type=str, help='optimizer: sgd, adam, rmsprop, lars')
-parser.add_argument('--mom', default=0.0, type=float, help='momentum of optimizer')
-parser.add_argument('--adam_b1', default=0.5, type=float, help='momentum of optimizer')
+parser.add_argument('--mom', default=0.0, type=float, help='momentum of sgd optimizer')
+parser.add_argument('--adam_b1', default=0.5, type=float, help='momentum of adam optimizer')
 
 # eval
 parser.add_argument('--tta_size', default=1000, type=int, help='number of test-time augmentations')
@@ -59,7 +65,7 @@ parser.add_argument('--eval_batch_size', default=100, type=int, help='batch size
 parser.add_argument('--mini_test', action='store_true', help='test only 2500 mini_test_inds')
 
 # transforms:
-parser.add_argument('--gaussian_std', default=0.0125, type=float, help='Standard deviation of Gaussian noise')
+parser.add_argument('--gaussian_std', default=0.0, type=float, help='Standard deviation of Gaussian noise') # was 0.0125
 
 # debug:
 parser.add_argument('--debug_size', default=None, type=int, help='number of image to run in debug mode')
@@ -259,15 +265,41 @@ robustness_preds_adv        = -1 * np.ones(test_size, dtype=np.int32)
 robustness_probs            = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
 robustness_probs_adv        = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
 
-def entropy_loss(logits):
-    ret = F.softmax(logits, dim=1) * F.log_softmax(logits, dim=1)
-    ret = -1.0 * ret.sum()
-    return ret
+class VAT(nn.Module):
+    def __init__(self, n_power, xi, radius):
+        super(VAT, self).__init__()
+        self.n_power = n_power
+        self.XI = xi
+        self.epsilon = radius
 
-def kl_loss(s_logits, t_logits):
-    ret1 = F.kl_div(F.log_softmax(s_logits, dim=1), F.softmax(t_logits, dim=1), reduction="batchmean")
-    ret2 = F.kl_div(F.log_softmax(t_logits, dim=1), F.softmax(s_logits, dim=1), reduction="batchmean")
-    return 0.5 * (ret1 + ret2)
+    def forward(self, X, logit):
+        vat_loss = self.virtual_adversarial_loss(X, logit)
+        return vat_loss
+
+    def generate_virtual_adversarial_perturbation(self, x, logit):
+        d = torch.randn_like(x, device='cuda')
+
+        for _ in range(self.n_power):
+            d = self.XI * self.get_normalized_vector(d).requires_grad_()
+            logit_m = net(x + d)['logits']
+            dist = kl_loss(logit, logit_m)
+            grad = torch.autograd.grad(dist, [d])[0]
+            d = grad.detach()
+
+        return self.epsilon * self.get_normalized_vector(d)
+
+    def get_normalized_vector(self, d):
+        return F.normalize(d.view(d.size(0), -1), p=2, dim=1).reshape(d.size())
+
+    def virtual_adversarial_loss(self, x, logit):
+        r_vadv = self.generate_virtual_adversarial_perturbation(x, logit)
+        logit_p = logit.detach()
+        logit_m = net(x + r_vadv)['logits']
+        loss = kl_loss(logit_p, logit_m)
+        return loss
+
+cent = ConditionalEntropyLoss().to(device)
+vat_loss = VAT(args.n_power, args.xi, args.radius)
 
 def train(set):
     global TRAIN_TIME_CNT, loss_ent, loss_kl
@@ -283,11 +315,10 @@ def train(set):
         for mini_step in range(args.mini_steps):
             optimizer.zero_grad()
             out = net(inputs)
-            loss_ent = entropy_loss(out['logits'])
-            loss = args.lambda1 * loss_ent
-            if prev_logits is not None:
-                loss_kl = kl_loss(out['logits'], prev_logits)
-                loss += args.lambda2 * loss_kl
+            loss_ent = cent(out['logits'])
+            loss_vat = vat_loss(inputs, out['logits'])
+            loss_kl = kl_loss(out['logits'], prev_logits) if prev_logits is not None else 0.0
+            loss = args.lambda_cent * loss_ent + args.lambda_vat * loss_vat + args.lambda_param * loss_kl
             loss.backward()
             optimizer.step()
             ema(net)

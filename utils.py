@@ -402,3 +402,4 @@ class EMA(object):
                 if name in self.params and param.requires_grad:
                     self.shadow[name] -= (1 - self.decay) * (self.shadow[name] - param.data)
                     param.data = self.shadow[name]
+
