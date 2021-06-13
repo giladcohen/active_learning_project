@@ -39,12 +39,12 @@ parser.add_argument('--checkpoint_dir',
 parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attack directory')
 
 # train
-parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
+parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
-parser.add_argument('--mega_steps', default=10, type=int, help='number of different TTA batches')
+parser.add_argument('--mega_steps', default=20, type=int, help='number of different TTA batches')
 parser.add_argument('--train_batch_size', default=100, type=int, help='batch size for the CLR training')
 parser.add_argument('--ema_decay', default=0.998, type=float, help='EMA decay')
-parser.add_argument('--mini_steps', default=10, type=int, help='number of steps with the same TTAs in the batch')
+parser.add_argument('--mini_steps', default=20, type=int, help='number of steps with the same TTAs in the batch')
 
 # loss
 parser.add_argument('--lambda_cent', default=0.01, type=float, help='lambda_t in the paper')
@@ -57,7 +57,7 @@ parser.add_argument('--radius', default=3.5, type=float, help='VAT perturbation 
 # optimizer
 parser.add_argument('--opt', default='adam', type=str, help='optimizer: sgd, adam, rmsprop, lars')
 parser.add_argument('--mom', default=0.0, type=float, help='momentum of sgd optimizer')
-parser.add_argument('--adam_b1', default=0.5, type=float, help='momentum of adam optimizer')
+parser.add_argument('--adam_b1', default=0.9, type=float, help='momentum of adam optimizer')
 
 # eval
 parser.add_argument('--tta_size', default=1000, type=int, help='number of test-time augmentations')
