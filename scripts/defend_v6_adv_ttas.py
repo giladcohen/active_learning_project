@@ -200,6 +200,7 @@ def eval(set):
     assert tta_cnt == args.tta_size, 'tta_cnt={} must match the args.tta_size'.format(tta_cnt)
     TEST_TIME_CNT += time.time() - start_time
 
+
 for i in tqdm(range(img_cnt)):
     # for i in range(img_cnt):  # debug
     img_ind = all_test_inds[i]
