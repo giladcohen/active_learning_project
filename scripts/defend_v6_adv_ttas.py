@@ -32,6 +32,7 @@ from active_learning_project.datasets.train_val_test_data_loaders import get_tes
 from active_learning_project.utils import EMA, update_moving_average, convert_tensor_to_image, set_logger, get_model
 from active_learning_project.metric_utils import calc_adv_acc, calc_first_n_adv_acc, \
     calc_first_n_adv_acc_from_probs_summation
+from active_learning_project.losses.losses import VAT
 
 parser = argparse.ArgumentParser(description='PyTorch TTA defense V4')
 parser.add_argument('--checkpoint_dir',
@@ -46,6 +47,9 @@ parser.add_argument('--mini_test', action='store_true', help='test only 2500 min
 
 # transforms:
 parser.add_argument('--gaussian_std', default=0.0, type=float, help='Standard deviation of Gaussian noise')
+parser.add_argument('--n_power', default=1, type=int, help='VAT number of adversarial steps')
+parser.add_argument('--xi', default=1e-6, type=float, help='VAT factor to multiply the adv perturbation noise')
+parser.add_argument('--radius', default=3.5, type=float, help='VAT perturbation 2-norm ball radius')
 
 # debug:
 parser.add_argument('--debug_size', default=None, type=int, help='number of image to run in debug mode')
@@ -141,8 +145,11 @@ def reset_net():
     net = net.to(device)
     net.load_state_dict(global_state['best_net'])
     net.eval()
+    if 'vat' in globals():
+        vat.model = net
 
 reset_net()
+vat = VAT(net, args.n_power, args.xi, args.radius)
 
 # test images inds:
 mini_test_inds = np.load(os.path.join(args.checkpoint_dir, 'mini_test_inds.npy'))

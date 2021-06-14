@@ -17,10 +17,10 @@ class ConditionalEntropyLoss(torch.nn.Module):
 
 
 class VAT(nn.Module):
-    def __init__(self, model, n_power, radius):
+    def __init__(self, model, n_power, xi, radius):
         super(VAT, self).__init__()
         self.n_power = n_power
-        self.XI = 1e-6
+        self.XI = xi
         self.model = model
         self.epsilon = radius
 
@@ -40,12 +40,6 @@ class VAT(nn.Module):
 
         return self.epsilon * self.get_normalized_vector(d)
 
-    # def kl_divergence_with_logit(self, q_logit, p_logit):
-    #     q = F.softmax(q_logit, dim=1)
-    #     qlogq = torch.mean(torch.sum(q * F.log_softmax(q_logit, dim=1), dim=1))
-    #     qlogp = torch.mean(torch.sum(q * F.log_softmax(p_logit, dim=1), dim=1))
-    #     return qlogq - qlogp
-
     def get_normalized_vector(self, d):
         return F.normalize(d.view(d.size(0), -1), p=2, dim=1).reshape(d.size())
 
@@ -53,5 +47,5 @@ class VAT(nn.Module):
         r_vadv = self.generate_virtual_adversarial_perturbation(x, logit)
         logit_p = logit.detach()
         logit_m = self.model(x + r_vadv)['logits']
-        loss = self.kl_divergence_with_logit(logit_p, logit_m)
+        loss = kl_loss(logit_p, logit_m)
         return loss

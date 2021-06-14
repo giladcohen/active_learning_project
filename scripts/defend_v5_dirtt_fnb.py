@@ -30,7 +30,7 @@ import active_learning_project.datasets.my_transforms as my_transforms
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_normalized_tensor, \
     get_single_img_dataloader
 from active_learning_project.utils import EMA, update_moving_average, convert_tensor_to_image
-from active_learning_project.losses.vat import ConditionalEntropyLoss, kl_loss
+from active_learning_project.losses.losses import ConditionalEntropyLoss, kl_loss
 
 
 parser = argparse.ArgumentParser(description='PyTorch TTA defense V4')
