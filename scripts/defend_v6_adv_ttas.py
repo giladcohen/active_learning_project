@@ -46,6 +46,7 @@ parser.add_argument('--eval_batch_size', default=100, type=int, help='batch size
 parser.add_argument('--mini_test', action='store_true', help='test only 2500 mini_test_inds')
 
 # transforms:
+parser.add_argument('--clip_inputs', action='store_true', help='clipping TTA inputs between 0 and 1')
 parser.add_argument('--gaussian_std', default=0.0, type=float, help='Standard deviation of Gaussian noise')
 parser.add_argument('--n_power', default=1, type=int, help='VAT number of adversarial steps')
 parser.add_argument('--xi', default=1e-6, type=float, help='VAT factor to multiply the adv perturbation noise')
@@ -98,6 +99,11 @@ testloader = get_test_loader(
     pin_memory=True
 )
 
+if args.clip_inputs == True:
+    clip_min, clip_max = 0.0, 1.0
+else:
+    clip_min, clip_max = -np.inf, np.inf
+
 p_hflip = 0.5 if 'cifar' in args.dataset else 0.0
 tta_transforms = transforms.Compose([
     my_transforms.ColorJitterPro(
@@ -120,7 +126,7 @@ tta_transforms = transforms.Compose([
     transforms.CenterCrop(size=32),
     transforms.RandomHorizontalFlip(p=p_hflip),
     my_transforms.GaussianNoise(0, args.gaussian_std),
-    my_transforms.Clip(0.0, 1.0)
+    my_transforms.Clip(clip_min, clip_max)
 ])
 
 global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
