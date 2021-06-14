@@ -145,8 +145,12 @@ def reset_net():
     net = net.to(device)
     net.load_state_dict(global_state['best_net'])
     net.eval()
-    if 'vat' in globals():
+    # if 'vat' in globals():
+    #     vat.model = net
+    try:
         vat.model = net
+    except Exception as e:
+        logger.info('VAT.model = net did not succeed because:\n {}'.format(e))
 
 reset_net()
 vat = VAT(net, args.n_power, args.xi, args.radius)
