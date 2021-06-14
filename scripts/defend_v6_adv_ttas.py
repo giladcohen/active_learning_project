@@ -185,17 +185,18 @@ def eval(set):
 
     start_time = time.time()
 
-    with torch.no_grad():
-        rob_preds[img_ind] = net(torch.from_numpy(np.expand_dims(x[img_ind], 0)).to(device))['preds'].squeeze().detach().cpu().numpy()
-        tta_cnt = 0
-        for batch_idx, (inputs, targets) in enumerate(tta_loader):
-            inputs, targets = inputs.to(device), targets.to(device)
-            b = tta_cnt
-            e = min(tta_cnt + len(inputs), args.tta_size)
-            rob_probs[img_ind, b:e] = net(inputs)['probs'][0:(e-b)].detach().cpu().numpy()
-            tta_cnt += e-b
-            if tta_cnt >= args.tta_size:
-                break
+    orig_logits = net(torch.from_numpy(np.expand_dims(x[img_ind], 0)).to(device))['logits']
+    rob_preds[img_ind] = orig_logits.argmax(dim=1).squeeze().detach().cpu().numpy()
+    tta_cnt = 0
+    for batch_idx, (inputs, targets) in enumerate(tta_loader):
+        inputs, targets = inputs.to(device), targets.to(device)
+        b = tta_cnt
+        e = min(tta_cnt + len(inputs), args.tta_size)
+        pert_inputs = vat.generate_virtual_adversarial_perturbation(inputs[0:(e-b)], orig_logits.repeat(e-b, 1))
+        rob_probs[img_ind, b:e] = net(pert_inputs)['probs'][0:(e-b)].detach().cpu().numpy()
+        tta_cnt += e-b
+        if tta_cnt >= args.tta_size:
+            break
     assert tta_cnt == args.tta_size, 'tta_cnt={} must match the args.tta_size'.format(tta_cnt)
     TEST_TIME_CNT += time.time() - start_time
 
