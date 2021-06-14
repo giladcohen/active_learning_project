@@ -11,6 +11,8 @@ import torch
 import numpy as np
 from tqdm import tqdm
 import pickle
+import logging
+from functools import wraps
 import matplotlib.pyplot as plt
 
 from numba import njit, jit
@@ -22,6 +24,7 @@ import torch.utils.data as data
 import scipy
 from scipy.spatial.distance import pdist, cdist, squareform
 from sklearn.metrics import roc_curve, auc, roc_auc_score
+from active_learning_project.models.resnet import ResNet18, ResNet34, ResNet50, ResNet101
 
 def get_mean_and_std(dataset):
     '''Compute the mean and std value of dataset.'''
@@ -403,3 +406,22 @@ class EMA(object):
                     self.shadow[name] -= (1 - self.decay) * (self.shadow[name] - param.data)
                     param.data = self.shadow[name]
 
+def set_logger(log_file):
+    logging.basicConfig(format='%(asctime)s %(name)s %(levelname)s %(message)s',
+                        datefmt='%m/%d/%Y %I:%M:%S %p',
+                        level=logging.DEBUG,
+                        handlers=[logging.FileHandler(log_file, mode='w'),
+                                  logging.StreamHandler(sys.stdout)]
+                        )
+
+def get_model(moder_str):
+    if moder_str == 'resnet18':
+        return ResNet18
+    elif moder_str == 'resnet34':
+        return ResNet34
+    elif moder_str == 'resnet50':
+        return ResNet50
+    elif moder_str == 'resnet101':
+        return ResNet101
+    else:
+        raise AssertionError("network {} is unknown".format(moder_str))

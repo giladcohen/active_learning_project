@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def calc_norm_adv_acc(preds, preds_adv, y_test, test_inds):
+def calc_adv_acc(preds, preds_adv, y_test, test_inds):
     acc = np.mean(preds[test_inds] == y_test[test_inds])
     acc_adv = np.mean(preds_adv[test_inds] == y_test[test_inds])
     return acc, acc_adv
