@@ -49,3 +49,8 @@ class VAT(nn.Module):
         logit_m = self.model(x + r_vadv)['logits']
         loss = kl_loss(logit_p, logit_m)
         return loss
+
+    def virtual_adversarial_images(self, x, logit):
+        r_vadv = self.generate_virtual_adversarial_perturbation(x, logit)
+        return x + r_vadv
+

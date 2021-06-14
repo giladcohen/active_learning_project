@@ -192,7 +192,7 @@ def eval(set):
         inputs, targets = inputs.to(device), targets.to(device)
         b = tta_cnt
         e = min(tta_cnt + len(inputs), args.tta_size)
-        pert_inputs = vat.generate_virtual_adversarial_perturbation(inputs[0:(e-b)], orig_logits.repeat(e-b, 1))
+        pert_inputs = vat.virtual_adversarial_images(inputs[0:(e-b)], orig_logits.repeat(e-b, 1))
         rob_probs[img_ind, b:e] = net(pert_inputs)['probs'][0:(e-b)].detach().cpu().numpy()
         tta_cnt += e-b
         if tta_cnt >= args.tta_size:
