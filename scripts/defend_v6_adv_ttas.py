@@ -47,7 +47,7 @@ parser.add_argument('--mini_test', action='store_true', help='test only 2500 min
 
 # transforms:
 parser.add_argument('--clip_inputs', action='store_true', help='clipping TTA inputs between 0 and 1')
-parser.add_argument('--gaussian_std', default=0.0, type=float, help='Standard deviation of Gaussian noise')
+parser.add_argument('--gaussian_std', default=0.0, type=float, help='Standard deviation of Gaussian noise')  # was 0.0125
 parser.add_argument('--n_power', default=1, type=int, help='VAT number of adversarial steps')
 parser.add_argument('--xi', default=1e-6, type=float, help='VAT factor to multiply the adv perturbation noise')
 parser.add_argument('--radius', default=3.5, type=float, help='VAT perturbation 2-norm ball radius')
