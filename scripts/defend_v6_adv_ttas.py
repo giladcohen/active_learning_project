@@ -149,7 +149,6 @@ def reset_net():
     net = get_model(train_args['net'])(num_classes=len(classes), activation=train_args['activation'])
     net = net.to(device)
     net.load_state_dict(global_state['best_net'])
-    net.eval()
     # if 'vat' in globals():
     #     vat.model = net
     try:
