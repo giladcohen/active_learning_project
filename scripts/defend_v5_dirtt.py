@@ -42,9 +42,9 @@ parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attac
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
 parser.add_argument('--mega_steps', default=20, type=int, help='number of different TTA batches')
+parser.add_argument('--mini_steps', default=20, type=int, help='number of steps with the same TTAs in the batch')
 parser.add_argument('--train_batch_size', default=100, type=int, help='batch size for the CLR training')
 parser.add_argument('--ema_decay', default=0.998, type=float, help='EMA decay')
-parser.add_argument('--mini_steps', default=20, type=int, help='number of steps with the same TTAs in the batch')
 
 # loss
 parser.add_argument('--lambda_cent', default=0.01, type=float, help='lambda_t in the paper')
@@ -343,13 +343,13 @@ def train(set):
 
             loss.backward()
             optimizer.step()
-            ema(net)
             prev_logits = out['logits'].detach()
             cnt += 1
             tta_cnt += inputs.size(0)
+        ema(net)
 
     assert tta_cnt == args.train_batch_size * args.mini_steps * args.mega_steps, 'at the end of the training cnt ({}) != samples({})'.\
-        format(tta_cnt, args.train_batch_size * args.mini_steps * args.mega_steps)
+            format(tta_cnt, args.train_batch_size * args.mini_steps * args.mega_steps)
 
     TRAIN_TIME_CNT += time.time() - start_time
 
