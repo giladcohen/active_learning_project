@@ -56,7 +56,7 @@ parser.add_argument('--radius', default=3.5, type=float, help='VAT perturbation 
 
 # optimizer
 parser.add_argument('--opt', default='adam', type=str, help='optimizer: sgd, adam, rmsprop, lars')
-parser.add_argument('--mom', default=0.0, type=float, help='momentum of sgd optimizer')
+parser.add_argument('--mom', default=0.9, type=float, help='momentum of sgd optimizer')
 parser.add_argument('--adam_b1', default=0.9, type=float, help='momentum of adam optimizer')
 
 # eval
