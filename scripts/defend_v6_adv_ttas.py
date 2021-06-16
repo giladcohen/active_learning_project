@@ -30,8 +30,7 @@ import active_learning_project.datasets.my_transforms as my_transforms
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_normalized_tensor, \
     get_single_img_dataloader
 from active_learning_project.utils import EMA, update_moving_average, convert_tensor_to_image, set_logger, get_model
-from active_learning_project.metric_utils import calc_adv_acc, calc_first_n_adv_acc, \
-    calc_first_n_adv_acc_from_probs_summation
+from active_learning_project.metric_utils import calc_first_n_adv_acc, calc_first_n_adv_acc_from_probs_summation
 from active_learning_project.losses.losses import VAT
 
 parser = argparse.ArgumentParser(description='PyTorch TTA defense V4')
@@ -190,6 +189,7 @@ def eval(set):
         rob_probs     = robustness_probs_adv
 
     start_time = time.time()
+    net.eval()
 
     orig_logits = net(torch.from_numpy(np.expand_dims(x[img_ind], 0)).to(device))['logits']
     rob_preds[img_ind] = orig_logits.argmax(dim=1).squeeze().detach().cpu().numpy()

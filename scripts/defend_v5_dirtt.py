@@ -24,12 +24,12 @@ import matplotlib.pyplot as plt
 
 sys.path.insert(0, "..")
 
-from active_learning_project.models.resnet import ResNet18, ResNet34, ResNet50, ResNet101
 import active_learning_project.datasets.my_transforms as my_transforms
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_normalized_tensor, \
     get_single_img_dataloader
-from active_learning_project.utils import EMA, update_moving_average, convert_tensor_to_image
+from active_learning_project.utils import EMA, update_moving_average, convert_tensor_to_image, set_logger, get_model
 from active_learning_project.losses.losses import ConditionalEntropyLoss, kl_loss
+from active_learning_project.metric_utils import calc_first_n_adv_acc, calc_first_n_adv_acc_from_probs_summation
 
 
 parser = argparse.ArgumentParser(description='PyTorch TTA defense V4')
@@ -65,6 +65,7 @@ parser.add_argument('--eval_batch_size', default=100, type=int, help='batch size
 parser.add_argument('--mini_test', action='store_true', help='test only 2500 mini_test_inds')
 
 # transforms:
+parser.add_argument('--clip_inputs', action='store_true', help='clipping TTA inputs between 0 and 1')
 parser.add_argument('--gaussian_std', default=0.0, type=float, help='Standard deviation of Gaussian noise') # was 0.0125
 
 # debug:
@@ -82,46 +83,14 @@ TEST_TIME_CNT = 0.0
 ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
 DUMP_DIR = os.path.join(ATTACK_DIR, args.dump_dir)
 os.makedirs(DUMP_DIR, exist_ok=True)
+log_file = os.path.join(DUMP_DIR, 'log.log')
 
 # dumping args to txt file
 with open(os.path.join(DUMP_DIR, 'commandline_args.txt'), 'w') as f:
     json.dump(args.__dict__, f, indent=2)
 
-logging.basicConfig(filename=os.path.join(DUMP_DIR, 'log.log'),
-                    filemode='w',
-                    format='%(asctime)s %(name)s %(levelname)s %(message)s',
-                    datefmt='%m/%d/%Y %I:%M:%S %p',
-                    level=logging.DEBUG)
-
-# logger = logging.getLogger()
-def log(str):
-    logging.info(str)
-    print(str)
-
-def calc_robust_metrics(robustness_preds, robustness_preds_adv):
-    acc_all = np.mean(robustness_preds[all_test_inds] == y_test[all_test_inds])
-    acc_all_adv = np.mean(robustness_preds_adv[all_test_inds] == y_test[all_test_inds])
-    return acc_all, acc_all_adv
-    # log('Robust classification accuracy: all samples: {:.2f}/{:.2f}%'.format(acc_all * 100, acc_all_adv * 100))
-
-def calc_first_n_robust_metrics(robustness_preds, robustness_preds_adv, n):
-    acc_all = np.mean(robustness_preds[all_test_inds][0:n] == y_test[all_test_inds][0:n])
-    acc_all_adv = np.mean(robustness_preds_adv[all_test_inds][0:n] == y_test[all_test_inds][0:n])
-    return acc_all, acc_all_adv
-
-def calc_first_n_robust_metrics_from_probs_summation(tta_robustness_probs, tta_robustness_probs_adv, n):
-    tta_robustness_probs_sum = tta_robustness_probs.sum(axis=1)
-    robustness_preds = tta_robustness_probs_sum.argmax(axis=1)
-    tta_robustness_probs_adv_sum = tta_robustness_probs_adv.sum(axis=1)
-    robustness_preds_adv = tta_robustness_probs_adv_sum.argmax(axis=1)
-    acc_all = np.mean(robustness_preds[all_test_inds][0:n] == y_test[all_test_inds][0:n])
-    acc_all_adv = np.mean(robustness_preds_adv[all_test_inds][0:n] == y_test[all_test_inds][0:n])
-    return acc_all, acc_all_adv
-
-def get_logits_from_emb_center(tta_embedding, model):
-    tta_embeddings_center = tta_embedding.mean(axis=0)
-    logits = model.linear(tta_embeddings_center)
-    return logits
+set_logger(log_file)
+logger = logging.getLogger()
 
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
@@ -147,7 +116,7 @@ def flush():
     eval_adv_writer.flush()
 
 # Data
-log('==> Preparing data..')
+logger.info('==> Preparing data..')
 testloader = get_test_loader(
     dataset=train_args['dataset'],
     batch_size=args.eval_batch_size,
@@ -155,6 +124,10 @@ testloader = get_test_loader(
     pin_memory=True
 )
 
+if args.clip_inputs == True:
+    clip_min, clip_max = 0.0, 1.0
+else:
+    clip_min, clip_max = -np.inf, np.inf
 p_hflip = 0.5 if 'cifar' in args.dataset else 0.0
 tta_transforms = transforms.Compose([
     my_transforms.ColorJitterPro(
@@ -177,7 +150,7 @@ tta_transforms = transforms.Compose([
     transforms.CenterCrop(size=32),
     transforms.RandomHorizontalFlip(p=p_hflip),
     my_transforms.GaussianNoise(0, args.gaussian_std),
-    my_transforms.Clip(0.0, 1.0)
+    my_transforms.Clip(clip_min, clip_max)
 ])
 
 global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
@@ -196,22 +169,10 @@ if device == 'cuda':
     # net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
 
-# Model
-if train_args['net'] == 'resnet18':
-    model = ResNet18
-elif train_args['net'] == 'resnet34':
-    model = ResNet34
-elif train_args['net'] == 'resnet50':
-    model = ResNet50
-elif train_args['net'] == 'resnet101':
-    model = ResNet101
-else:
-    raise AssertionError("network {} is unknown".format(train_args['net']))
-
 ema = EMA(args.ema_decay)
 def reset_net():
     global net
-    net = model(num_classes=len(classes), activation=train_args['activation'])
+    net = get_model(train_args['net'])(num_classes=len(classes), activation=train_args['activation'])
     net = net.to(device)
     net.load_state_dict(global_state['best_net'])
     ema.register(net)
@@ -405,17 +366,17 @@ for i in tqdm(range(img_cnt)):
                                            pin_memory=device=='cuda', transform=tta_transforms, index=img_ind)
     eval('adv')
 
-    acc_all, acc_all_adv = calc_first_n_robust_metrics(robustness_preds, robustness_preds_adv, i + 1)
-    tta_acc_all, tta_acc_all_adv = calc_first_n_robust_metrics_from_probs_summation(robustness_probs, robustness_probs_adv, i + 1)
+    acc_all, acc_all_adv = calc_first_n_adv_acc(robustness_preds, robustness_preds_adv, y_test, all_test_inds, i + 1)
+    tta_acc_all, tta_acc_all_adv = calc_first_n_adv_acc_from_probs_summation(robustness_probs, robustness_probs_adv, y_test, all_test_inds, i + 1)
 
-    log('accuracy on the fly after {} samples: original image: {:.2f}/{:.2f}%, TTAs: {:.2f}/{:.2f}%'
-        .format(i + 1, acc_all * 100, acc_all_adv * 100, tta_acc_all * 100, tta_acc_all_adv * 100))
+    logger.info('accuracy on the fly after {} samples: original image: {:.2f}/{:.2f}%, TTAs: {:.2f}/{:.2f}%'
+            .format(i + 1, acc_all * 100, acc_all_adv * 100, tta_acc_all * 100, tta_acc_all_adv * 100))
     flush()
 
 average_test_time = TEST_TIME_CNT / (2 * img_cnt)
-log('average eval time per sample: {} secs'.format(average_test_time))
+logger.info('average eval time per sample: {} secs'.format(average_test_time))
 
-log('done')
+logger.info('done')
 logging.shutdown()
 exit(0)
 
