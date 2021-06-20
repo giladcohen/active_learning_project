@@ -47,7 +47,7 @@ parser.add_argument('--eval_batch_size', default=100, type=int, help='batch size
 
 # transforms:
 parser.add_argument('--clip_inputs', action='store_true', help='clipping TTA inputs between 0 and 1')
-parser.add_argument('--gaussian_std', default=0.0, type=float, help='Standard deviation of Gaussian noise')  # was 0.0125
+parser.add_argument('--gaussian_std', default=0.0125, type=float, help='Standard deviation of Gaussian noise')  # was 0.0125
 
 # training:
 parser.add_argument('--train_batch_size', default=100, type=int, help='batch size for the TTA training')
