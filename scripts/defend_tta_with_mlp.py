@@ -54,7 +54,7 @@ parser.add_argument('--train_batch_size', default=100, type=int, help='batch siz
 parser.add_argument('--mlp_width', default=10, type=int, help='The width of the mlp second hidden layer')
 parser.add_argument('--steps', default=2000, type=int, help='training steps for each image')
 parser.add_argument('--ema_decay', default=0.998, type=float, help='EMA decay')
-parser.add_argument('--val_size', default=50, type=int, help='validation size')
+parser.add_argument('--val_size', default=200, type=int, help='validation size')
 
 # optimizer:
 parser.add_argument('--opt', default='adam', type=str, help='optimizer: sgd, adam, rmsprop, lars')
@@ -158,6 +158,7 @@ test_size = len(test_inds)
 net = get_model(train_args['net'])(num_classes=len(classes), activation=train_args['activation'])
 net = net.to(device)
 net.load_state_dict(global_state['best_net'])
+net.eval()  # frozen
 mlp = MLP(net.linear.in_features, args.mlp_width)
 mlp = mlp.to(device)
 
@@ -196,6 +197,9 @@ def reset_opt():
     else:
         raise AssertionError('optimizer {} is not expected'.format(args.opt))
 
+def flush():
+    train_adv_det_writer.flush()
+
 
 reset_opt()
 bce_loss = nn.BCEWithLogitsLoss()
@@ -213,21 +217,53 @@ y = np.concatenate((np.zeros(len(val_inds)), np.ones(len(val_inds))))
 train_loader = get_explicit_train_loader(dataset, x, y, args.train_batch_size, tta_transforms,
                                          pin_memory=device=='cuda')
 
-logger.info('training...')
-for batch_idx, (inputs, targets) in enumerate(train_loader):
-    optimizer.zero_grad()
-    inputs, targets = inputs.to(device), targets.to(device)
-    with torch.no_grad():
-        embeddings = net(inputs)['embeddings']
-    out = mlp(embeddings).squeeze()
-    loss_bce = bce_loss(out, targets)
-    loss = loss_bce
-    train_adv_det_writer.add_scalar('losses/bce_loss', loss_bce, batch_idx)
+def train():
+    global global_step, epoch
 
-    loss.backward()
-    optimizer.step()
+    mlp.train()
+    train_loss = 0.0
+    predicted = []
+    labels = []
+    for batch_idx, (inputs, targets) in enumerate(train_loader):
+        inputs, targets = inputs.to(device), targets.to(device)
+        optimizer.zero_grad()
+        with torch.no_grad():
+            embeddings = net(inputs)['embeddings']
+        out = mlp(embeddings).squeeze()
+        loss_bce = bce_loss(out, targets)
+        loss = loss_bce
+        loss.backward()
+        optimizer.step()
 
-print('cool here')
+        train_loss += loss.item()
+        preds = out.ge(0.0)
+        predicted.extend(preds.detach().cpu().numpy())
+        labels.extend(targets.detach().cpu().numpy())
+        num_corrected = preds.eq(targets).sum().item()
+        acc = num_corrected / targets.size(0)
+
+        if global_step % 10 == 0:  # sampling, once ever 10 train iterations
+            train_adv_det_writer.add_scalar('losses/loss_bce', loss_bce, global_step)
+            train_adv_det_writer.add_scalar('metrics/acc', 100.0 * acc, global_step)
+
+        global_step += 1
+
+    predicted = np.asarray(predicted)
+    labels = np.asarray(labels)
+    train_acc = 100.0 * np.mean(predicted == labels)
+    print('Epoch #{} (TRAIN): loss={}\tacc={:.2f}'.format(epoch + 1, train_loss, train_acc))
+
+
+global_step = 0
+logger.info('Testing randomized net...')
+# test()
+logger.info('start training {} steps...'.format(args.steps))
+for epoch in tqdm(range(args.steps)):
+    train()
+    # if epoch % 100:
+    #     test()
+# test()
+flush()
 exit(0)
 
 # debug:

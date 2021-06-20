@@ -265,7 +265,7 @@ def get_explicit_train_loader(dataset,
                               y,
                               batch_size,
                               transforms,
-                              num_workers=4,
+                              num_workers=0,
                               pin_memory=False):
 
     data_dir, database, _, _ = dataset_factory(dataset)
