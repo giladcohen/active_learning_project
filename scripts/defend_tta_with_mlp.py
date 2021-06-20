@@ -52,7 +52,7 @@ parser.add_argument('--gaussian_std', default=0.0, type=float, help='Standard de
 # training:
 parser.add_argument('--train_batch_size', default=100, type=int, help='batch size for the TTA training')
 parser.add_argument('--mlp_width', default=10, type=int, help='The width of the mlp second hidden layer')
-parser.add_argument('--steps', default=20, type=int, help='training steps for each image')
+parser.add_argument('--steps', default=2000, type=int, help='training steps for each image')
 parser.add_argument('--ema_decay', default=0.998, type=float, help='EMA decay')
 parser.add_argument('--val_size', default=50, type=int, help='validation size')
 
@@ -215,6 +215,7 @@ train_loader = get_explicit_train_loader(dataset, x, y, args.train_batch_size, t
 
 logger.info('training...')
 for batch_idx, (inputs, targets) in tqdm(enumerate(train_loader)):
+    optimizer.zero_grad()
     inputs, targets = inputs.to(device), targets.to(device)
     with torch.no_grad():
         embeddings = net(inputs)['embeddings']
@@ -223,10 +224,10 @@ for batch_idx, (inputs, targets) in tqdm(enumerate(train_loader)):
     loss = loss_bce
     train_adv_det_writer.add_scalar('losses/bce_loss', loss_bce, batch_idx)
 
-    optimizer.zero_grad()
     loss.backward()
     optimizer.step()
 
+print('cool here')
 exit(0)
 
 # debug:
