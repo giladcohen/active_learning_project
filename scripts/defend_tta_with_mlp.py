@@ -251,7 +251,7 @@ def train():
     predicted = np.asarray(predicted)
     labels = np.asarray(labels)
     train_acc = 100.0 * np.mean(predicted == labels)
-    print('Epoch #{} (TRAIN): loss={}\tacc={:.2f}'.format(epoch + 1, train_loss, train_acc))
+    logger.info('Epoch #{} (TRAIN): loss={}\tacc={:.2f}'.format(epoch + 1, train_loss, train_acc))
 
 
 global_step = 0

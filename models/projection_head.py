@@ -36,13 +36,13 @@ class MLP(nn.Module):
         self.mid_dim = mid_dim
 
         self.linear1 = nn.Linear(self.hidden_dim, self.mid_dim, bias=False)
-        self.bn1 = nn.BatchNorm1d(self.mid_dim)
+        # self.bn1 = nn.BatchNorm1d(self.mid_dim)
         self.linear2 = nn.Linear(self.mid_dim, 1, bias=False)
 
     def forward(self, x):
         # x = nn.functional.normalize(x)
         out = self.linear1(x)
-        out = self.bn1(out)
+        # out = self.bn1(out)
         out = F.relu(out)
         out = self.linear2(out)
         return out
