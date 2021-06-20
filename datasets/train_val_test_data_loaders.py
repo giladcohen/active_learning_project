@@ -258,3 +258,32 @@ def get_single_img_dataloader(dataset, x, targets, batch_size, tta_size, pin_mem
     )
 
     return data_loader
+
+
+def get_explicit_train_loader(dataset,
+                              x,
+                              y,
+                              batch_size,
+                              transforms,
+                              num_workers=4,
+                              pin_memory=False):
+
+    data_dir, database, _, _ = dataset_factory(dataset)
+
+    # load the dataset
+    train_dataset = database(
+        root=data_dir, train=True,
+        download=True, transform=transforms
+    )
+
+    train_dataset.data = torch.from_numpy(x.astype(np.float32))
+    train_dataset.targets = torch.from_numpy(y.astype(np.float32))
+    train_dataset.classes = ['normal', 'adv']
+    train_dataset.class_to_idx = {'normal': 0, 'adv': 1}
+
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True,
+        num_workers=num_workers, pin_memory=pin_memory
+    )
+
+    return train_loader

@@ -425,3 +425,12 @@ def get_model(moder_str):
         return ResNet101
     else:
         raise AssertionError("network {} is unknown".format(moder_str))
+
+
+def reset_net(net):
+    """This is not a robust solution and wont work for anything except core torch.nn layers:
+    https://discuss.pytorch.org/t/reinitializing-the-weights-after-each-cross-validation-fold/11034/2
+    """
+    for layer in net.modules():
+        if hasattr(layer, 'reset_parameters'):
+            layer.reset_parameters()

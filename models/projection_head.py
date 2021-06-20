@@ -27,3 +27,22 @@ class ProjectobHead(nn.Module):
         out = self.linear2(out)
         out = self.bn2(out)
         return out
+
+
+class MLP(nn.Module):
+    def __init__(self, hidden_dim, mid_dim):
+        super(MLP, self).__init__()
+        self.hidden_dim = hidden_dim
+        self.mid_dim = mid_dim
+
+        self.linear1 = nn.Linear(self.hidden_dim, self.mid_dim, bias=False)
+        self.bn1 = nn.BatchNorm1d(self.mid_dim)
+        self.linear2 = nn.Linear(self.mid_dim, 1, bias=False)
+
+    def forward(self, x):
+        # x = nn.functional.normalize(x)
+        out = self.linear1(x)
+        out = self.bn1(out)
+        out = F.relu(out)
+        out = self.linear2(out)
+        return out
