@@ -179,11 +179,13 @@ def reset_opt():
         optimizer = optim.Adam(
             mlp.parameters(),
             lr=args.lr,
+            betas=(args.mom, 0.999),
             weight_decay=args.wd)
     elif args.opt == 'adamw':
         optimizer = optim.AdamW(
             mlp.parameters(),
             lr=args.lr,
+            betas=(args.mom, 0.999),
             weight_decay=args.wd)
     elif args.opt == 'rmsprop':
         optimizer = optim.RMSprop(
