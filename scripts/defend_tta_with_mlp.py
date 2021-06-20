@@ -214,7 +214,7 @@ train_loader = get_explicit_train_loader(dataset, x, y, args.train_batch_size, t
                                          pin_memory=device=='cuda')
 
 logger.info('training...')
-for batch_idx, (inputs, targets) in tqdm(enumerate(train_loader)):
+for batch_idx, (inputs, targets) in enumerate(train_loader):
     optimizer.zero_grad()
     inputs, targets = inputs.to(device), targets.to(device)
     with torch.no_grad():
