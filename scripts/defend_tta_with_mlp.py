@@ -2,6 +2,7 @@
 This script uses TTA for robustness. Each TTA is perturbed to maximize the KL divergence between the TTA and
 the original example.
 """
+from typing import Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,6 +14,7 @@ import torchvision.transforms as transforms
 
 import logging
 import numpy as np
+from numba import njit
 import json
 import os
 import argparse
@@ -29,11 +31,12 @@ import active_learning_project.datasets.my_transforms as my_transforms
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_normalized_tensor, \
     get_single_img_dataloader, get_explicit_train_loader
 from active_learning_project.utils import EMA, update_moving_average, convert_tensor_to_image, set_logger, get_model, \
-    reset_net
+    reset_net, pytorch_evaluate
 from active_learning_project.datasets.utils import get_mini_dataset_inds
 from active_learning_project.metric_utils import calc_first_n_adv_acc, calc_first_n_adv_acc_from_probs_summation
 from active_learning_project.models.projection_head import MLP
-
+from Pointnet_Pointnet2_pytorch.models.pointnet_utils import feature_transform_reguliarzer
+from Pointnet_Pointnet2_pytorch.models.pointnet_cls import PointNet
 
 parser = argparse.ArgumentParser(description='PyTorch TTA defense with mlp')
 parser.add_argument('--checkpoint_dir',
@@ -47,14 +50,15 @@ parser.add_argument('--eval_batch_size', default=100, type=int, help='batch size
 
 # transforms:
 parser.add_argument('--clip_inputs', action='store_true', help='clipping TTA inputs between 0 and 1')
-parser.add_argument('--gaussian_std', default=0.0125, type=float, help='Standard deviation of Gaussian noise')  # was 0.0125
+parser.add_argument('--gaussian_std', default=0.0, type=float, help='Standard deviation of Gaussian noise')  # was 0.0125
 
 # training:
-parser.add_argument('--train_batch_size', default=100, type=int, help='batch size for the TTA training')
+parser.add_argument('--train_batch_size', default=6, type=int, help='batch size for the TTA training')
 parser.add_argument('--mlp_width', default=10, type=int, help='The width of the mlp second hidden layer')
 parser.add_argument('--steps', default=2000, type=int, help='training steps for each image')
 parser.add_argument('--ema_decay', default=0.998, type=float, help='EMA decay')
 parser.add_argument('--val_size', default=200, type=int, help='validation size')
+parser.add_argument('--lambda_feat_trans', default=0.001, type=float, help='validation size')
 
 # optimizer:
 parser.add_argument('--opt', default='adam', type=str, help='optimizer: sgd, adam, rmsprop, lars')
@@ -70,6 +74,8 @@ parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm 
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 
 args = parser.parse_args()
+
+MaxInt32 =  1 << 32 - 1
 
 TRAIN_TIME_CNT = 0.0
 TEST_TIME_CNT = 0.0
@@ -159,8 +165,8 @@ net = get_model(train_args['net'])(num_classes=len(classes), activation=train_ar
 net = net.to(device)
 net.load_state_dict(global_state['best_net'])
 net.eval()  # frozen
-mlp = MLP(net.linear.in_features, args.mlp_width)
-mlp = mlp.to(device)
+pointnet = PointNet(k=1, channel=len(classes))
+pointnet = pointnet.to(device)
 
 # summary(net, (3, 32, 32))
 if device == 'cuda':
@@ -171,26 +177,26 @@ def reset_opt():
     global optimizer
     if args.opt == 'sgd':
         optimizer = optim.SGD(
-            mlp.parameters(),
+            pointnet.parameters(),
             lr=args.lr,
             momentum=args.mom,
             weight_decay=args.wd,
             nesterov=args.mom > 0)
     elif args.opt == 'adam':
         optimizer = optim.Adam(
-            mlp.parameters(),
+            pointnet.parameters(),
             lr=args.lr,
             betas=(args.mom, 0.999),
             weight_decay=args.wd)
     elif args.opt == 'adamw':
         optimizer = optim.AdamW(
-            mlp.parameters(),
+            pointnet.parameters(),
             lr=args.lr,
             betas=(args.mom, 0.999),
             weight_decay=args.wd)
     elif args.opt == 'rmsprop':
         optimizer = optim.RMSprop(
-            mlp.parameters(),
+            pointnet.parameters(),
             lr=args.lr,
             momentum=args.mom,
             weight_decay=args.wd)
@@ -211,48 +217,90 @@ robustness_preds_adv        = -1 * np.ones(test_size, dtype=np.int32)
 robustness_probs            = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
 robustness_probs_adv        = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
 
-logger.info('setting up train loader...')
-x = np.vstack((X_test[val_inds], X_test_adv[val_inds]))
-y = np.concatenate((np.zeros(len(val_inds)), np.ones(len(val_inds))))
-train_loader = get_explicit_train_loader(dataset, x, y, args.train_batch_size, tta_transforms,
-                                         pin_memory=device=='cuda')
+@njit
+def duplicate_arr(x: np.ndarray, dup_size: int):
+    img_shape = x.shape
+    dup_shape = (dup_size,) + img_shape
+    x_dup = np.empty(dup_shape)
+    for k in range(dup_size):
+        x_dup[k] = x
+    return x_dup
+
+@njit
+def get_batch(batch_size: int, tta_size: int, seed: int):
+    np.random.seed(seed)
+    train_inds = np.random.choice(val_inds, batch_size, replace=True)
+    img_shape = X_test.shape[1:]
+    x_norm_all = np.empty((batch_size * tta_size,) + img_shape)
+    x_adv_all = np.empty((batch_size * tta_size,) + img_shape)
+
+    for i, train_ind in enumerate(train_inds):
+        b = i * tta_size
+        e = (i + 1) * tta_size
+        x_norm = X_test[train_ind]
+        x_norm_all[b:e] = duplicate_arr(x_norm, tta_size)
+
+        x_adv = X_test_adv[train_ind]
+        x_adv_all[b:e] = duplicate_arr(x_adv, tta_size)
+
+    x = np.concatenate((x_norm_all, x_adv_all))
+    y = np.concatenate((np.zeros(batch_size * tta_size), np.ones(batch_size * tta_size)))
+    return x, y
+
+def rearrange_as_pts(x: torch.Tensor, y: np.ndarray) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Reshape the x tensor from [B * N, D] to [B, D, N]. y is selected only for B values"""
+    x = x.reshape(args.train_batch_size, args.tta_size, len(classes))
+    x = x.transpose(1, 2)
+    y = [y[i] for i in range(len(y)) if i % args.tta_size == 0]
+    y = torch.as_tensor(y, dtype=torch.float32)
+    return x, y
 
 def train():
-    global global_step, epoch
+    global global_step, epoch, total_loss
 
-    mlp.train()
+    # get a new batch. Randomize <train_batch_size> samples from the validation set
+    seed = rand_gen.randint(0, MaxInt32)
+    x, y = get_batch(batch_size=int(args.train_batch_size/2), tta_size=args.tta_size, seed=seed)
+    train_loader = get_explicit_train_loader(dataset, x, y, args.train_batch_size * args.tta_size, tta_transforms,
+                                             shuffle=False, pin_memory=device=='cuda')
+
+    pointnet.train()
     train_loss = 0.0
     predicted = []
     labels = []
-    for batch_idx, (inputs, targets) in enumerate(train_loader):
-        inputs, targets = inputs.to(device), targets.to(device)
-        optimizer.zero_grad()
-        with torch.no_grad():
-            embeddings = net(inputs)['embeddings']
-        out = mlp(embeddings).squeeze()
-        loss_bce = bce_loss(out, targets)
-        loss = loss_bce
-        loss.backward()
-        optimizer.step()
+    optimizer.zero_grad()
 
-        train_loss += loss.item()
-        preds = out.ge(0.0)
-        predicted.extend(preds.detach().cpu().numpy())
-        labels.extend(targets.detach().cpu().numpy())
-        num_corrected = preds.eq(targets).sum().item()
-        acc = num_corrected / targets.size(0)
+    with torch.no_grad():
+        probs = pytorch_evaluate(net, train_loader, ['probs'], to_tensor=True)[0]
+    probs_points, y = rearrange_as_pts(probs, y)
+    probs_points, y = probs_points.to(device), y.to(device)
+    out, trans_feat = pointnet(probs_points)
+    out = out.squeeze()
+    loss_bce = bce_loss(out, y)
+    loss_feat_trans = feature_transform_reguliarzer(trans_feat)
+    loss = loss_bce + args.lambda_feat_trans * loss_feat_trans
 
-        if global_step % 10 == 0:  # sampling, once ever 10 train iterations
-            train_adv_det_writer.add_scalar('losses/loss_bce', loss_bce, global_step)
-            train_adv_det_writer.add_scalar('metrics/acc', 100.0 * acc, global_step)
+    loss.backward()
+    optimizer.step()
 
-        global_step += 1
+    train_loss += loss.item()
+    preds = out.ge(0.0)
+    predicted.extend(preds.detach().cpu().numpy())
+    labels.extend(y.detach().cpu().numpy())
+    num_corrected = preds.eq(y).sum().item()
+    acc = num_corrected / y.size(0)
+
+    if global_step % 10 == 0:  # sampling, once ever 10 train iterations
+        train_adv_det_writer.add_scalar('losses/loss_bce', loss_bce, global_step)
+        train_adv_det_writer.add_scalar('losses/loss_feat_trans', loss_feat_trans, global_step)
+        train_adv_det_writer.add_scalar('metrics/acc', 100.0 * acc, global_step)
+
+    global_step += 1
 
     predicted = np.asarray(predicted)
     labels = np.asarray(labels)
     train_acc = 100.0 * np.mean(predicted == labels)
     logger.info('Epoch #{} (TRAIN): loss={}\tacc={:.2f}'.format(epoch + 1, train_loss, train_acc))
-
 
 global_step = 0
 logger.info('Testing randomized net...')

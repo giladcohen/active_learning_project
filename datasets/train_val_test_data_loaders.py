@@ -266,6 +266,7 @@ def get_explicit_train_loader(dataset,
                               batch_size,
                               transforms,
                               num_workers=0,
+                              shuffle=False,
                               pin_memory=False):
 
     data_dir, database, _, _ = dataset_factory(dataset)
@@ -282,7 +283,7 @@ def get_explicit_train_loader(dataset,
     train_dataset.class_to_idx = {'normal': 0, 'adv': 1}
 
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True,
+        train_dataset, batch_size=batch_size, shuffle=shuffle,
         num_workers=num_workers, pin_memory=pin_memory
     )
 
