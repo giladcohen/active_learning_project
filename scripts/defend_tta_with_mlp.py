@@ -54,7 +54,6 @@ parser.add_argument('--gaussian_std', default=0.0, type=float, help='Standard de
 
 # training:
 parser.add_argument('--train_batch_size', default=6, type=int, help='batch size for the TTA training')
-parser.add_argument('--mlp_width', default=10, type=int, help='The width of the mlp second hidden layer')
 parser.add_argument('--steps', default=2000, type=int, help='training steps for each image')
 parser.add_argument('--ema_decay', default=0.998, type=float, help='EMA decay')
 parser.add_argument('--val_size', default=200, type=int, help='validation size')
