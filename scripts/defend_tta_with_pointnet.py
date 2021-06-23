@@ -226,7 +226,7 @@ tta_dataset = TTADataset(
 
 train_loader = torch.utils.data.DataLoader(
     tta_dataset, batch_size=1, shuffle=True,
-    num_workers=4, pin_memory=device=='cuda'
+    num_workers=20, pin_memory=device=='cuda'
 )
 
 
