@@ -233,12 +233,12 @@ tta_dataset_test = TTADataset(
 
 train_loader = torch.utils.data.DataLoader(
     tta_dataset_train, batch_size=1, shuffle=True,
-    num_workers=20, pin_memory=device=='cuda'
+    num_workers=4, pin_memory=device=='cuda'
 )
 
 test_loader = torch.utils.data.DataLoader(
     tta_dataset_test, batch_size=1, shuffle=False,
-    num_workers=20, pin_memory=device=='cuda'
+    num_workers=4, pin_memory=device=='cuda'
 )
 
 def rearrange_as_pts(x: torch.Tensor) -> torch.Tensor:
