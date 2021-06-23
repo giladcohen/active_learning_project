@@ -27,13 +27,10 @@ class TTADataset(VisionDataset):
         img_norm, img_adv = self.data_norm[index], self.data_adv[index]
 
         # first, duplicate the image to TTAs:
-        #img_norm = img_norm.repeat((self.tta_size, ) + (1, 1, 1))
-        #img_adv = img_adv.repeat((self.tta_size, ) + (1, 1, 1))
         img_norm_ttas = torch.empty(self.full_tta_size)
         img_adv_ttas = torch.empty(self.full_tta_size)
 
         # now, transforming each image separately
-
         if self.transform is not None:
             for k in range(self.tta_size):
                 img_norm_ttas[k] = self.transform(img_norm)
