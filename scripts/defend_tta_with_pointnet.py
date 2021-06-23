@@ -363,7 +363,7 @@ with torch.no_grad():
 logger.info('start training {} steps...'.format(args.steps))
 for global_step in tqdm(range(args.steps)):
     train()
-    if global_step % 20 and global_state > 0:
+    if global_step % 20 and global_step > 0:
         with torch.no_grad():
             test()
 with torch.no_grad():
