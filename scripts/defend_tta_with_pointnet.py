@@ -54,20 +54,20 @@ parser.add_argument('--clip_inputs', action='store_true', help='clipping TTA inp
 parser.add_argument('--gaussian_std', default=0.0, type=float, help='Standard deviation of Gaussian noise')  # was 0.0125
 
 # training:
-parser.add_argument('--train_batch_size', default=6, type=int, help='batch size for the TTA training')
+parser.add_argument('--train_batch_size', default=128, type=int, help='batch size for the TTA training')
 parser.add_argument('--steps', default=2000, type=int, help='training steps for each image')
 parser.add_argument('--ema_decay', default=0.998, type=float, help='EMA decay')
-parser.add_argument('--val_size', default=200, type=int, help='validation size')
+parser.add_argument('--val_size', default=None, type=int, help='validation size')
 parser.add_argument('--lambda_feat_trans', default=0.001, type=float, help='validation size')
 
 # optimizer:
 parser.add_argument('--opt', default='adam', type=str, help='optimizer: sgd, adam, rmsprop, lars')
-parser.add_argument('--lr', default=0.1, type=float, help='learning rate on the mlp')
-parser.add_argument('--wd', default=0.0, type=float, help='weight decay on the mlp')
+parser.add_argument('--lr', default=0.001, type=float, help='learning rate on the pointnet')
+parser.add_argument('--wd', default=0.0, type=float, help='weight decay on the pointnet')
 parser.add_argument('--mom', default=0.9, type=float, help='momentum of sgd optimizer of beta1 for adam')
 
 # debug:
-parser.add_argument('--test_size', default=None, type=int, help='test size')
+parser.add_argument('--test_size', default=200, type=int, help='test size')
 parser.add_argument('--dump_dir', default='tmp', type=str, help='the dump dir')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -106,10 +106,11 @@ CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 rand_gen = np.random.RandomState(12345)
 
 train_adv_det_writer = SummaryWriter(os.path.join(DUMP_DIR, 'train_adv_detection'))
+test_adv_det_writer = SummaryWriter(os.path.join(DUMP_DIR, 'test_adv_detection'))
 
 # Data
 logger.info('==> Preparing data..')
-testloader = get_test_loader(
+all_dataset_eval_loader = get_test_loader(
     dataset=dataset,
     batch_size=args.eval_batch_size,
     num_workers=1,
@@ -146,11 +147,11 @@ tta_transforms = transforms.Compose([
 ])
 
 global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
-classes = testloader.dataset.classes
+classes = all_dataset_eval_loader.dataset.classes
 
 # get data for TTA loaders
-X_test           = get_normalized_tensor(testloader)
-y_test           = np.asarray(testloader.dataset.targets)
+X_test           = get_normalized_tensor(all_dataset_eval_loader)
+y_test           = np.asarray(all_dataset_eval_loader.dataset.targets)
 X_test_adv       = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
 img_shape = X_test.shape[1:]
 
@@ -218,28 +219,40 @@ robustness_preds_adv        = -1 * np.ones(test_size, dtype=np.int32)
 robustness_probs            = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
 robustness_probs_adv        = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
 
-tta_dataset = TTADataset(
+tta_dataset_train = TTADataset(
     torch.from_numpy(X_test[val_inds]),
     torch.from_numpy(X_test_adv[val_inds]),
     args.tta_size,
     transform=tta_transforms)
 
+tta_dataset_test = TTADataset(
+    torch.from_numpy(X_test[test_inds]),
+    torch.from_numpy(X_test_adv[test_inds]),
+    args.tta_size,
+    transform=tta_transforms)
+
 train_loader = torch.utils.data.DataLoader(
-    tta_dataset, batch_size=1, shuffle=True,
+    tta_dataset_train, batch_size=1, shuffle=True,
+    num_workers=20, pin_memory=device=='cuda'
+)
+
+test_loader = torch.utils.data.DataLoader(
+    tta_dataset_test, batch_size=1, shuffle=False,
     num_workers=20, pin_memory=device=='cuda'
 )
 
 def rearrange_as_pts(x: torch.Tensor) -> torch.Tensor:
     """Reshape the x tensor from [B * N, D] to [B, D, N]. y is selected only for B values"""
-    x = x.reshape(2, args.tta_size, len(classes))
+    x = x.reshape(-1, args.tta_size, len(classes))
     x = x.transpose(1, 2)
     return x
 
 def train():
-    global global_step, epoch, total_loss
-
+    global global_step, total_loss
+    net.eval()
     pointnet.train()
     optimizer.zero_grad()
+    start_time = time.time()
 
     batch_probs_points = -1 * torch.ones(args.train_batch_size, len(classes), args.tta_size).to(device)  # (B, D, N)
     y = -1 * torch.ones(args.train_batch_size).to(device)  # B
@@ -247,10 +260,10 @@ def train():
     batch_cnt = 0
     while batch_cnt < args.train_batch_size:
         for batch_idx, (inputs, targets) in enumerate(train_loader):
-            b = batch_cnt
-            e = b + 2
-            inputs = inputs.reshape((-1,) + img_shape)
             targets = targets.reshape(-1)
+            b = batch_cnt
+            e = b + targets.size(0)
+            inputs = inputs.reshape((-1,) + img_shape)
             inputs, targets = inputs.to(device), targets.to(device)
             with torch.no_grad():
                 batch_probs_points[b:e] = rearrange_as_pts(net(inputs)['probs'])
@@ -276,25 +289,86 @@ def train():
     preds = out.ge(0.0)
     num_corrected = preds.eq(y).sum().item()
     acc = num_corrected / y.size(0)
+    end_time = time.time()
 
     if global_step % 1 == 0:  # sampling, once ever 1 train iterations
         train_adv_det_writer.add_scalar('losses/loss_bce', loss_bce, global_step)
         train_adv_det_writer.add_scalar('losses/loss_feat_trans', loss_feat_trans, global_step)
         train_adv_det_writer.add_scalar('losses/loss', loss, global_step)
         train_adv_det_writer.add_scalar('metrics/acc', 100.0 * acc, global_step)
+        train_adv_det_writer.add_scalar('stats/secs_per_image', (end_time - start_time)/args.train_batch_size, global_step)
 
-    global_step += 1
-    logger.info('Epoch #{} (TRAIN): loss={}\tacc={:.2f}'.format(epoch + 1, loss, acc))
+    logger.info('global step #{} (TRAIN): loss={}\tacc={:.4f}'.format(global_step + 1, loss, 100.0 * acc))
+
+def test():
+    # start with the normal
+    start_time = time.time()
+    net.eval()
+    pointnet.eval()
+    all_preds = -1 * np.ones(test_size)
+    all_gt = -1 * np.ones(test_size)
+
+    all_cnt = 0
+    loss = 0.0
+    loss_bce = 0.0
+    loss_feat_trans = 0.0
+
+    while all_cnt < test_size:
+        for batch_idx, (inputs, targets) in enumerate(test_loader):
+            y = targets.reshape(-1)
+            b = all_cnt
+            e = b + y.size(0)
+            inputs = inputs.reshape((-1,) + img_shape)
+            inputs, y = inputs.to(device), y.to(device)
+            batch_probs_points = rearrange_as_pts(net(inputs)['probs'])
+            out, trans_feat = pointnet(batch_probs_points)
+            out = out.squeeze()
+            loss_bce += bce_loss(out, y)
+            loss_feat_trans += feature_transform_reguliarzer(trans_feat)
+            loss += loss_bce + args.lambda_feat_trans * loss_feat_trans
+
+            preds = out.ge(0.0)
+            all_preds[b:e] = preds.cpu().numpy()
+            all_gt[b:e] = y.cpu().numpy()
+
+            all_cnt += y.size(0)
+            if all_cnt >= test_size:
+                break
+
+    assert all_cnt == test_size
+    assert (all_preds != -1).all()
+    assert (all_gt != -1).all()
+
+    acc = np.mean(all_preds == all_gt)
+    all_normal_indices = np.where(all_gt == 0)[0]
+    all_adv_indices = np.where(all_gt == 1)[0]
+    norm_acc = np.mean(all_preds[all_normal_indices] == all_gt[all_normal_indices])
+    adv_acc = np.mean(all_preds[all_adv_indices] == all_gt[all_adv_indices])
+    end_time = time.time()
+
+    test_adv_det_writer.add_scalar('losses/loss_bce', loss_bce, global_step)
+    test_adv_det_writer.add_scalar('losses/loss_feat_trans', loss_feat_trans, global_step)
+    test_adv_det_writer.add_scalar('losses/loss', loss, global_step)
+    test_adv_det_writer.add_scalar('metrics/acc', 100.0 * acc, global_step)
+    test_adv_det_writer.add_scalar('metrics/normal_acc', 100.0 * norm_acc, global_step)
+    test_adv_det_writer.add_scalar('metrics/adv_acc', 100.0 * adv_acc, global_step)
+    test_adv_det_writer.add_scalar('stats/secs_per_image', (end_time - start_time)/test_size, global_step)
+
+    logger.info('global step #{} (TEST): loss={}\tacc={:.4f}'.format(global_step + 1, loss, 100.0 * acc))
 
 global_step = 0
 logger.info('Testing randomized net...')
-# test()
+with torch.no_grad():
+    test()
 logger.info('start training {} steps...'.format(args.steps))
-for epoch in tqdm(range(args.steps)):
+for global_step in tqdm(range(args.steps)):
     train()
-    # if epoch % 100:
-    #     test()
-# test()
+    if global_step % 20 and global_state > 0:
+        with torch.no_grad():
+            test()
+with torch.no_grad():
+    test()
+
 flush()
 exit(0)
 
