@@ -229,30 +229,24 @@ train_loader = torch.utils.data.DataLoader(
     num_workers=20, pin_memory=device=='cuda'
 )
 
-
 def rearrange_as_pts(x: torch.Tensor) -> torch.Tensor:
     """Reshape the x tensor from [B * N, D] to [B, D, N]. y is selected only for B values"""
     x = x.reshape(2, args.tta_size, len(classes))
     x = x.transpose(1, 2)
-    # y = [y[i] for i in range(len(y)) if i % args.tta_size == 0]
-    # y = torch.as_tensor(y, dtype=torch.float32)
     return x
 
 def train():
     global global_step, epoch, total_loss
 
     pointnet.train()
-    train_loss = 0.0
-    predicted = []
-    labels = []
     optimizer.zero_grad()
 
-    batch_probs_points = -1 * torch.ones(args.train_batch_size, len(classes), args.tta_size).to(device)
-    y = -1 * torch.ones(args.train_batch_size).to(device)
+    batch_probs_points = -1 * torch.ones(args.train_batch_size, len(classes), args.tta_size).to(device)  # (B, D, N)
+    y = -1 * torch.ones(args.train_batch_size).to(device)  # B
 
     batch_cnt = 0
     while batch_cnt < args.train_batch_size:
-        for batch_idx, (inputs, targets) in enumerate(train_loader):  # train a single step
+        for batch_idx, (inputs, targets) in enumerate(train_loader):
             b = batch_cnt
             e = b + 2
             inputs = inputs.reshape((-1,) + img_shape)
@@ -279,24 +273,18 @@ def train():
     loss.backward()
     optimizer.step()
 
-    train_loss += loss.item()
     preds = out.ge(0.0)
-    predicted.extend(preds.detach().cpu().numpy())
-    labels.extend(y.detach().cpu().numpy())
     num_corrected = preds.eq(y).sum().item()
     acc = num_corrected / y.size(0)
 
-    if global_step % 10 == 0:  # sampling, once ever 10 train iterations
+    if global_step % 1 == 0:  # sampling, once ever 1 train iterations
         train_adv_det_writer.add_scalar('losses/loss_bce', loss_bce, global_step)
         train_adv_det_writer.add_scalar('losses/loss_feat_trans', loss_feat_trans, global_step)
+        train_adv_det_writer.add_scalar('losses/loss', loss, global_step)
         train_adv_det_writer.add_scalar('metrics/acc', 100.0 * acc, global_step)
 
     global_step += 1
-
-    predicted = np.asarray(predicted)
-    labels = np.asarray(labels)
-    train_acc = 100.0 * np.mean(predicted == labels)
-    logger.info('Epoch #{} (TRAIN): loss={}\tacc={:.2f}'.format(epoch + 1, train_loss, train_acc))
+    logger.info('Epoch #{} (TRAIN): loss={}\tacc={:.2f}'.format(epoch + 1, loss, acc))
 
 global_step = 0
 logger.info('Testing randomized net...')
