@@ -28,6 +28,7 @@ import matplotlib.pyplot as plt
 sys.path.insert(0, "..")
 
 import active_learning_project.datasets.my_transforms as my_transforms
+from active_learning_project.datasets.my_cifar10_ttas import TTADataset
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_normalized_tensor, \
     get_single_img_dataloader, get_explicit_train_loader
 from active_learning_project.utils import EMA, update_moving_average, convert_tensor_to_image, set_logger, get_model, \
@@ -151,6 +152,7 @@ classes = testloader.dataset.classes
 X_test           = get_normalized_tensor(testloader)
 y_test           = np.asarray(testloader.dataset.targets)
 X_test_adv       = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
+img_shape = X_test.shape[1:]
 
 # filter by mini_val and mini_test sets
 if args.val_size is not None:
@@ -216,52 +218,28 @@ robustness_preds_adv        = -1 * np.ones(test_size, dtype=np.int32)
 robustness_probs            = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
 robustness_probs_adv        = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
 
-@njit
-def duplicate_arr(x: np.ndarray, dup_size: int):
-    img_shape = x.shape
-    dup_shape = (dup_size,) + img_shape
-    x_dup = np.empty(dup_shape)
-    for k in range(dup_size):
-        x_dup[k] = x
-    return x_dup
+tta_dataset = TTADataset(
+    torch.from_numpy(X_test[val_inds]),
+    torch.from_numpy(X_test_adv[val_inds]),
+    args.tta_size,
+    transform=tta_transforms)
 
-@njit
-def get_batch(batch_size: int, tta_size: int, seed: int):
-    np.random.seed(seed)
-    train_inds = np.random.choice(val_inds, batch_size, replace=True)
-    img_shape = X_test.shape[1:]
-    x_norm_all = np.empty((batch_size * tta_size,) + img_shape)
-    x_adv_all = np.empty((batch_size * tta_size,) + img_shape)
+train_loader = torch.utils.data.DataLoader(
+    tta_dataset, batch_size=1, shuffle=True,
+    num_workers=0, pin_memory=device=='cuda'
+)
 
-    for i, train_ind in enumerate(train_inds):
-        b = i * tta_size
-        e = (i + 1) * tta_size
-        x_norm = X_test[train_ind]
-        x_norm_all[b:e] = duplicate_arr(x_norm, tta_size)
 
-        x_adv = X_test_adv[train_ind]
-        x_adv_all[b:e] = duplicate_arr(x_adv, tta_size)
-
-    x = np.concatenate((x_norm_all, x_adv_all))
-    y = np.concatenate((np.zeros(batch_size * tta_size), np.ones(batch_size * tta_size)))
-    return x, y
-
-def rearrange_as_pts(x: torch.Tensor, y: np.ndarray) -> Tuple[torch.Tensor, torch.Tensor]:
+def rearrange_as_pts(x: torch.Tensor) -> torch.Tensor:
     """Reshape the x tensor from [B * N, D] to [B, D, N]. y is selected only for B values"""
-    x = x.reshape(args.train_batch_size, args.tta_size, len(classes))
+    x = x.reshape(2, args.tta_size, len(classes))
     x = x.transpose(1, 2)
-    y = [y[i] for i in range(len(y)) if i % args.tta_size == 0]
-    y = torch.as_tensor(y, dtype=torch.float32)
-    return x, y
+    # y = [y[i] for i in range(len(y)) if i % args.tta_size == 0]
+    # y = torch.as_tensor(y, dtype=torch.float32)
+    return x
 
 def train():
     global global_step, epoch, total_loss
-
-    # get a new batch. Randomize <train_batch_size> samples from the validation set
-    seed = rand_gen.randint(0, MaxInt32)
-    x, y = get_batch(batch_size=int(args.train_batch_size/2), tta_size=args.tta_size, seed=seed)
-    train_loader = get_explicit_train_loader(dataset, x, y, args.train_batch_size * args.tta_size, tta_transforms,
-                                             shuffle=False, pin_memory=device=='cuda')
 
     pointnet.train()
     train_loss = 0.0
@@ -269,11 +247,30 @@ def train():
     labels = []
     optimizer.zero_grad()
 
-    with torch.no_grad():
-        probs = pytorch_evaluate(net, train_loader, ['probs'], to_tensor=True)[0]
-    probs_points, y = rearrange_as_pts(probs, y)
-    probs_points, y = probs_points.to(device), y.to(device)
-    out, trans_feat = pointnet(probs_points)
+    batch_probs_points = -1 * torch.ones(args.train_batch_size, len(classes), args.tta_size).to(device)
+    y = -1 * torch.ones(args.train_batch_size).to(device)
+
+    batch_cnt = 0
+    while batch_cnt < args.train_batch_size:
+        for batch_idx, (inputs, targets) in enumerate(train_loader):  # train a single step
+            b = batch_cnt
+            e = b + 2
+            inputs = inputs.reshape((-1,) + img_shape)
+            targets = targets.reshape(-1)
+            inputs, targets = inputs.to(device), targets.to(device)
+            with torch.no_grad():
+                batch_probs_points[b:e] = rearrange_as_pts(net(inputs)['probs'])
+            y[b:e] = targets
+            batch_cnt += targets.size(0)
+
+            if batch_cnt >= args.train_batch_size:
+                break
+
+    assert batch_cnt == args.train_batch_size
+    assert (batch_probs_points != -1).all()
+    assert (y != -1).all()
+
+    out, trans_feat = pointnet(batch_probs_points)
     out = out.squeeze()
     loss_bce = bce_loss(out, y)
     loss_feat_trans = feature_transform_reguliarzer(trans_feat)
