@@ -58,7 +58,7 @@ parser.add_argument('--train_batch_size', default=128, type=int, help='batch siz
 parser.add_argument('--steps', default=2000, type=int, help='training steps for each image')
 parser.add_argument('--ema_decay', default=0.998, type=float, help='EMA decay')
 parser.add_argument('--val_size', default=None, type=int, help='validation size')
-parser.add_argument('--lambda_feat_trans', default=0.001, type=float, help='validation size')
+parser.add_argument('--lambda_feat_trans', default=0.0001, type=float, help='validation size')
 
 # optimizer:
 parser.add_argument('--opt', default='adam', type=str, help='optimizer: sgd, adam, rmsprop, lars')
@@ -363,7 +363,7 @@ with torch.no_grad():
 logger.info('start training {} steps...'.format(args.steps))
 for global_step in tqdm(range(args.steps)):
     train()
-    if global_step % 20 and global_step > 0:
+    if global_step % 20 == 0 and global_step > 0:
         with torch.no_grad():
             test()
 with torch.no_grad():
