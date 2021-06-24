@@ -212,13 +212,6 @@ def flush():
 reset_opt()
 bce_loss = nn.BCEWithLogitsLoss()
 
-robustness_preds            = -1 * np.ones(test_size, dtype=np.int32)
-robustness_preds_adv        = -1 * np.ones(test_size, dtype=np.int32)
-
-# multi TTAs
-robustness_probs            = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
-robustness_probs_adv        = -1 * np.ones((test_size, args.tta_size, len(classes)), dtype=np.float32)
-
 tta_dataset_train = TTADataset(
     torch.from_numpy(X_test[val_inds]),
     torch.from_numpy(X_test_adv[val_inds]),
@@ -266,7 +259,7 @@ def train():
             inputs = inputs.reshape((-1,) + img_shape)
             inputs, targets = inputs.to(device), targets.to(device)
             with torch.no_grad():
-                batch_probs_points[b:e] = rearrange_as_pts(net(inputs)['probs'])
+                batch_probs_points[b:e] = rearrange_as_pts(net(inputs)['logits'])
             y[b:e] = targets
             batch_cnt += targets.size(0)
 
@@ -320,7 +313,7 @@ def test():
             e = b + y.size(0)
             inputs = inputs.reshape((-1,) + img_shape)
             inputs, y = inputs.to(device), y.to(device)
-            batch_probs_points = rearrange_as_pts(net(inputs)['probs'])
+            batch_probs_points = rearrange_as_pts(net(inputs)['logits'])
             out, trans_feat = pointnet(batch_probs_points)
             out = out.squeeze()
             loss_bce += bce_loss(out, y)
