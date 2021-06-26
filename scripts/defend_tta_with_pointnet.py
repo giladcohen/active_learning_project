@@ -52,6 +52,7 @@ parser.add_argument('--eval_batch_size', default=100, type=int, help='batch size
 # transforms:
 parser.add_argument('--clip_inputs', action='store_true', help='clipping TTA inputs between 0 and 1')
 parser.add_argument('--gaussian_std', default=0.005, type=float, help='Standard deviation of Gaussian noise')  # was 0.0125
+parser.add_argument('--soft_transforms', action='store_true', help='applying mellow transforms')
 
 # training:
 parser.add_argument('--train_batch_size', default=128, type=int, help='batch size for the TTA training')
@@ -122,6 +123,7 @@ all_dataset_eval_loader = get_test_loader(
     pin_memory=True
 )
 
+st = args.soft_transforms
 if args.clip_inputs == True:
     clip_min, clip_max = 0.0, 1.0
 else:
@@ -130,22 +132,22 @@ p_hflip = 0.5 if 'cifar' in dataset else 0.0
 tta_transforms = transforms.Compose([
     my_transforms.Clip(0.0, 1.0),  # TO fix a bug where an ADV image has minus small value, applying gamma yields Nan
     my_transforms.ColorJitterPro(
-        brightness=[0.6, 1.4],
-        contrast=[0.7, 1.3],
-        saturation=[0.5, 1.5],
-        hue=[-0.06, 0.06],
-        gamma=[0.7, 1.3]
+        brightness=[0.8, 1.2] if st else [0.6, 1.4],
+        contrast=[0.85, 1.15] if st else [0.7, 1.3],
+        saturation=[0.75, 1.25] if st else [0.5, 1.5],
+        hue=[-0.03, 0.03] if st else [-0.06, 0.06],
+        gamma=[0.85, 1.15] if st else [0.7, 1.3]
     ),
     transforms.Pad(padding=16, padding_mode='edge'),
     transforms.RandomAffine(
-        degrees=[-15, 15],
+        degrees=[-8, 8] if st else [-15, 15],
         translate=(4.0 / 64, 4.0 / 64),
-        scale=(0.9, 1.1),
+        scale=(0.95, 1.05) if st else (0.9, 1.1),
         shear=None,
         resample=PIL.Image.BILINEAR,
         fillcolor=None
     ),
-    transforms.GaussianBlur(kernel_size=5, sigma=[0.001, 0.5]),
+    transforms.GaussianBlur(kernel_size=5, sigma=[0.001, 0.25] if st else [0.001, 0.5]),
     transforms.CenterCrop(size=32),
     transforms.RandomHorizontalFlip(p=p_hflip),
     my_transforms.GaussianNoise(0, args.gaussian_std),
