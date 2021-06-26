@@ -267,8 +267,8 @@ def train():
                 break
 
     assert batch_cnt == args.train_batch_size
-    assert not (np.isnan(batch_probs_points)).any()
-    assert not (np.isnan(y)).any()
+    assert not (np.isnan(batch_probs_points.cpu().numpy())).any()
+    assert not (np.isnan(y.cpu().numpy())).any()
 
     out, trans_feat = pointnet(batch_probs_points)
     out = out.squeeze()
@@ -351,8 +351,8 @@ def test():
 
 global_step = 0
 logger.info('Testing randomized net...')
-with torch.no_grad():
-    test()
+# with torch.no_grad():
+#     test()
 logger.info('start training {} steps...'.format(args.steps))
 for global_step in tqdm(range(args.steps)):
     train()
