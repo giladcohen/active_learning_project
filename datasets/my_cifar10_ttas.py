@@ -27,8 +27,8 @@ class TTADataset(VisionDataset):
         img_norm, img_adv = self.data_norm[index], self.data_adv[index]
 
         # first, duplicate the image to TTAs:
-        img_norm_ttas = torch.empty(self.full_tta_size)
-        img_adv_ttas = torch.empty(self.full_tta_size)
+        img_norm_ttas = np.nan * torch.ones(self.full_tta_size)
+        img_adv_ttas = np.nan * torch.ones(self.full_tta_size)
 
         # now, transforming each image separately
         if self.transform is not None:
@@ -39,5 +39,6 @@ class TTADataset(VisionDataset):
         x = torch.vstack((img_norm_ttas, img_adv_ttas))
         y = torch.tensor([0.0, 1.0])
 
+        assert not x.isnan().any()
         return x, y
 

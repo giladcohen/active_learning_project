@@ -270,6 +270,7 @@ def train():
             b = batch_cnt
             e = b + targets.size(0)
             inputs = inputs.reshape((-1,) + img_shape)
+            assert not inputs.isnan().any()
             inputs, targets = inputs.to(device), targets.to(device)
             with torch.no_grad():
                 net_features[b:e] = rearrange_as_pts(net(inputs)[args.features])
@@ -280,8 +281,8 @@ def train():
                 break
 
     assert batch_cnt == args.train_batch_size
-    assert not (np.isnan(net_features.cpu().numpy())).any()
-    assert not (np.isnan(y.cpu().numpy())).any()
+    assert not net_features.isnan().any()
+    assert not y.isnan().any()
 
     out, trans_feat = pointnet(net_features)
     out = out.squeeze()
@@ -325,6 +326,7 @@ def test():
             b = all_cnt
             e = b + y.size(0)
             inputs = inputs.reshape((-1,) + img_shape)
+            assert not inputs.isnan().any()
             inputs, y = inputs.to(device), y.to(device)
             net_features = rearrange_as_pts(net(inputs)[args.features])
             out, trans_feat = pointnet(net_features)
