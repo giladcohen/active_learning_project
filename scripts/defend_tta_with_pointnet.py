@@ -345,6 +345,11 @@ def test():
     assert not (np.isnan(all_preds)).any()
     assert not (np.isnan(all_gt)).any()
 
+    # averaging losses
+    loss /= test_size
+    loss_feat_trans /= test_size
+    loss_bce /= test_size
+
     acc = np.mean(all_preds == all_gt)
     all_normal_indices = np.where(all_gt == 0)[0]
     all_adv_indices = np.where(all_gt == 1)[0]
