@@ -59,6 +59,7 @@ parser.add_argument('--steps', default=2000, type=int, help='training steps for 
 parser.add_argument('--ema_decay', default=0.998, type=float, help='EMA decay')
 parser.add_argument('--val_size', default=None, type=int, help='validation size')
 parser.add_argument('--lambda_feat_trans', default=0.0, type=float, help='validation size')
+parser.add_argument('--num_workers', default=4, type=int, help='number of workers')
 
 # architecture
 parser.add_argument('--features', default='probs', type=str, help='which features to use from resnet: embeddings/logits/probs')
@@ -238,12 +239,12 @@ tta_dataset_test = TTADataset(
 
 train_loader = torch.utils.data.DataLoader(
     tta_dataset_train, batch_size=1, shuffle=True,
-    num_workers=4, pin_memory=device=='cuda'
+    num_workers=args.num_workers, pin_memory=device=='cuda'
 )
 
 test_loader = torch.utils.data.DataLoader(
     tta_dataset_test, batch_size=1, shuffle=False,
-    num_workers=4, pin_memory=device=='cuda'
+    num_workers=args.num_workers, pin_memory=device=='cuda'
 )
 
 def rearrange_as_pts(x: torch.Tensor) -> torch.Tensor:
