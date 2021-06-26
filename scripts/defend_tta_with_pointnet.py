@@ -247,8 +247,8 @@ def train():
     optimizer.zero_grad()
     start_time = time.time()
 
-    batch_probs_points = -1 * torch.ones(args.train_batch_size, len(classes), args.tta_size).to(device)  # (B, D, N)
-    y = -1 * torch.ones(args.train_batch_size).to(device)  # B
+    batch_probs_points = np.nan * torch.ones(args.train_batch_size, len(classes), args.tta_size).to(device)  # (B, D, N)
+    y = np.nan * torch.ones(args.train_batch_size).to(device)  # B
 
     batch_cnt = 0
     while batch_cnt < args.train_batch_size:
@@ -267,8 +267,8 @@ def train():
                 break
 
     assert batch_cnt == args.train_batch_size
-    assert (batch_probs_points != -1).all()
-    assert (y != -1).all()
+    assert not (np.isnan(batch_probs_points)).any()
+    assert not (np.isnan(y)).any()
 
     out, trans_feat = pointnet(batch_probs_points)
     out = out.squeeze()
@@ -298,8 +298,8 @@ def test():
     start_time = time.time()
     net.eval()
     pointnet.eval()
-    all_preds = -1 * np.ones(test_size)
-    all_gt = -1 * np.ones(test_size)
+    all_preds = np.nan * np.ones(test_size)
+    all_gt = np.nan * np.ones(test_size)
 
     all_cnt = 0
     loss = 0.0
@@ -329,8 +329,8 @@ def test():
                 break
 
     assert all_cnt == test_size
-    assert (all_preds != -1).all()
-    assert (all_gt != -1).all()
+    assert not (np.isnan(all_preds)).any()
+    assert not (np.isnan(all_gt)).any()
 
     acc = np.mean(all_preds == all_gt)
     all_normal_indices = np.where(all_gt == 0)[0]
