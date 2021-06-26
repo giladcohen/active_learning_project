@@ -128,6 +128,7 @@ else:
     clip_min, clip_max = -np.inf, np.inf
 p_hflip = 0.5 if 'cifar' in dataset else 0.0
 tta_transforms = transforms.Compose([
+    my_transforms.Clip(0.0, 1.0),  # TO fix a bug where an ADV image has minus small value, applying gamma yields Nan
     my_transforms.ColorJitterPro(
         brightness=[0.6, 1.4],
         contrast=[0.7, 1.3],

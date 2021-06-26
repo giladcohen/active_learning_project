@@ -38,7 +38,4 @@ class TTADataset(VisionDataset):
 
         x = torch.vstack((img_norm_ttas, img_adv_ttas))
         y = torch.tensor([0.0, 1.0])
-
-        assert not x.isnan().any()
         return x, y
-
