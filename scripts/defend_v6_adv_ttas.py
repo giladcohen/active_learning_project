@@ -105,6 +105,7 @@ else:
 
 p_hflip = 0.5 if 'cifar' in args.dataset else 0.0
 tta_transforms = transforms.Compose([
+    my_transforms.Clip(0.0, 1.0),  # TO fix a bug where an ADV image has minus small value, applying gamma yields Nan
     my_transforms.ColorJitterPro(
         brightness=[0.6, 1.4],
         contrast=[0.7, 1.3],
@@ -195,11 +196,15 @@ def eval(set):
     tta_cnt = 0
     for batch_idx, (inputs, targets) in enumerate(tta_loader):
         inputs, targets = inputs.to(device), targets.to(device)
+        assert not inputs.isnan().any()
         b = tta_cnt
         e = min(tta_cnt + len(inputs), args.tta_size)
-        orig_tta_logits = net(inputs)['logits']
-        pert_inputs = vat.virtual_adversarial_images(inputs[0:(e-b)], orig_tta_logits)
-        rob_probs[img_ind, b:e] = net(pert_inputs)['probs'][0:(e-b)].detach().cpu().numpy()
+        if tta_cnt < args.tta_size / 2:  # normal TTAs
+            rob_probs[img_ind, b:e] = net(inputs)['probs'][0:(e-b)].detach().cpu().numpy()
+        else:  # perturbed TTAs
+            orig_tta_logits = net(inputs)['logits']
+            pert_inputs = vat.virtual_adversarial_images(inputs[0:(e-b)], orig_tta_logits)
+            rob_probs[img_ind, b:e] = net(pert_inputs)['probs'][0:(e-b)].detach().cpu().numpy()
         tta_cnt += e-b
         if tta_cnt >= args.tta_size:
             break
