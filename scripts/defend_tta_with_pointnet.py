@@ -51,14 +51,18 @@ parser.add_argument('--eval_batch_size', default=100, type=int, help='batch size
 
 # transforms:
 parser.add_argument('--clip_inputs', action='store_true', help='clipping TTA inputs between 0 and 1')
-parser.add_argument('--gaussian_std', default=0.0, type=float, help='Standard deviation of Gaussian noise')  # was 0.0125
+parser.add_argument('--gaussian_std', default=0.005, type=float, help='Standard deviation of Gaussian noise')  # was 0.0125
 
 # training:
 parser.add_argument('--train_batch_size', default=128, type=int, help='batch size for the TTA training')
 parser.add_argument('--steps', default=2000, type=int, help='training steps for each image')
 parser.add_argument('--ema_decay', default=0.998, type=float, help='EMA decay')
 parser.add_argument('--val_size', default=None, type=int, help='validation size')
-parser.add_argument('--lambda_feat_trans', default=0.0001, type=float, help='validation size')
+parser.add_argument('--lambda_feat_trans', default=0.0, type=float, help='validation size')
+
+# architecture
+parser.add_argument('--features', default='probs', type=str, help='which features to use from resnet: embeddings/logits/probs')
+
 
 # optimizer:
 parser.add_argument('--opt', default='adam', type=str, help='optimizer: sgd, adam, rmsprop, lars')
@@ -167,7 +171,15 @@ net = get_model(train_args['net'])(num_classes=len(classes), activation=train_ar
 net = net.to(device)
 net.load_state_dict(global_state['best_net'])
 net.eval()  # frozen
-pointnet = PointNet(k=1, channel=len(classes))
+
+if args.features in ['probs', 'logits']:
+    num_channels = len(classes)
+elif args.features == 'embeddings':
+    num_channels = net.linear.in_features
+else:
+    AssertionError('Unexpected args.features={}'.format(args.features))
+
+pointnet = PointNet(k=1, channel=num_channels)
 pointnet = pointnet.to(device)
 
 # summary(net, (3, 32, 32))
@@ -236,7 +248,7 @@ test_loader = torch.utils.data.DataLoader(
 
 def rearrange_as_pts(x: torch.Tensor) -> torch.Tensor:
     """Reshape the x tensor from [B * N, D] to [B, D, N]. y is selected only for B values"""
-    x = x.reshape(-1, args.tta_size, len(classes))
+    x = x.reshape(-1, args.tta_size, num_channels)
     x = x.transpose(1, 2)
     return x
 
@@ -247,7 +259,7 @@ def train():
     optimizer.zero_grad()
     start_time = time.time()
 
-    batch_probs_points = np.nan * torch.ones(args.train_batch_size, len(classes), args.tta_size).to(device)  # (B, D, N)
+    net_features = np.nan * torch.ones(args.train_batch_size, num_channels, args.tta_size).to(device)  # (B, D, N)
     y = np.nan * torch.ones(args.train_batch_size).to(device)  # B
 
     batch_cnt = 0
@@ -259,7 +271,7 @@ def train():
             inputs = inputs.reshape((-1,) + img_shape)
             inputs, targets = inputs.to(device), targets.to(device)
             with torch.no_grad():
-                batch_probs_points[b:e] = rearrange_as_pts(net(inputs)['logits'])
+                net_features[b:e] = rearrange_as_pts(net(inputs)[args.features])
             y[b:e] = targets
             batch_cnt += targets.size(0)
 
@@ -267,10 +279,10 @@ def train():
                 break
 
     assert batch_cnt == args.train_batch_size
-    assert not (np.isnan(batch_probs_points.cpu().numpy())).any()
+    assert not (np.isnan(net_features.cpu().numpy())).any()
     assert not (np.isnan(y.cpu().numpy())).any()
 
-    out, trans_feat = pointnet(batch_probs_points)
+    out, trans_feat = pointnet(net_features)
     out = out.squeeze()
     loss_bce = bce_loss(out, y)
     loss_feat_trans = feature_transform_reguliarzer(trans_feat)
@@ -313,8 +325,8 @@ def test():
             e = b + y.size(0)
             inputs = inputs.reshape((-1,) + img_shape)
             inputs, y = inputs.to(device), y.to(device)
-            batch_probs_points = rearrange_as_pts(net(inputs)['logits'])
-            out, trans_feat = pointnet(batch_probs_points)
+            net_features = rearrange_as_pts(net(inputs)[args.features])
+            out, trans_feat = pointnet(net_features)
             out = out.squeeze()
             loss_bce += bce_loss(out, y)
             loss_feat_trans += feature_transform_reguliarzer(trans_feat)
@@ -351,8 +363,8 @@ def test():
 
 global_step = 0
 logger.info('Testing randomized net...')
-# with torch.no_grad():
-#     test()
+with torch.no_grad():
+    test()
 logger.info('start training {} steps...'.format(args.steps))
 for global_step in tqdm(range(args.steps)):
     train()
