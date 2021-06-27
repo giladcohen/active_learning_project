@@ -251,7 +251,7 @@ test_loader = torch.utils.data.DataLoader(
 )
 
 def rearrange_as_pts(x: torch.Tensor) -> torch.Tensor:
-    """Reshape the x tensor from [B * N, D] to [B, D, N]. y is selected only for B values"""
+    """Reshape the x tensor from [B * N, D] to [B, D, N]"""
     x = x.reshape(-1, args.tta_size, num_channels)
     x = x.transpose(1, 2)
     return x
