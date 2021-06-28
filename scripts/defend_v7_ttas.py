@@ -55,7 +55,7 @@ parser.add_argument('--gaussian_std', default=0.0, type=float, help='Standard de
 parser.add_argument('--soft_transforms', action='store_true', help='applying mellow transforms')
 
 # debug:
-parser.add_argument('--test_size', default=200, type=int, help='test size')
+parser.add_argument('--test_size', default=None, type=int, help='test size')
 parser.add_argument('--dump_dir', default='tmp', type=str, help='the dump dir')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -209,7 +209,7 @@ adv_acc = np.mean(all_preds[all_adv_indices] == all_y_gt[all_adv_indices])
 end_time = time.time()
 tps = (end_time - start_time) / (2 * test_size)
 
-logger.info('acc={:.4f}, normal_acc={}, adv_acc={}, tps={}'.format(100.0 * acc, 100.0 * norm_acc, 100.0 * adv_acc, tps))
+logger.info('test_size={}: acc={:.4f}, normal_acc={}, adv_acc={}, tps={}'.format(test_size, 100.0 * acc, 100.0 * norm_acc, 100.0 * adv_acc, tps))
 
 # debug:
 # X_test_img     = convert_tensor_to_image(x)
