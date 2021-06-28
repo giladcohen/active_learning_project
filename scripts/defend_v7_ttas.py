@@ -185,7 +185,7 @@ def rearrange_as_pts(x: torch.Tensor) -> torch.Tensor:
 
 
 with torch.no_grad():
-    for batch_idx, (x, y, y_is_adv) in enumerate(test_loader):
+    for batch_idx, (x, y, y_is_adv) in tqdm(enumerate(test_loader)):
         x, y, y_is_adv = x.reshape((-1,) + img_shape), y.reshape(-1), y_is_adv.reshape(-1)
         x, y, y_is_adv = x.to(device), y.to(device), y_is_adv.to(device)
         b = all_cnt
