@@ -1,5 +1,9 @@
 commands:
-  - [python active_learning_project/scripts/defend_v6_adv_ttas.py --dump_dir defend_v5_adv_ttas/ttas_50perc_radius_0.01_std_0.005  --radius 0.01 --gaussian_std 0.005 --debug_size 200, 11000]
-  - [python active_learning_project/scripts/defend_v6_adv_ttas.py --dump_dir defend_v5_adv_ttas/ttas_50perc_radius_0.05_std_0.005  --radius 0.05 --gaussian_std 0.005 --debug_size 200, 11000]
-  - [python active_learning_project/scripts/defend_v6_adv_ttas.py --dump_dir defend_v5_adv_ttas/ttas_50perc_radius_0.1_std_0.005   --radius 0.1  --gaussian_std 0.005 --debug_size 200, 11000]
-  - [python active_learning_project/scripts/defend_v6_adv_ttas.py --dump_dir defend_v5_adv_ttas/ttas_50perc_radius_1.0_std_0.005   --radius 1.0  --gaussian_std 0.005 --debug_size 200, 11000]
+  - [python active_learning_project/scripts/defend_tta_with_pointnet.py --dump_dir defend_tta_with_pointnet/lr_0.001_lambda_adv_det_100     --lr 0.001    --lambda_adv_det 100, 11000]
+  - [python active_learning_project/scripts/defend_tta_with_pointnet.py --dump_dir defend_tta_with_pointnet/lr_0.001_lambda_adv_det_10      --lr 0.001    --lambda_adv_det 10, 11000]
+  - [python active_learning_project/scripts/defend_tta_with_pointnet.py --dump_dir defend_tta_with_pointnet/lr_0.001_lambda_adv_det_1       --lr 0.001    --lambda_adv_det 1, 11000]
+  - [python active_learning_project/scripts/defend_tta_with_pointnet.py --dump_dir defend_tta_with_pointnet/lr_0.001_lambda_adv_det_0.1     --lr 0.001    --lambda_adv_det 0.1, 11000]
+  - [python active_learning_project/scripts/defend_tta_with_pointnet.py --dump_dir defend_tta_with_pointnet/lr_0.001_lambda_adv_det_0.01    --lr 0.001    --lambda_adv_det 0.01, 11000]
+  - [python active_learning_project/scripts/defend_tta_with_pointnet.py --dump_dir defend_tta_with_pointnet/lr_0.01_lambda_adv_det_100      --lr 0.01     --lambda_adv_det 100, 11000]
+  - [python active_learning_project/scripts/defend_tta_with_pointnet.py --dump_dir defend_tta_with_pointnet/lr_0.01_lambda_adv_det_1        --lr 0.01     --lambda_adv_det 1, 11000]
+  - [python active_learning_project/scripts/defend_tta_with_pointnet.py --dump_dir defend_tta_with_pointnet/lr_0.01_lambda_adv_det_0.01     --lr 0.01     --lambda_adv_det 0.01, 11000]
