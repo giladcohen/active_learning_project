@@ -57,14 +57,13 @@ parser.add_argument('--soft_transforms', action='store_true', help='applying mel
 parser.add_argument('--train_batch_size', default=128, type=int, help='batch size for the TTA training')
 parser.add_argument('--steps', default=2000, type=int, help='training steps for each image')
 parser.add_argument('--ema_decay', default=0.998, type=float, help='EMA decay')
-parser.add_argument('--val_size', default=100, type=int, help='validation size')
+parser.add_argument('--val_size', default=None, type=int, help='validation size')
 parser.add_argument('--lambda_feat_trans', default=0.0, type=float, help='regularization on ')
 parser.add_argument('--lambda_adv_det', default=1.0, type=float, help='adversarial detection coefficient')
-parser.add_argument('--num_workers', default=0, type=int, help='number of workers')
+parser.add_argument('--num_workers', default=4, type=int, help='number of workers')
 
 # architecture
 parser.add_argument('--features', default='probs', type=str, help='which features to use from resnet: embeddings/logits/probs')
-
 
 # optimizer:
 parser.add_argument('--opt', default='adam', type=str, help='optimizer: sgd, adam, rmsprop, lars')
@@ -73,7 +72,7 @@ parser.add_argument('--wd', default=0.0, type=float, help='weight decay on the p
 parser.add_argument('--mom', default=0.9, type=float, help='momentum of sgd optimizer of beta1 for adam')
 
 # debug:
-parser.add_argument('--test_size', default=200, type=int, help='test size')
+parser.add_argument('--test_size', default=500, type=int, help='test size')
 parser.add_argument('--dump_dir', default='tmp', type=str, help='the dump dir')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
