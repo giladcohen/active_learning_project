@@ -388,7 +388,9 @@ def test():
     test_defense_writer.add_scalar('metrics/adv_is_adv_acc', 100.0 * adv_is_adv_acc, global_step)
     test_defense_writer.add_scalar('stats/secs_per_image', (end_time - start_time) / test_size, global_step)
 
-    logger.info('global step #{} (TEST): loss={}\tacc={:.4f}'.format(global_step + 1, loss, 100.0 * acc))
+
+    logger.info('global step #{} (TEST): loss={}\tclassification acc={:.4f}, is adv acc={:.4f}'
+                .format(global_step + 1, loss, 100.0 * classification_acc, 100.0 * is_adv_acc))
 
 global_step = 0
 logger.info('Testing randomized net...')
