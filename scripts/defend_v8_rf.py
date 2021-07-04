@@ -1,5 +1,5 @@
 """
-This script uses TTA for robustness. No training, only evaluation and using the results to classify normal/adv
+This script uses TTA and random forest for robustness and adv detection.
 """
 from typing import Tuple
 import torch
@@ -21,6 +21,8 @@ from tqdm import tqdm
 import time
 import sys
 import PIL
+from sklearn.ensemble import RandomForestClassifier
+
 from torchlars import LARS
 import matplotlib.pyplot as plt
 
@@ -34,9 +36,8 @@ from active_learning_project.utils import EMA, update_moving_average, convert_te
     reset_net, pytorch_evaluate
 from active_learning_project.datasets.utils import get_mini_dataset_inds
 from active_learning_project.metric_utils import calc_first_n_adv_acc, calc_first_n_adv_acc_from_probs_summation
-from active_learning_project.models.projection_head import MLP
 from Pointnet_Pointnet2_pytorch.models.pointnet_utils import feature_transform_reguliarzer
-from Pointnet_Pointnet2_pytorch.models.pointnet_cls import PointNet
+
 
 parser = argparse.ArgumentParser(description='PyTorch TTA defense with mlp')
 parser.add_argument('--checkpoint_dir',
@@ -47,12 +48,15 @@ parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attac
 # eval:
 parser.add_argument('--tta_size', default=1000, type=int, help='number of test-time augmentations')
 parser.add_argument('--features', default='probs', type=str, help='which features to use from resnet: embeddings/logits/probs')
-parser.add_argument('--num_workers', default=10, type=int, help='number of workers')
+parser.add_argument('--num_workers', default=20, type=int, help='number of workers')
 
 # transforms:
 parser.add_argument('--clip_inputs', action='store_true', help='clipping TTA inputs between 0 and 1')
 parser.add_argument('--gaussian_std', default=0.0, type=float, help='Standard deviation of Gaussian noise')  # was 0.0125
 parser.add_argument('--soft_transforms', action='store_true', help='applying mellow transforms')
+
+# RF training:
+parser.add_argument('--val_size', default=7500, type=int, help='validation size')
 
 # debug:
 parser.add_argument('--test_size', default=None, type=int, help='test size')
@@ -139,8 +143,11 @@ X_test_adv       = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
 img_shape = X_test.shape[1:]
 
 # filter by mini_val and mini_test sets
+if args.val_size is not None:
+    val_inds         = val_inds[0:args.val_size]
 if args.test_size is not None:
     test_inds = test_inds[0:args.test_size]
+val_size = len(val_inds)
 test_size = len(test_inds)
 
 net = get_model(train_args['net'])(num_classes=len(classes), activation=train_args['activation'])
@@ -160,6 +167,13 @@ if device == 'cuda':
     # net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
 
+tta_dataset_train = TTADataset(
+    torch.from_numpy(X_test[val_inds]),
+    torch.from_numpy(X_test_adv[val_inds]),
+    torch.from_numpy(y_test[val_inds]),
+    args.tta_size,
+    transform=tta_transforms)
+
 tta_dataset_test = TTADataset(
     torch.from_numpy(X_test[test_inds]),
     torch.from_numpy(X_test_adv[test_inds]),
@@ -167,16 +181,14 @@ tta_dataset_test = TTADataset(
     args.tta_size,
     transform=tta_transforms)
 
+train_loader = torch.utils.data.DataLoader(
+    tta_dataset_train, batch_size=1, shuffle=True,
+    num_workers=args.num_workers, pin_memory=device=='cuda')
+
 test_loader = torch.utils.data.DataLoader(
     tta_dataset_test, batch_size=1, shuffle=False,
     num_workers=args.num_workers, pin_memory=device=='cuda')
 
-all_y_gt        = np.nan * np.ones(2 * test_size)
-all_y_is_adv_gt = np.nan * np.ones(2 * test_size)
-all_probs       = np.nan * np.ones((2 * test_size, args.tta_size, num_channels), dtype=np.float32)
-
-start_time = time.time()
-all_cnt = 0
 
 def rearrange_as_pts(x: torch.Tensor) -> torch.Tensor:
     """Reshape the x tensor from [B * N, D] to [B, N, D]"""
@@ -184,32 +196,104 @@ def rearrange_as_pts(x: torch.Tensor) -> torch.Tensor:
     return x
 
 
+y_gt_train        = np.nan * np.ones(2 * val_size)
+y_is_adv_gt_train = np.nan * np.ones(2 * val_size)
+features_train    = np.nan * np.ones((2 * val_size, args.tta_size, num_channels), dtype=np.float32)
+train_cnt = 0
+
+y_gt_test        = np.nan * np.ones(2 * test_size)
+y_is_adv_gt_test = np.nan * np.ones(2 * test_size)
+features_test    = np.nan * np.ones((2 * test_size, args.tta_size, num_channels), dtype=np.float32)
+test_cnt = 0
+
+logger.info('collecting validation features...')
 with torch.no_grad():
-    for batch_idx, (x, y, y_is_adv) in tqdm(enumerate(test_loader)):
+    for batch_idx, (x, y, y_is_adv) in tqdm(enumerate(train_loader)):
+        print('val_cnt={}'.format(train_cnt))
         x, y, y_is_adv = x.reshape((-1,) + img_shape), y.reshape(-1), y_is_adv.reshape(-1)
         x, y, y_is_adv = x.to(device), y.to(device), y_is_adv.to(device)
-        b = all_cnt
+        b = train_cnt
         e = b + y.size(0)
-        all_probs[b:e] = rearrange_as_pts(net(x)[args.features]).cpu().numpy()
-        all_y_gt[b:e] = y.cpu().numpy()
-        all_y_is_adv_gt[b:e] = y_is_adv.cpu().numpy()
-        all_cnt += y.size(0)
-assert all_cnt == 2 * test_size
-assert not np.isnan(all_probs).any()
-assert not np.isnan(all_y_gt).any()
-assert not np.isnan(all_y_is_adv_gt).any()
+        features_train[b:e] = rearrange_as_pts(net(x)[args.features]).cpu().numpy()
+        y_gt_train[b:e] = y.cpu().numpy()
+        y_is_adv_gt_train[b:e] = y_is_adv.cpu().numpy()
+        train_cnt += y.size(0)
+assert train_cnt == 2 * val_size
+assert not np.isnan(features_train).any()
+assert not np.isnan(y_gt_train).any()
+assert not np.isnan(y_is_adv_gt_train).any()
 
-all_preds = all_probs.sum(axis=1).argmax(axis=1)
-acc = np.mean(all_preds == all_y_gt)
-all_normal_indices = np.where(all_y_is_adv_gt == 0)[0]
-all_adv_indices = np.where(all_y_is_adv_gt == 1)[0]
-norm_acc = np.mean(all_preds[all_normal_indices] == all_y_gt[all_normal_indices])
-adv_acc = np.mean(all_preds[all_adv_indices] == all_y_gt[all_adv_indices])
+logger.info('collecting test features...')
+with torch.no_grad():
+    for batch_idx, (x, y, y_is_adv) in tqdm(enumerate(test_loader)):
+        print('test_cnt={}'.format(test_cnt))
+        x, y, y_is_adv = x.reshape((-1,) + img_shape), y.reshape(-1), y_is_adv.reshape(-1)
+        x, y, y_is_adv = x.to(device), y.to(device), y_is_adv.to(device)
+        b = test_cnt
+        e = b + y.size(0)
+        features_test[b:e] = rearrange_as_pts(net(x)[args.features]).cpu().numpy()
+        y_gt_test[b:e] = y.cpu().numpy()
+        y_is_adv_gt_test[b:e] = y_is_adv.cpu().numpy()
+        test_cnt += y.size(0)
+assert test_cnt == 2 * test_size
+assert not np.isnan(features_test).any()
+assert not np.isnan(y_gt_test).any()
+assert not np.isnan(y_is_adv_gt_test).any()
 
-end_time = time.time()
-tps = (end_time - start_time) / (2 * test_size)
+# masking
+train_normal_indices = np.where(y_is_adv_gt_train == 0)[0]
+train_adv_indices = np.where(y_is_adv_gt_train == 1)[0]
+test_normal_indices = np.where(y_is_adv_gt_test == 0)[0]
+test_adv_indices = np.where(y_is_adv_gt_test == 1)[0]
 
-logger.info('test_size={}: acc={:.4f}, normal_acc={}, adv_acc={}, tps={}'.format(test_size, 100.0 * acc, 100.0 * norm_acc, 100.0 * adv_acc, tps))
+# training is_adv classifier
+features_train = features_train.reshape((2 * val_size, args.tta_size * num_channels))
+features_test = features_test.reshape((2 * test_size, args.tta_size * num_channels))
+is_adv_rf = RandomForestClassifier(
+    n_estimators=1000,
+    criterion="entropy",  # gini or entropy
+    max_depth=None, # The maximum depth of the tree. If None, then nodes are expanded until all leaves are pure or
+    # until all leaves contain less than min_samples_split samples.
+    min_samples_split=10,
+    min_samples_leaf=10,
+    bootstrap=True, # Whether bootstrap samples are used when building trees.
+    # If False, the whole datset is used to build each tree.
+    random_state=rand_gen,
+    verbose=1000,
+    n_jobs=20
+)
+is_adv_rf.fit(features_train, y_is_adv_gt_train)
+y_is_adv_preds = is_adv_rf.predict(features_test)
+is_adv_acc = np.mean(y_is_adv_preds == y_is_adv_gt_test)
+is_adv_acc_normal = np.mean(y_is_adv_preds[test_normal_indices] == y_is_adv_gt_test[test_normal_indices])
+is_adv_acc_adv = np.mean(y_is_adv_preds[test_adv_indices] == y_is_adv_gt_test[test_adv_indices])
+
+# training label robustness classifier
+cls_rf = RandomForestClassifier(
+    n_estimators=1000,
+    criterion="entropy",  # gini or entropy
+    max_depth=None, # The maximum depth of the tree. If None, then nodes are expanded until all leaves are pure or
+    # until all leaves contain less than min_samples_split samples.
+    min_samples_split=10,
+    min_samples_leaf=10,
+    bootstrap=True, # Whether bootstrap samples are used when building trees.
+    # If False, the whole datset is used to build each tree.
+    random_state=rand_gen,
+    verbose=1000,
+    n_jobs=20
+)
+cls_rf.fit(features_train, y_gt_train)
+y_preds = cls_rf.predict(features_test)
+cls_acc = np.mean(y_preds == y_gt_test)
+cls_acc_normal = np.mean(y_preds[test_normal_indices] == y_gt_test[test_normal_indices])
+cls_acc_adv = np.mean(y_preds[test_adv_indices] == y_gt_test[test_adv_indices])
+
+# logging results:
+logger.info('is_adv classification: acc={:.4f}, normal_acc={:.4f}, adv_acc={:.4f}'
+            .format(100.0 * is_adv_acc, 100.0 * is_adv_acc_normal, 100.0 * is_adv_acc_adv))
+
+logger.info('label classification: acc={:.4f}, normal_acc={:.4f}, adv_acc={:.4f}'
+            .format(100.0 * cls_acc, 100.0 * cls_acc_normal, 100.0 * cls_acc_adv))
 
 # debug:
 # X_test_img     = convert_tensor_to_image(x)
