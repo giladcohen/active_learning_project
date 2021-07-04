@@ -11,7 +11,7 @@ def run_cmd(cmd):
 
 # buffer time for running different commands on the same GPU
 SAFE_TIME = 40
-ALLOWED_GPUS_INDS = [0, 1, 2, 3, 4, 5, 6, 7]
+ALLOWED_GPUS_INDS = [6]
 # yml_command_file = os.path.join(os.path.dirname(__file__), 'commands.yml')
 #debug:
 yml_command_file = 'active_learning_project/system/commands.yml'
