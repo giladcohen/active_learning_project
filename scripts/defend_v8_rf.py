@@ -209,7 +209,6 @@ test_cnt = 0
 logger.info('collecting validation features...')
 with torch.no_grad():
     for batch_idx, (x, y, y_is_adv) in tqdm(enumerate(train_loader)):
-        print('val_cnt={}'.format(train_cnt))
         x, y, y_is_adv = x.reshape((-1,) + img_shape), y.reshape(-1), y_is_adv.reshape(-1)
         x, y, y_is_adv = x.to(device), y.to(device), y_is_adv.to(device)
         b = train_cnt
@@ -226,7 +225,6 @@ assert not np.isnan(y_is_adv_gt_train).any()
 logger.info('collecting test features...')
 with torch.no_grad():
     for batch_idx, (x, y, y_is_adv) in tqdm(enumerate(test_loader)):
-        print('test_cnt={}'.format(test_cnt))
         x, y, y_is_adv = x.reshape((-1,) + img_shape), y.reshape(-1), y_is_adv.reshape(-1)
         x, y, y_is_adv = x.to(device), y.to(device), y_is_adv.to(device)
         b = test_cnt
