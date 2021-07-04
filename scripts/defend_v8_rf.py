@@ -238,6 +238,14 @@ assert not np.isnan(features_test).any()
 assert not np.isnan(y_gt_test).any()
 assert not np.isnan(y_is_adv_gt_test).any()
 
+# dumping numpy:
+np.save(os.path.join(DUMP_DIR, 'y_gt_train.npy'), y_gt_train)
+np.save(os.path.join(DUMP_DIR, 'y_is_adv_gt_train.npy'), y_is_adv_gt_train)
+np.save(os.path.join(DUMP_DIR, 'features_train.npy'), features_train)
+np.save(os.path.join(DUMP_DIR, 'y_gt_test.npy'), y_gt_test)
+np.save(os.path.join(DUMP_DIR, 'y_is_adv_gt_test.npy'), y_is_adv_gt_test)
+np.save(os.path.join(DUMP_DIR, 'features_test.npy'), features_test)
+
 # masking
 train_normal_indices = np.where(y_is_adv_gt_train == 0)[0]
 train_adv_indices = np.where(y_is_adv_gt_train == 1)[0]
