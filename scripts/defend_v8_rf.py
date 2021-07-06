@@ -47,12 +47,12 @@ parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attac
 
 # eval:
 parser.add_argument('--tta_size', default=1000, type=int, help='number of test-time augmentations')
-parser.add_argument('--features', default='probs', type=str, help='which features to use from resnet: embeddings/logits/probs')
+parser.add_argument('--features', default='logits', type=str, help='which features to use from resnet: embeddings/logits/probs')
 parser.add_argument('--num_workers', default=20, type=int, help='number of workers')
 
 # transforms:
 parser.add_argument('--clip_inputs', action='store_true', help='clipping TTA inputs between 0 and 1')
-parser.add_argument('--gaussian_std', default=0.0, type=float, help='Standard deviation of Gaussian noise')  # was 0.0125
+parser.add_argument('--gaussian_std', default=0.005, type=float, help='Standard deviation of Gaussian noise')  # was 0.0125
 parser.add_argument('--soft_transforms', action='store_true', help='applying mellow transforms')
 
 # RF training:
@@ -246,22 +246,30 @@ np.save(os.path.join(DUMP_DIR, 'y_gt_test.npy'), y_gt_test)
 np.save(os.path.join(DUMP_DIR, 'y_is_adv_gt_test.npy'), y_is_adv_gt_test)
 np.save(os.path.join(DUMP_DIR, 'features_test.npy'), features_test)
 
+# debug:
+# y_gt_train = np.load(os.path.join(DUMP_DIR, 'y_gt_train.npy'))
+# y_is_adv_gt_train = np.load(os.path.join(DUMP_DIR, 'y_is_adv_gt_train.npy'))
+# features_train = np.load(os.path.join(DUMP_DIR, 'features_train.npy'))
+# y_gt_test = np.load(os.path.join(DUMP_DIR, 'y_gt_test.npy'))
+# y_is_adv_gt_test = np.load(os.path.join(DUMP_DIR, 'y_is_adv_gt_test.npy'))
+# features_test = np.load(os.path.join(DUMP_DIR, 'features_test.npy'))
+
 # masking
 train_normal_indices = np.where(y_is_adv_gt_train == 0)[0]
 train_adv_indices = np.where(y_is_adv_gt_train == 1)[0]
 test_normal_indices = np.where(y_is_adv_gt_test == 0)[0]
 test_adv_indices = np.where(y_is_adv_gt_test == 1)[0]
 
-# training is_adv classifier
+# reshape features:
 features_train = features_train.reshape((2 * val_size, args.tta_size * num_channels))
 features_test = features_test.reshape((2 * test_size, args.tta_size * num_channels))
+
+# training is_adv classifier
 is_adv_rf = RandomForestClassifier(
     n_estimators=1000,
-    criterion="entropy",  # gini or entropy
+    criterion="gini",  # gini or entropy
     max_depth=None, # The maximum depth of the tree. If None, then nodes are expanded until all leaves are pure or
     # until all leaves contain less than min_samples_split samples.
-    min_samples_split=10,
-    min_samples_leaf=10,
     bootstrap=True, # Whether bootstrap samples are used when building trees.
     # If False, the whole datset is used to build each tree.
     random_state=rand_gen,
@@ -277,11 +285,9 @@ is_adv_acc_adv = np.mean(y_is_adv_preds[test_adv_indices] == y_is_adv_gt_test[te
 # training label robustness classifier
 cls_rf = RandomForestClassifier(
     n_estimators=1000,
-    criterion="entropy",  # gini or entropy
+    criterion="gini",  # gini or entropy
     max_depth=None, # The maximum depth of the tree. If None, then nodes are expanded until all leaves are pure or
     # until all leaves contain less than min_samples_split samples.
-    min_samples_split=10,
-    min_samples_leaf=10,
     bootstrap=True, # Whether bootstrap samples are used when building trees.
     # If False, the whole datset is used to build each tree.
     random_state=rand_gen,
