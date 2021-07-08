@@ -238,7 +238,7 @@ def validate():
     if epoch > 0 and epoch % 100 == 0:
         torch.save(net.state_dict(), os.path.join(args.checkpoint_dir, 'ckpt_epoch_{}.pth'.format(epoch)))
 
-    logger.info('Epoch #{} (VAL): loss={}\tacc={:.2f}\tbest_metric({})={:.4f}'
+    logger.info('Epoch #{} (VAL): loss={}\tacc={:.2f}\tbest_metric({})={}'
           .format(epoch + 1, val_loss, val_acc, args.metric, best_metric))
 
     # updating learning rate if we see no improvement
