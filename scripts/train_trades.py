@@ -12,6 +12,7 @@ import argparse
 from tqdm import tqdm
 import time
 import sys
+import logging
 
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
@@ -21,7 +22,8 @@ from active_learning_project.models.wide_resnet_28_10 import WideResNet28_10
 from active_learning_project.models.resnet import ResNet34, ResNet50, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
     get_all_data_loader
-from active_learning_project.utils import remove_substr_from_keys, boolean_string, save_features, pytorch_evaluate
+from active_learning_project.utils import remove_substr_from_keys, boolean_string, save_features, pytorch_evaluate, \
+    set_logger
 from TRADES.trades import trades_loss
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
@@ -51,11 +53,14 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 
 args = parser.parse_args()
 
-
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
+log_file = os.path.join(args.checkpoint_dir, 'log.log')
 os.makedirs(args.checkpoint_dir, exist_ok=True)
 batch_size = args.batch_size
+
+set_logger(log_file)
+logger = logging.getLogger()
 
 rand_gen = np.random.RandomState(int(time.time()))
 train_writer = SummaryWriter(os.path.join(args.checkpoint_dir, 'train'))
@@ -63,7 +68,7 @@ val_writer   = SummaryWriter(os.path.join(args.checkpoint_dir, 'val'))
 test_writer  = SummaryWriter(os.path.join(args.checkpoint_dir, 'test'))
 
 # Data
-print('==> Preparing data..')
+logger.info('==> Preparing data..')
 
 trainloader, valloader, train_inds, val_inds = get_train_valid_loader(
     dataset=args.dataset,
@@ -86,7 +91,7 @@ val_size   = len(valloader.dataset)
 test_size  = len(testloader.dataset)
 
 # Model
-print('==> Building model..')
+logger.info('==> Building model..')
 if args.net == 'resnet34':
     net = ResNet34(num_classes=len(classes), activation=args.activation)
 elif args.net == 'resnet50':
@@ -120,12 +125,13 @@ def reset_optim():
     global optimizer
     global lr_scheduler
     global best_metric
-    best_metric = 0.0
     optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.mom, weight_decay=args.wd, nesterov=args.mom > 0)
     if args.metric == 'accuracy':
         mode = 'max'
+        best_metric = 0.0
     elif args.metric == 'loss':
         mode = 'min'
+        best_metric = np.inf
     else:
         raise AssertionError('illegal metric {}'.format(args.metric))
 
@@ -184,7 +190,7 @@ def train():
     predicted = np.asarray(predicted)
     labels = np.asarray(labels)
     train_acc = 100.0 * np.mean(predicted == labels)
-    print('Epoch #{} (TRAIN): loss={}\tacc={:.2f}'
+    logger.info('Epoch #{} (TRAIN): loss={}\tacc={:.2f}'
           .format(epoch + 1, train_loss, train_acc))
 
 def validate():
@@ -223,7 +229,7 @@ def validate():
 
     if (args.metric == 'accuracy' and metric > best_metric) or (args.metric == 'loss' and metric < best_metric):
         best_metric = metric
-        print('Found new best model. Saving...')
+        logger.info('Found new best model. Saving...')
         global_state['best_net'] = net.state_dict()
         global_state['best_metric'] = best_metric
         global_state['epoch'] = epoch
@@ -232,7 +238,7 @@ def validate():
     if epoch > 0 and epoch % 100 == 0:
         torch.save(net.state_dict(), os.path.join(args.checkpoint_dir, 'ckpt_epoch_{}.pth'.format(epoch)))
 
-    print('Epoch #{} (VAL): loss={}\tacc={:.2f}\tbest_metric({})={:.4f}'
+    logger.info('Epoch #{} (VAL): loss={}\tacc={:.2f}\tbest_metric({})={:.4f}'
           .format(epoch + 1, val_loss, val_acc, args.metric, best_metric))
 
     # updating learning rate if we see no improvement
@@ -264,7 +270,7 @@ def test():
     test_writer.add_scalar('losses/loss',    test_loss,    global_step)
     test_writer.add_scalar('metrics/acc', test_acc, global_step)
 
-    print('Epoch #{} (TEST): loss={}\tacc={:.2f}'
+    logger.info('Epoch #{} (TEST): loss={}\tacc={:.2f}'
           .format(epoch + 1, test_loss, test_acc))
 
 def save_global_state():
@@ -283,7 +289,7 @@ def flush():
 if __name__ == "__main__":
     if args.resume:
         # Load checkpoint.
-        print('==> Resuming from checkpoint..')
+        logger.info('==> Resuming from checkpoint..')
         assert os.path.isfile(CHECKPOINT_PATH), 'Error: no checkpoint file found!'
         checkpoint = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
 
@@ -301,7 +307,7 @@ if __name__ == "__main__":
         global_state = checkpoint
     else:
         # no old knowledge
-        best_metric    = 0.0
+        best_metric    = None
         epoch          = 0
         global_step    = 0
         # train_inds     = train_inds
@@ -315,10 +321,10 @@ if __name__ == "__main__":
 
     reset_optim()
 
-    print('Testing epoch #{}'.format(epoch + 1))
-    test()
+    logger.info('Testing epoch #{}'.format(epoch + 1))
+    #test()
 
-    print('start training from epoch #{} for {} epochs'.format(epoch + 1, args.epochs))
+    logger.info('start training from epoch #{} for {} epochs'.format(epoch + 1, args.epochs))
     for epoch in tqdm(range(epoch, epoch + args.epochs)):
         train()
         validate()
