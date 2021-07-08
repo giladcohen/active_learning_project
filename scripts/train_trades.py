@@ -43,8 +43,8 @@ parser.add_argument('--metric', default='loss', type=str, help='metric to optimi
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
 # TRADES params
-parser.add_argument('--epsilon', default=0.007, type=float, help='epsilon for TRADES loss')
-parser.add_argument('--step_size', default=0.031, type=float, help='step size for TRADES loss')
+parser.add_argument('--epsilon', default=0.031, type=float, help='epsilon for TRADES loss')
+parser.add_argument('--step_size', default=0.007, type=float, help='step size for TRADES loss')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -89,7 +89,7 @@ test_size  = len(testloader.dataset)
 print('==> Building model..')
 if args.net == 'resnet34':
     net = ResNet34(num_classes=len(classes), activation=args.activation)
-if args.net == 'resnet50':
+elif args.net == 'resnet50':
     net = ResNet50(num_classes=len(classes), activation=args.activation)
 elif args.net == 'resnet101':
     net = ResNet101(num_classes=len(classes), activation=args.activation)
