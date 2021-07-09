@@ -61,6 +61,14 @@ batch_size = args.batch_size
 
 set_logger(log_file)
 logger = logging.getLogger()
+if args.metric == 'accuracy':
+    WORST_METRIC = 0.0
+    metric_mode = 'max'
+elif args.metric == 'loss':
+    WORST_METRIC = np.inf
+    metric_mode = 'min'
+else:
+    raise AssertionError('illegal argument metric={}'.format(args.metric))
 
 rand_gen = np.random.RandomState(int(time.time()))
 train_writer = SummaryWriter(os.path.join(args.checkpoint_dir, 'train'))
@@ -124,20 +132,11 @@ np.save(os.path.join(args.checkpoint_dir, 'val_inds.npy'), val_inds)
 def reset_optim():
     global optimizer
     global lr_scheduler
-    global best_metric
     optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.mom, weight_decay=args.wd, nesterov=args.mom > 0)
-    if args.metric == 'accuracy':
-        mode = 'max'
-        best_metric = 0.0
-    elif args.metric == 'loss':
-        mode = 'min'
-        best_metric = np.inf
-    else:
-        raise AssertionError('illegal metric {}'.format(args.metric))
 
     lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
-        mode=mode,
+        mode=metric_mode,
         factor=args.factor,
         patience=args.patience,
         verbose=True,
@@ -153,7 +152,6 @@ def reset_net():
 def train():
     """Train and validate"""
     # Training
-    global best_metric
     global global_state
     global global_step
     global epoch
@@ -236,7 +234,7 @@ def validate():
         global_state['global_step'] = global_step
 
     if epoch > 0 and epoch % 100 == 0:
-        torch.save(net.state_dict(), os.path.join(args.checkpoint_dir, 'ckpt_epoch_{}.pth'.format(epoch)))
+        save_current_state()
 
     logger.info('Epoch #{} (VAL): loss={}\tacc={:.2f}\tbest_metric({})={}'
           .format(epoch + 1, val_loss, val_acc, args.metric, best_metric))
@@ -281,6 +279,10 @@ def save_global_state():
     global_state['val_inds'] = val_inds
     torch.save(global_state, CHECKPOINT_PATH)
 
+def save_current_state():
+    global epoch
+    torch.save(net.state_dict(), os.path.join(args.checkpoint_dir, 'ckpt_epoch_{}.pth'.format(epoch)))
+
 def flush():
     train_writer.flush()
     val_writer.flush()
@@ -307,7 +309,7 @@ if __name__ == "__main__":
         global_state = checkpoint
     else:
         # no old knowledge
-        best_metric    = None
+        best_metric    = WORST_METRIC
         epoch          = 0
         global_step    = 0
         # train_inds     = train_inds
@@ -322,18 +324,18 @@ if __name__ == "__main__":
     reset_optim()
 
     logger.info('Testing epoch #{}'.format(epoch + 1))
-    #test()
+    test()
 
     logger.info('start training from epoch #{} for {} epochs'.format(epoch + 1, args.epochs))
     for epoch in tqdm(range(epoch, epoch + args.epochs)):
         train()
         validate()
-        if epoch % 10 == 0:
+        if epoch % 10 == 0 and epoch > 0:
             test()
             save_global_state()
     save_global_state()
+    save_current_state()
     test()
     reset_net()
     test()  # post test the final best model
     flush()
-

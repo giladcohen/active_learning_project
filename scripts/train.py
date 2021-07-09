@@ -353,7 +353,7 @@ if __name__ == "__main__":
             record('trainval')
             record('test')
         train()
-        if epoch % 10 == 0:
+        if epoch % 10 == 0 and epoch > 0:
             test()
             save_global_state()
     save_global_state()
