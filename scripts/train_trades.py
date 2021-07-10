@@ -41,7 +41,7 @@ parser.add_argument('--patience', default=3, type=int, help='LR schedule patienc
 parser.add_argument('--cooldown', default=0, type=int, help='LR cooldown')
 parser.add_argument('--val_size', default=0.05, type=float, help='Fraction of validation size')
 parser.add_argument('--n_workers', default=4, type=int, help='Data loading threads')
-parser.add_argument('--metric', default='loss', type=str, help='metric to optimize. accuracy or sparsity')
+parser.add_argument('--metric', default='loss', type=str, help='metric to optimize. accuracy or loss')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
 # TRADES params
