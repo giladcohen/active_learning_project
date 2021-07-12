@@ -11,16 +11,18 @@ import os
 import argparse
 import time
 import pickle
-
+import logging
 import sys
+
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 
-
-from active_learning_project.models.resnet import ResNet34, ResNet101
+from active_learning_project.models.wide_resnet_28_10 import WideResNet28_10
+from active_learning_project.models.resnet import ResNet34, ResNet50, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
     get_loader_with_specific_inds, get_normalized_tensor
-from active_learning_project.utils import boolean_string, pytorch_evaluate
+from active_learning_project.datasets.utils import get_mini_dataset_inds
+from active_learning_project.utils import boolean_string, pytorch_evaluate, set_logger
 from art.attacks.evasion.fast_gradient import FastGradientMethod
 from art.attacks.evasion.projected_gradient_descent.projected_gradient_descent import ProjectedGradientDescent
 from art.attacks.evasion.deepfool import DeepFool
@@ -33,11 +35,13 @@ from active_learning_project.attacks.zero_grad_cw_try import ZeroGrad
 from cleverhans.utils import random_targets, to_categorical
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
-parser.add_argument('--attack', default='deepfool', type=str, help='attack: fgsm, jsma, cw, deepfool, ead, pgd')
+parser.add_argument('--checkpoint_file', default='ckpt_epoch_100.pth', type=str, help='checkpoint path file name')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades_eps_0.031', type=str, help='checkpoint dir')
+parser.add_argument('--attack', default='cw', type=str, help='attack: fgsm, jsma, cw, deepfool, ead, pgd')
 parser.add_argument('--targeted', default=False, type=boolean_string, help='use trageted attack')
-parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
+parser.add_argument('--attack_dir', default='debug', type=str, help='attack directory')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
+parser.add_argument('--n_workers', default=4, type=int, help='Data loading threads')
 parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -49,7 +53,8 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
 
-CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
+CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, args.checkpoint_file)
+log_file = os.path.join(args.checkpoint_dir, 'log.log')
 if args.attack_dir != '':
     ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
 else:
@@ -58,48 +63,33 @@ else:
         ATTACK_DIR = ATTACK_DIR + '_targeted'
 os.makedirs(os.path.join(ATTACK_DIR, 'inds'), exist_ok=True)
 batch_size = args.batch_size
+set_logger(log_file)
+logger = logging.getLogger()
 rand_gen = np.random.RandomState(seed=12345)
 
 # Data
-print('==> Preparing data..')
-global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
-train_inds = np.asarray(global_state['train_inds'])
-val_inds = np.asarray(global_state['val_inds'])
-trainloader = get_loader_with_specific_inds(
-    dataset=train_args['dataset'],
-    batch_size=batch_size,
-    is_training=False,
-    indices=train_inds,
-    num_workers=1,
-    pin_memory=True
-)
-valloader = get_loader_with_specific_inds(
-    dataset=train_args['dataset'],
-    batch_size=batch_size,
-    is_training=False,
-    indices=val_inds,
-    num_workers=1,
-    pin_memory=True
-)
+logger.info('==> Preparing data..')
 testloader = get_test_loader(
     dataset=train_args['dataset'],
     batch_size=batch_size,
-    num_workers=1,
-    pin_memory=True
+    num_workers=args.n_workers,
+    pin_memory=device=='cuda'
 )
 
-classes = trainloader.dataset.classes
-train_size = len(trainloader.dataset)
-val_size   = len(valloader.dataset)
+classes = testloader.dataset.classes
 test_size  = len(testloader.dataset)
 test_inds  = np.arange(test_size)
 
 # Model
-print('==> Building model..')
+logger.info('==> Building model..')
 if train_args['net'] == 'resnet34':
     net = ResNet34(num_classes=len(classes), activation=train_args['activation'])
+elif train_args['net'] == 'resnet50':
+    net = ResNet50(num_classes=len(classes), activation=train_args['activation'])
 elif train_args['net'] == 'resnet101':
     net = ResNet101(num_classes=len(classes), activation=train_args['activation'])
+elif train_args['net'] == 'wrn28_10':
+    net = WideResNet28_10(num_classes=len(classes), activation=train_args['activation'])
 else:
     raise AssertionError("network {} is unknown".format(train_args['net']))
 net = net.to(device)
@@ -108,7 +98,11 @@ net = net.to(device)
 if device == 'cuda':
     # net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
-net.load_state_dict(global_state['best_net'])
+
+global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
+if 'best_net' in global_state:
+    global_state = global_state['best_net']
+net.load_state_dict(global_state)
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(
@@ -120,9 +114,6 @@ optimizer = optim.SGD(
 
 if __name__ == "__main__":
 
-    X_val  = get_normalized_tensor(valloader, batch_size)
-    y_val  = np.asarray(valloader.dataset.targets)
-
     X_test = get_normalized_tensor(testloader, batch_size)
     y_test = np.asarray(testloader.dataset.targets)
 
@@ -130,36 +121,24 @@ if __name__ == "__main__":
     classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
                                    optimizer=optimizer, input_shape=(3, 32, 32), nb_classes=len(classes))
 
-    y_val_logits = classifier.predict(X_val, batch_size=batch_size)
-    y_val_preds = y_val_logits.argmax(axis=1)
-    val_acc = np.sum(y_val_preds == y_val) / val_size
-    print('Accuracy on benign val examples: {}%'.format(val_acc * 100))
-
     y_test_logits = classifier.predict(X_test, batch_size=batch_size)
     y_test_preds = y_test_logits.argmax(axis=1)
     test_acc = np.sum(y_test_preds == y_test) / test_size
-    print('Accuracy on benign test examples: {}%'.format(test_acc * 100))
+    logger.info('Accuracy on benign test examples: {}%'.format(test_acc * 100))
 
     # attack
     # creating targeted labels
     if args.targeted:
         tgt_file = os.path.join(ATTACK_DIR, 'y_test_adv.npy')
         if not os.path.isfile(tgt_file):
-            y_val_targets = random_targets(y_val, len(classes))
-            y_val_adv = y_val_targets.argmax(axis=1)
             y_test_targets = random_targets(y_test, len(classes))
             y_test_adv = y_test_targets.argmax(axis=1)
-            np.save(os.path.join(ATTACK_DIR, 'y_val_adv.npy'), y_val_adv)
             np.save(os.path.join(ATTACK_DIR, 'y_test_adv.npy'), y_test_adv)
         else:
-            y_val_adv = np.load(os.path.join(ATTACK_DIR, 'y_val_adv.npy'))
-            y_val_targets = to_categorical(y_val_adv, nb_classes=len(classes))
             y_test_adv = np.load(os.path.join(ATTACK_DIR, 'y_test_adv.npy'))
             y_test_targets = to_categorical(y_test_adv, nb_classes=len(classes))
     else:
-        y_val_adv = None
         y_test_adv = None
-        y_val_targets = None
         y_test_targets = None
 
     if args.attack == 'fgsm':
@@ -221,7 +200,7 @@ if __name__ == "__main__":
         )
     else:
         err_str = 'Attack {} is not supported'.format(args.attack)
-        print(err_str)
+        logger.error(err_str)
         raise AssertionError(err_str)
 
     dump_args = args.__dict__.copy()
@@ -231,21 +210,6 @@ if __name__ == "__main__":
             dump_args['attack_params'][param] = attack.__dict__[param]
     with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'w') as f:
         json.dump(dump_args, f, indent=2)
-
-    # attack val set
-    if args.subset == -1:  # not debug, then attack val
-        if not os.path.exists(os.path.join(ATTACK_DIR, 'X_val_adv.npy')):
-            X_val_adv = attack.generate(x=X_val, y=y_val_targets)
-            val_adv_logits = classifier.predict(X_val_adv, batch_size=batch_size)
-            y_val_adv_preds = np.argmax(val_adv_logits, axis=1)
-            np.save(os.path.join(ATTACK_DIR, 'X_val_adv.npy'), X_val_adv)
-            np.save(os.path.join(ATTACK_DIR, 'y_val_adv_preds.npy'), y_val_adv_preds)
-        else:
-            X_val_adv       = np.load(os.path.join(ATTACK_DIR, 'X_val_adv.npy'))
-            y_val_adv_preds = np.load(os.path.join(ATTACK_DIR, 'y_val_adv_preds.npy'))
-
-        val_adv_accuracy = np.mean(y_val_adv_preds == y_val)
-        print('Accuracy on adversarial val examples: {}%'.format(val_adv_accuracy * 100))
 
     # attack test set
     if args.subset != -1:  # debug
@@ -265,16 +229,17 @@ if __name__ == "__main__":
         y_test_adv_preds = np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'))
 
     test_adv_accuracy = np.mean(y_test_adv_preds == y_test)
-    print('Accuracy on adversarial test examples: {}% (subset={})'.format(test_adv_accuracy * 100, args.subset))
+    logger.info('Accuracy on adversarial test examples: {}% (subset={})'.format(test_adv_accuracy * 100, args.subset))
 
-    # dividing the official test set to a val set and to a test set
-    y_test_adv_preds = np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'))
+    # checking on the mini test set
+    _, test_inds = get_mini_dataset_inds(train_args['dataset'])
+    test_size = len(test_inds)
     f0_inds = []  # net_fail
     f1_inds = []  # net_succ
     f2_inds = []  # net_succ AND attack_flip
     f3_inds = []  # net_succ AND attack_flip AND attack_succ
 
-    for i in range(test_size):
+    for i in test_inds:
         f1 = y_test_preds[i] == y_test[i]
         f2 = f1 and y_test_preds[i] != y_test_adv_preds[i]
         if args.targeted:
@@ -294,36 +259,16 @@ if __name__ == "__main__":
     f1_inds = np.asarray(f1_inds)
     f2_inds = np.asarray(f2_inds)
     f3_inds = np.asarray(f3_inds)
-    all_inds = np.arange(test_size)
 
-    print("Number of test samples: {}. #net_succ: {}. #net_succ_attack_flip: {}. # net_succ_attack_succ: {}"
+    logger.info("Number of test samples: {}. #net_succ: {}. #net_succ_attack_flip: {}. # net_succ_attack_succ: {}"
           .format(test_size, len(f1_inds), len(f2_inds), len(f3_inds)))
 
-    val_inds = rand_gen.choice(all_inds, int(0.5 * test_size), replace=False)
-    val_inds.sort()
-    f0_inds_val = np.asarray([ind for ind in f0_inds if ind in val_inds])
-    f1_inds_val = np.asarray([ind for ind in f1_inds if ind in val_inds])
-    f2_inds_val = np.asarray([ind for ind in f2_inds if ind in val_inds])
-    f3_inds_val = np.asarray([ind for ind in f3_inds if ind in val_inds])
-
-    test_inds = np.asarray([ind for ind in all_inds if ind not in val_inds])
     f0_inds_test = np.asarray([ind for ind in f0_inds if ind in test_inds])
     f1_inds_test = np.asarray([ind for ind in f1_inds if ind in test_inds])
     f2_inds_test = np.asarray([ind for ind in f2_inds if ind in test_inds])
     f3_inds_test = np.asarray([ind for ind in f3_inds if ind in test_inds])
 
-    # mini_test_inds = rand_gen.choice(test_inds, 1000, replace=False)
-
-    np.save(os.path.join(ATTACK_DIR, 'inds', 'val_inds.npy'), val_inds)
-    np.save(os.path.join(ATTACK_DIR, 'inds', 'f0_inds_val.npy'), f0_inds_val)
-    np.save(os.path.join(ATTACK_DIR, 'inds', 'f1_inds_val.npy'), f1_inds_val)
-    np.save(os.path.join(ATTACK_DIR, 'inds', 'f2_inds_val.npy'), f2_inds_val)
-    np.save(os.path.join(ATTACK_DIR, 'inds', 'f3_inds_val.npy'), f3_inds_val)
-
-    np.save(os.path.join(ATTACK_DIR, 'inds', 'test_inds.npy'), test_inds)
     np.save(os.path.join(ATTACK_DIR, 'inds', 'f0_inds_test.npy'), f0_inds_test)
     np.save(os.path.join(ATTACK_DIR, 'inds', 'f1_inds_test.npy'), f1_inds_test)
     np.save(os.path.join(ATTACK_DIR, 'inds', 'f2_inds_test.npy'), f2_inds_test)
     np.save(os.path.join(ATTACK_DIR, 'inds', 'f3_inds_test.npy'), f3_inds_test)
-
-    # np.save(os.path.join(ATTACK_DIR, 'inds', 'mini_test_inds.npy'), mini_test_inds)
