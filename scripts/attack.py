@@ -54,7 +54,6 @@ with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
 
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, args.checkpoint_file)
-log_file = os.path.join(args.checkpoint_dir, 'log.log')
 if args.attack_dir != '':
     ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
 else:
@@ -63,6 +62,8 @@ else:
         ATTACK_DIR = ATTACK_DIR + '_targeted'
 os.makedirs(os.path.join(ATTACK_DIR, 'inds'), exist_ok=True)
 batch_size = args.batch_size
+
+log_file = os.path.join(ATTACK_DIR, 'log.log')
 set_logger(log_file)
 logger = logging.getLogger()
 rand_gen = np.random.RandomState(seed=12345)

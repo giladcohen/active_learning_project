@@ -409,7 +409,7 @@ class EMA(object):
 def set_logger(log_file):
     logging.basicConfig(format='%(asctime)s %(name)s %(levelname)s %(message)s',
                         datefmt='%m/%d/%Y %I:%M:%S %p',
-                        level=logging.DEBUG,
+                        level=logging.INFO,
                         handlers=[logging.FileHandler(log_file, mode='w'),
                                   logging.StreamHandler(sys.stdout)]
                         )
