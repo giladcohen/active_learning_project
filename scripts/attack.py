@@ -35,9 +35,9 @@ from active_learning_project.attacks.zero_grad_cw_try import ZeroGrad
 from cleverhans.utils import random_targets, to_categorical
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades_eps_0.031', type=str, help='checkpoint dir')
-parser.add_argument('--checkpoint_file', default='ckpt_epoch_100.pth', type=str, help='checkpoint path file name')
-parser.add_argument('--attack', default='cw', type=str, help='attack: fgsm, jsma, cw, deepfool, ead, pgd')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='checkpoint path file name')
+parser.add_argument('--attack', default='deepfool', type=str, help='attack: fgsm, jsma, cw, deepfool, ead, pgd')
 parser.add_argument('--targeted', default=False, type=boolean_string, help='use trageted attack')
 parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
@@ -261,7 +261,7 @@ if __name__ == "__main__":
     f2_inds = np.asarray(f2_inds)
     f3_inds = np.asarray(f3_inds)
 
-    logger.info("Number of test samples: {}. #net_succ: {}. #net_succ_attack_flip: {}. # net_succ_attack_succ: {}"
+    logger.info("Number of test samples: {}. #net_succ: {}. #net_succ_attack_flip: {}. #net_succ_attack_succ: {}"
           .format(test_size, len(f1_inds), len(f2_inds), len(f3_inds)))
 
     f0_inds_test = np.asarray([ind for ind in f0_inds if ind in test_inds])
