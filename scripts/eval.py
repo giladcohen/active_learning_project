@@ -31,7 +31,7 @@ from art.classifiers import PyTorchClassifier
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--method', default='tta', type=str, help='simple, ensemble, tta, random_forest')
-parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attack directory, or None for normal images')
+parser.add_argument('--attack_dir', default='', type=str, help='attack directory, or None for normal images')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--num_workers', default=4, type=int, help='Data loading threads')
 
@@ -52,7 +52,7 @@ args = parser.parse_args()
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
-if args.attack_dir is not None:
+if args.attack_dir != '':
     ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
     with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'r') as f:
         attack_args = json.load(f)
@@ -106,7 +106,7 @@ y_orig_norm_preds = classifier.predict(X_test[test_inds], batch_size).argmax(axi
 orig_norm_acc = np.mean(y_orig_norm_preds == y_gt)
 logger.info('Normal test accuracy: {}%'.format(100 * orig_norm_acc))
 
-if args.attack_dir is None:
+if args.attack_dir == '':
     if args.method == 'simple':
         logger.info('done')  # already calculated above
         exit(0)
