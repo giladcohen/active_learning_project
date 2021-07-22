@@ -25,13 +25,13 @@ from active_learning_project.datasets.tta_dataset import TTADataset
 from active_learning_project.datasets.tta_transforms import get_tta_transforms
 from active_learning_project.datasets.utils import get_mini_dataset_inds, get_ensemble_dir, get_dump_dir
 from active_learning_project.utils import boolean_string, pytorch_evaluate, set_logger, get_model, get_ensemble_paths, \
-    majority_vote, convert_tensor_to_image
+    majority_vote, convert_tensor_to_image, print_Linf_dists
 from art.classifiers import PyTorchClassifier
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
-parser.add_argument('--method', default='tta', type=str, help='simple, ensemble, tta, random_forest')
-parser.add_argument('--attack_dir', default='', type=str, help='attack directory, or None for normal images')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades', type=str, help='checkpoint dir')
+parser.add_argument('--method', default='simple', type=str, help='simple, ensemble, tta, random_forest')
+parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attack directory, or None for normal images')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--num_workers', default=4, type=int, help='Data loading threads')
 
@@ -117,6 +117,7 @@ else:
     logger.info('considering adv images of attack {}. targeted={}'.format(attack_args['attack'], attack_args['targeted']))
     X = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
     y_adv = np.load(os.path.join(ATTACK_DIR, 'y_test_adv.npy')) if attack_args['targeted'] else None
+    print_Linf_dists(X[test_inds], X_test[test_inds])
 
 if args.method == 'simple':
     y_preds = classifier.predict(X[test_inds], batch_size).argmax(axis=1)

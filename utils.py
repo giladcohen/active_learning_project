@@ -20,6 +20,7 @@ from numba import njit, jit
 import torch.nn as nn
 import torch.nn.init as init
 import torch.utils.data as data
+import logging
 
 import scipy
 from scipy.spatial.distance import pdist, cdist, squareform
@@ -434,3 +435,11 @@ def reset_net(net):
     for layer in net.modules():
         if hasattr(layer, 'reset_parameters'):
             layer.reset_parameters()
+
+def print_Linf_dists(X, X_test):
+    logger = logging.getLogger()
+    X_diff = (X - X_test).reshape(X.shape[0], -1)
+    X_diff_abs = np.abs(X_diff)
+    Linf_dist = X_diff_abs.max(axis=1)
+    Linf_dist = Linf_dist[np.where(Linf_dist > 0.0)[0]]
+    logger.info('The adversarial attacks distance: Max[L_inf]={}, E[L_inf]={}'.format(np.max(Linf_dist), np.mean(Linf_dist)))
