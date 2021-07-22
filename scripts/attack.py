@@ -23,12 +23,8 @@ from active_learning_project.datasets.train_val_test_data_loaders import get_tes
     get_loader_with_specific_inds, get_normalized_tensor
 from active_learning_project.datasets.utils import get_mini_dataset_inds
 from active_learning_project.utils import boolean_string, pytorch_evaluate, set_logger
-from art.attacks.evasion.fast_gradient import FastGradientMethod
-from art.attacks.evasion.projected_gradient_descent.projected_gradient_descent import ProjectedGradientDescent
-from art.attacks.evasion.deepfool import DeepFool
-from art.attacks.evasion.saliency_map import SaliencyMapMethod
-from art.attacks.evasion.carlini import CarliniL2Method
-from art.attacks.evasion.elastic_net import ElasticNet
+from art.attacks.evasion import FastGradientMethod, ProjectedGradientDescent, DeepFool, SaliencyMapMethod, \
+    CarliniL2Method, CarliniLInfMethod, ElasticNet
 from art.classifiers import PyTorchClassifier
 from active_learning_project.attacks.zero_grad_cw_try import ZeroGrad
 
@@ -39,10 +35,14 @@ parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness
 parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='checkpoint path file name')
 parser.add_argument('--attack', default='deepfool', type=str, help='attack: fgsm, jsma, cw, deepfool, ead, pgd')
 parser.add_argument('--targeted', default=False, type=boolean_string, help='use trageted attack')
-parser.add_argument('--attack_dir', default='', type=str, help='attack directory')
+parser.add_argument('--attack_dir', default='debug', type=str, help='attack directory')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--n_workers', default=4, type=int, help='Data loading threads')
+parser.add_argument('--num_workers', default=4, type=int, help='Data loading threads')
 parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
+
+# for FGSM/PGD/CW_Linf:
+parser.add_argument('--eps'     , default=0.031, type=float, help='maximum Linf deviation from original image')
+parser.add_argument('--eps_step', default=0.003, type=float, help='step size of each adv iteration')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -73,7 +73,7 @@ logger.info('==> Preparing data..')
 testloader = get_test_loader(
     dataset=train_args['dataset'],
     batch_size=batch_size,
-    num_workers=args.n_workers,
+    num_workers=args.num_workers,
     pin_memory=device=='cuda'
 )
 
@@ -146,8 +146,8 @@ if __name__ == "__main__":
         attack = FastGradientMethod(
             estimator=classifier,
             norm=np.inf,
-            eps=0.01,
-            eps_step=0.001,
+            eps=args.eps,
+            eps_step=args.eps_step,
             targeted=args.targeted,
             num_random_init=0,
             batch_size=batch_size
@@ -156,8 +156,8 @@ if __name__ == "__main__":
         attack = ProjectedGradientDescent(
             estimator=classifier,
             norm=np.inf,
-            eps=0.01,
-            eps_step=0.003,
+            eps=args.eps,
+            eps_step=args.eps_step,
             targeted=args.targeted,
             batch_size=batch_size
         )
@@ -183,6 +183,14 @@ if __name__ == "__main__":
             targeted=args.targeted,
             initial_const=0.1,
             batch_size=batch_size
+        )
+    elif args.attack == 'cw_Linf':
+        attack = CarliniLInfMethod(
+            classifier=classifier,
+            confidence=0.8,
+            targeted=args.targeted,
+            batch_size=batch_size,
+            eps=args.eps
         )
     elif args.attack == 'ead':
         attack = ElasticNet(
