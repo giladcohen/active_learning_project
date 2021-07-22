@@ -23,7 +23,7 @@ from active_learning_project.datasets.train_val_test_data_loaders import get_tes
     get_loader_with_specific_inds, get_normalized_tensor
 from active_learning_project.datasets.tta_dataset import TTADataset
 from active_learning_project.datasets.tta_transforms import get_tta_transforms
-from active_learning_project.datasets.utils import get_mini_dataset_inds, get_ensemble_dir, get_tta_dir
+from active_learning_project.datasets.utils import get_mini_dataset_inds, get_ensemble_dir, get_dump_dir
 from active_learning_project.utils import boolean_string, pytorch_evaluate, set_logger, get_model, get_ensemble_paths, \
     majority_vote, convert_tensor_to_image
 from art.classifiers import PyTorchClassifier
@@ -60,7 +60,7 @@ if args.attack_dir != '':
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 batch_size = args.batch_size
 
-DUMP_DIR = os.path.join(args.checkpoint_dir, args.dump_dir)
+DUMP_DIR = get_dump_dir(args.checkpoint_dir, args.dump_dir, args.attack_dir)
 os.makedirs(DUMP_DIR, exist_ok=True)
 log_file = os.path.join(DUMP_DIR, 'log.log')
 
@@ -135,7 +135,7 @@ elif args.method == 'ensemble':
     y_preds_nets = y_preds_nets.astype(np.int32)
     y_preds = np.apply_along_axis(majority_vote, axis=1, arr=y_preds_nets)
 elif args.method == 'tta':
-    tta_dir = get_tta_dir(args.checkpoint_dir, args.tta_output_dir, args.attack_dir)
+    tta_dir = get_dump_dir(args.checkpoint_dir, args.tta_output_dir, args.attack_dir)
     os.makedirs(tta_dir, exist_ok=True)
     tta_file = os.path.join(tta_dir, 'tta_logits.npy')
     if os.path.exists(tta_file):

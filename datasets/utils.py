@@ -11,7 +11,7 @@ def get_mini_dataset_inds(dataset: str):
 def get_ensemble_dir(dataset: str, net: str):
     return os.path.join('/data/gilad/logs/adv_robustness', dataset, net, 'regular')
 
-def get_tta_dir(checkpoint_dir, tta_dir, attack_dir):
+def get_dump_dir(checkpoint_dir, tta_dir, attack_dir):
     if attack_dir == '':
         return os.path.join(checkpoint_dir, tta_dir)
     else:
