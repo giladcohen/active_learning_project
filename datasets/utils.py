@@ -7,3 +7,12 @@ def get_mini_dataset_inds(dataset: str):
     val_inds = np.load(val_path)
     test_inds = np.load(test_path)
     return val_inds, test_inds
+
+def get_ensemble_dir(dataset: str, net: str):
+    return os.path.join('/data/gilad/logs/adv_robustness', dataset, net, 'regular')
+
+def get_tta_dir(checkpoint_dir, tta_dir, attack_dir=None):
+    if attack_dir is None:
+        return os.path.join(checkpoint_dir, tta_dir)
+    else:
+        return os.path.join(checkpoint_dir, attack_dir, tta_dir)

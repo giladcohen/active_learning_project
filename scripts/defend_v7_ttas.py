@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 sys.path.insert(0, "..")
 
 import active_learning_project.datasets.my_transforms as my_transforms
-from active_learning_project.datasets.my_cifar10_ttas import TTADataset
+from active_learning_project.datasets.tta_pair_dataset import TTAPairDataset
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_normalized_tensor, \
     get_single_img_dataloader, get_explicit_train_loader
 from active_learning_project.utils import EMA, update_moving_average, convert_tensor_to_image, set_logger, get_model, \
@@ -160,7 +160,7 @@ if device == 'cuda':
     # net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
 
-tta_dataset_test = TTADataset(
+tta_dataset_test = TTAPairDataset(
     torch.from_numpy(X_test[test_inds]),
     torch.from_numpy(X_test_adv[test_inds]),
     torch.from_numpy(y_test[test_inds]),

@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from active_learning_project.utils import convert_tensor_to_image
 
-class TTADataset(VisionDataset):
+class TTAPairDataset(VisionDataset):
 
     def __init__(self, data_norm, data_adv, y_gt, tta_size, *args, **kwargs) -> None:
         root = None
