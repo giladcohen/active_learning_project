@@ -459,7 +459,7 @@ def calc_attack_rate(y_preds: np.ndarray, y_orig_norm_preds: np.ndarray, y_gt: n
     f2_inds = []  # net_succ AND attack_flip
 
     for i in range(len(y_gt)):
-        f1 = y_preds[i] == y_gt[i]
+        f1 = y_orig_norm_preds[i] == y_gt[i]
         f2 = f1 and y_preds[i] != y_orig_norm_preds[i]
         if f1:
             f1_inds.append(i)
