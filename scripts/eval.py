@@ -41,6 +41,7 @@ parser.add_argument('--gaussian_std', default=0.005, type=float, help='Standard 
 parser.add_argument('--tta_output_dir', default='tta_debug', type=str, help='The dir to dump the tta results for further use')
 parser.add_argument('--soft_transforms', action='store_true', help='applying mellow transforms')
 parser.add_argument('--clip_inputs', action='store_true', help='clipping TTA inputs between 0 and 1')
+parser.add_argument('--overwrite', action='store_true', help='force calculating and saving TTA')
 
 # dump
 parser.add_argument('--dump_dir', default=None, type=str, help='dump dir for logs and data')
@@ -142,10 +143,7 @@ elif args.method == 'tta':
     tta_dir = get_dump_dir(args.checkpoint_dir, args.tta_output_dir, args.attack_dir)
     os.makedirs(tta_dir, exist_ok=True)
     tta_file = os.path.join(tta_dir, 'tta_logits.npy')
-    if os.path.exists(tta_file):
-        logger.info('tta_logits exists in {}. Loading it.'.format(tta_file))
-        tta_logits = np.load(tta_file)
-    else:
+    if not os.path.exists(tta_file) or args.overwrite:
         logger.info('Calculating tta_logits.npy. (It might take a while...)')
         tta_transforms = get_tta_transforms(dataset, args.gaussian_std, args.soft_transforms, args.clip_inputs)
         tta_dataset = TTADataset(
@@ -171,6 +169,9 @@ elif args.method == 'tta':
         assert not np.isnan(tta_logits).any()
         logger.info('Dumping TTA logits to {}'.format(tta_dir))
         np.save(os.path.join(tta_dir, 'tta_logits.npy'), tta_logits)
+    else:
+        logger.info('tta_logits exists in {}. Loading it.'.format(tta_file))
+        tta_logits = np.load(tta_file)
 
     # testing only test_inds:
     tta_logits = tta_logits[test_inds]
