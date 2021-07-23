@@ -25,7 +25,7 @@ from active_learning_project.datasets.tta_dataset import TTADataset
 from active_learning_project.datasets.tta_transforms import get_tta_transforms
 from active_learning_project.datasets.utils import get_mini_dataset_inds, get_ensemble_dir, get_dump_dir
 from active_learning_project.utils import boolean_string, pytorch_evaluate, set_logger, get_model, get_ensemble_paths, \
-    majority_vote, convert_tensor_to_image, print_Linf_dists
+    majority_vote, convert_tensor_to_image, print_Linf_dists, calc_attack_rate
 from art.classifiers import PyTorchClassifier
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
@@ -52,7 +52,8 @@ args = parser.parse_args()
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
-if args.attack_dir != '':
+is_attacked = args.attack_dir != ''
+if is_attacked:
     ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
     with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'r') as f:
         attack_args = json.load(f)
@@ -106,7 +107,7 @@ y_orig_norm_preds = classifier.predict(X_test[test_inds], batch_size).argmax(axi
 orig_norm_acc = np.mean(y_orig_norm_preds == y_gt)
 logger.info('Normal test accuracy: {}%'.format(100 * orig_norm_acc))
 
-if args.attack_dir == '':
+if not is_attacked:
     if args.method == 'simple':
         logger.info('done')  # already calculated above
         exit(0)
@@ -178,7 +179,12 @@ elif args.method == 'tta':
 
 # metrics calculation:
 acc = np.mean(y_preds == y_gt)
-logger.info('Test accuracy: {}%'.format(100 * acc))
+logger.info('Test accuracy: {}%'.format(100.0 * acc))
+
+if is_attacked:
+    attack_rate = calc_attack_rate(y_preds, y_orig_norm_preds, y_gt)
+    logger.info('attack success rate: {}%'.format(100.0 * attack_rate))
+
 
 exit(0)
 # debug:

@@ -443,3 +443,31 @@ def print_Linf_dists(X, X_test):
     Linf_dist = X_diff_abs.max(axis=1)
     Linf_dist = Linf_dist[np.where(Linf_dist > 0.0)[0]]
     logger.info('The adversarial attacks distance: Max[L_inf]={}, E[L_inf]={}'.format(np.max(Linf_dist), np.mean(Linf_dist)))
+
+def calc_attack_rate(y_preds: np.ndarray, y_orig_norm_preds: np.ndarray, y_gt: np.ndarray) -> float:
+    """
+    Args:
+        y_preds: The adv image's final prediction after the defense method
+        y_orig_norm_preds: The original image's predictions
+        y_gt: The GT labels
+        targeted: Whether or not the attack was targeted
+    
+    Returns: attack rate in %
+    """
+    f0_inds = []  # net_fail
+    f1_inds = []  # net_succ
+    f2_inds = []  # net_succ AND attack_flip
+
+    for i in range(len(y_gt)):
+        f1 = y_preds[i] == y_gt[i]
+        f2 = f1 and y_preds[i] != y_orig_norm_preds[i]
+        if f1:
+            f1_inds.append(i)
+        else:
+            f0_inds.append(i)
+        if f2:
+            f2_inds.append(i)
+
+    attack_rate = len(f2_inds) / len(f1_inds)
+    return attack_rate
+
