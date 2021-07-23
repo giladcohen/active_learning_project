@@ -43,11 +43,13 @@ parser.add_argument('--soft_transforms', action='store_true', help='applying mel
 parser.add_argument('--clip_inputs', action='store_true', help='clipping TTA inputs between 0 and 1')
 
 # dump
-parser.add_argument('--dump_dir', default='debug', type=str, help='dump dir for logs and data')
+parser.add_argument('--dump_dir', default=None, type=str, help='dump dir for logs and data')
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 
 args = parser.parse_args()
+if args.dump_dir is None:
+    args.dump_dir = args.method
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
