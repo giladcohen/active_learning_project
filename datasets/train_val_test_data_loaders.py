@@ -21,6 +21,7 @@ sys.path.insert(0, "./adversarial_robustness_toolbox")
 from active_learning_project.datasets.my_cifar10 import MyCIFAR10
 from active_learning_project.datasets.my_cifar100 import MyCIFAR100
 from active_learning_project.datasets.my_svhn import MySVHN
+from active_learning_project.datasets.tiny_imagenet import TinyImageNet
 
 from art.utils import get_labels_np_array, to_categorical
 
@@ -35,12 +36,21 @@ def dataset_factory(dataset):
     elif dataset == 'svhn':
         data_dir = os.path.join(BASE_DATASET_DIR, 'svhn')
         database = MySVHN
+    elif dataset == 'tiny_imagenet':
+        data_dir = os.path.join(BASE_DATASET_DIR, 'tiny_imagenet')
+        database = TinyImageNet
     else:
         raise AssertionError('dataset {} is not supported'.format(dataset))
 
-    if 'cifar' in dataset:
+    if dataset in ['cifar10', 'cifar100']:
         train_transform = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+        ])
+    elif dataset == 'tiny_imagenet':
+        train_transform = transforms.Compose([
+            transforms.RandomCrop(64, padding=8),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
         ])

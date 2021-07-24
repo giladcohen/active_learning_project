@@ -98,7 +98,7 @@ test_size  = len(testloader.dataset)
 print('==> Building model..')
 if args.net == 'resnet34':
     net = ResNet34(num_classes=len(classes), activation=args.activation)
-if args.net == 'resnet50':
+elif args.net == 'resnet50':
     net = ResNet50(num_classes=len(classes), activation=args.activation)
 elif args.net == 'resnet101':
     net = ResNet101(num_classes=len(classes), activation=args.activation)

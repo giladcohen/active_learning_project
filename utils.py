@@ -471,3 +471,32 @@ def calc_attack_rate(y_preds: np.ndarray, y_orig_norm_preds: np.ndarray, y_gt: n
     attack_rate = len(f2_inds) / len(f1_inds)
     return attack_rate
 
+def get_all_files_recursive(path, suffix=None):
+    files = []
+    # r=root, d=directories, f=files
+    for r, d, f in os.walk(path):
+        for file in f:
+            if suffix is None:
+                files.append(os.path.join(r, file))
+            elif '.' + suffix in file:
+                files.append(os.path.join(r, file))
+    return files
+
+def convert_grayscale_to_rgb(x: np.ndarray) -> np.ndarray:
+    """
+    Converts a 2D image shape=(x, y) to a RGB image (x, y, 3).
+    Args:
+        x: gray image
+    Returns: rgb image
+    """
+    return np.stack((x, ) * 3, axis=-1)
+
+def inverse_map(x: dict) -> dict:
+    """
+    :param x: dictionary
+    :return: inverse mapping, showing for each val its key
+    """
+    inv_map = {}
+    for k, v in x.items():
+        inv_map[v] = k
+    return inv_map

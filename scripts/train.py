@@ -12,24 +12,25 @@ import argparse
 from tqdm import tqdm
 import time
 import sys
-
-from active_learning_project.models.wide_resnet_28_10 import WideResNet28_10
+import matplotlib.pyplot as plt
 
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 
 from active_learning_project.models.resnet import ResNet34, ResNet50, ResNet101
+from active_learning_project.models.wide_resnet_28_10 import WideResNet28_10
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
     get_all_data_loader
-from active_learning_project.utils import remove_substr_from_keys, boolean_string, save_features, pytorch_evaluate
+from active_learning_project.utils import remove_substr_from_keys, boolean_string, save_features, pytorch_evaluate, \
+    convert_tensor_to_image
 from torchsummary import summary
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
-parser.add_argument('--dataset', default='cifar10', type=str, help='dataset: cifar10, cifar100, svhn')
+parser.add_argument('--dataset', default='tiny_imagenet', type=str, help='dataset: cifar10, cifar100, svhn, tiny_imagenet')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
-parser.add_argument('--net', default='resnet50', type=str, help='network architecture')
+parser.add_argument('--net', default='resnet34', type=str, help='network architecture')
 parser.add_argument('--activation', default='relu', type=str, help='network activation: relu or softplus')
 parser.add_argument('--checkpoint_dir', default='/Users/giladcohen/data/gilad/logs/adv_robustness/debug', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='300', type=int, help='number of epochs')
@@ -39,7 +40,7 @@ parser.add_argument('--factor', default=0.9, type=float, help='LR schedule facto
 parser.add_argument('--patience', default=3, type=int, help='LR schedule patience')
 parser.add_argument('--cooldown', default=0, type=int, help='LR cooldown')
 parser.add_argument('--val_size', default=0.05, type=float, help='Fraction of validation size')
-parser.add_argument('--n_workers', default=1, type=int, help='Data loading threads')
+parser.add_argument('--n_workers', default=0, type=int, help='Data loading threads')
 parser.add_argument('--metric', default='accuracy', type=str, help='metric to optimize. accuracy or sparsity')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
@@ -96,7 +97,7 @@ test_size  = len(testloader.dataset)
 print('==> Building model..')
 if args.net == 'resnet34':
     net = ResNet34(num_classes=len(classes), activation=args.activation)
-if args.net == 'resnet50':
+elif args.net == 'resnet50':
     net = ResNet50(num_classes=len(classes), activation=args.activation)
 elif args.net == 'resnet101':
     net = ResNet101(num_classes=len(classes), activation=args.activation)
@@ -362,3 +363,12 @@ if __name__ == "__main__":
     test()  # post test the final best model
     flush()
 
+exit(0)
+# debug
+# x_img = convert_tensor_to_image(inputs.detach().cpu().numpy())
+# for i in range(10):
+#     plt.imshow(x_img[i])
+#     plt.show()
+# labels = targets.detach().cpu().numpy()
+# for i in range(10):
+#     print(classes[labels[i]])
