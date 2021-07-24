@@ -29,11 +29,6 @@ class TinyImageNet(VisionDataset):
             downloaded again.
 
     """
-    meta = {
-        'filename': 'batches.meta',
-        'key': 'label_names',
-        'md5': '5ff9c542aee3614f3951f8cda6e48888',
-    }
 
     def __init__(
             self,
