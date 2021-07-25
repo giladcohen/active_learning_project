@@ -22,7 +22,7 @@ from active_learning_project.datasets.my_cifar10 import MyCIFAR10
 from active_learning_project.datasets.my_cifar100 import MyCIFAR100
 from active_learning_project.datasets.my_svhn import MySVHN
 from active_learning_project.datasets.tiny_imagenet import TinyImageNet
-
+from active_learning_project.utils import get_image_shape
 from art.utils import get_labels_np_array, to_categorical
 
 BASE_DATASET_DIR = '/Users/giladcohen/data/dataset'
@@ -42,21 +42,18 @@ def dataset_factory(dataset):
     else:
         raise AssertionError('dataset {} is not supported'.format(dataset))
 
-    if dataset in ['cifar10', 'cifar100']:
+    img_size = get_image_shape(dataset)[0]
+    pad_size = int(img_size / 8)
+
+    if dataset in ['cifar10', 'cifar100', 'tiny_imagenet']:
         train_transform = transforms.Compose([
-            transforms.RandomCrop(32, padding=4),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-        ])
-    elif dataset == 'tiny_imagenet':
-        train_transform = transforms.Compose([
-            transforms.RandomCrop(64, padding=8),
+            transforms.RandomCrop(img_size, padding=pad_size),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
         ])
     else:
         train_transform = transforms.Compose([
-            transforms.RandomCrop(32, padding=4),
+            transforms.RandomCrop(img_size, padding=pad_size),
             transforms.ToTensor(),
         ])
 

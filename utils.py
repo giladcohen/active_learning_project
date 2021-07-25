@@ -11,6 +11,7 @@ import torch
 import numpy as np
 from tqdm import tqdm
 import pickle
+from typing import Tuple
 import logging
 from functools import wraps
 import matplotlib.pyplot as plt
@@ -500,3 +501,11 @@ def inverse_map(x: dict) -> dict:
     for k, v in x.items():
         inv_map[v] = k
     return inv_map
+
+def get_image_shape(dataset: str) -> Tuple[int, int, int]:
+    if dataset in ['cifar10', 'cifar100', 'svhn']:
+        return 32, 32, 3
+    elif dataset == 'tiny_imagenet':
+        return 64, 64, 3
+    else:
+        raise AssertionError('Unsupported dataset {}'.format(dataset))

@@ -23,11 +23,12 @@ from active_learning_project.models.resnet import ResNet34, ResNet50, ResNet101
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
     get_all_data_loader
 from active_learning_project.utils import remove_substr_from_keys, boolean_string, save_features, pytorch_evaluate, \
-    set_logger
+    set_logger, get_image_shape, get_model
+from active_learning_project.models.utils import get_strides, get_conv1_params
 from TRADES.trades import trades_loss
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
-parser.add_argument('--dataset', default='cifar10', type=str, help='dataset: cifar10, cifar100, svhn')
+parser.add_argument('--dataset', default='cifar10', type=str, help='dataset: cifar10, cifar100, svhn, tiny_imagenet')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
@@ -41,7 +42,7 @@ parser.add_argument('--patience', default=3, type=int, help='LR schedule patienc
 parser.add_argument('--cooldown', default=0, type=int, help='LR cooldown')
 parser.add_argument('--val_size', default=0.05, type=float, help='Fraction of validation size')
 parser.add_argument('--n_workers', default=4, type=int, help='Data loading threads')
-parser.add_argument('--metric', default='loss', type=str, help='metric to optimize. accuracy or loss')
+parser.add_argument('--metric', default='accuracy', type=str, help='metric to optimize. accuracy or loss')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
 # TRADES params
@@ -93,6 +94,7 @@ testloader = get_test_loader(
     pin_memory=device=='cuda'
 )
 
+img_shape = get_image_shape(args.dataset)
 classes = trainloader.dataset.classes
 train_size = len(trainloader.dataset)
 val_size   = len(valloader.dataset)
@@ -100,19 +102,11 @@ test_size  = len(testloader.dataset)
 
 # Model
 logger.info('==> Building model..')
-if args.net == 'resnet34':
-    net = ResNet34(num_classes=len(classes), activation=args.activation)
-elif args.net == 'resnet50':
-    net = ResNet50(num_classes=len(classes), activation=args.activation)
-elif args.net == 'resnet101':
-    net = ResNet101(num_classes=len(classes), activation=args.activation)
-elif args.net == 'wrn28_10':
-    net = WideResNet28_10(num_classes=len(classes), activation=args.activation)
-else:
-    raise AssertionError("network {} is unknown".format(args.net))
-
+conv1 = get_conv1_params(args.dataset)
+strides = get_strides(args.dataset)
+net = get_model(args.net)(num_classes=len(classes), activation=args.activation, conv1=conv1, strides=strides)
 net = net.to(device)
-summary(net, (3, 32, 32))
+summary(net, (img_shape[-1], img_shape[0], img_shape[1]))
 
 if device == 'cuda':
     # net = torch.nn.DataParallel(net)
@@ -164,7 +158,7 @@ def train():
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
         outputs = net(inputs)
-        loss = trades_loss(net, inputs, targets, optimizer, args.step_size, args.epsilon, True)
+        loss = trades_loss(net, inputs, targets, optimizer, args.step_size, args.epsilon, is_training=True)
         loss.backward()
         optimizer.step()
 
@@ -206,7 +200,7 @@ def validate():
         for batch_idx, (inputs, targets) in enumerate(valloader):
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = net(inputs)
-            loss = trades_loss(net, inputs, targets, optimizer, args.step_size, args.epsilon, False)
+            loss = trades_loss(net, inputs, targets, optimizer, args.step_size, args.epsilon, is_training=False)
             val_loss += loss.item()
             predicted.extend(outputs['logits'].max(1)[1].cpu().numpy())
 
@@ -256,7 +250,7 @@ def test():
         for batch_idx, (inputs, targets) in enumerate(testloader):
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = net(inputs)
-            loss = trades_loss(net, inputs, targets, optimizer, args.step_size, args.epsilon, False)
+            loss = trades_loss(net, inputs, targets, optimizer, args.step_size, args.epsilon, is_training=False)
             test_loss += loss.item()
             predicted.extend(outputs['logits'].max(1)[1].cpu().numpy())
 

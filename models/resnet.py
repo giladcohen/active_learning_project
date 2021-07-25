@@ -67,7 +67,7 @@ class Bottleneck(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, block, num_blocks, num_classes=10, activation='relu'):
+    def __init__(self, block, num_blocks, num_classes=10, activation='relu', conv1=None, strides=None):
         super(ResNet, self).__init__()
         self.in_planes = 64
         if activation == 'relu':
@@ -77,12 +77,13 @@ class ResNet(nn.Module):
         else:
             raise AssertionError('activation function {} was not expected'.format(activation))
 
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=conv1['kernel_size'], stride=conv1['stride'],
+                               padding=conv1['padding'], bias=False)
         self.bn1 = nn.BatchNorm2d(64)
-        self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
-        self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=2)
-        self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=2)
-        self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2)
+        self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=strides[0])
+        self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=strides[1])
+        self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=strides[2])
+        self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=strides[3])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.linear = nn.Linear(512*block.expansion, num_classes)
 
@@ -112,20 +113,20 @@ class ResNet(nn.Module):
         return net
 
 
-def ResNet18(num_classes, activation):
-    return ResNet(BasicBlock, [2,2,2,2], num_classes, activation)
+def ResNet18(num_classes, activation, conv1, strides):
+    return ResNet(BasicBlock, [2,2,2,2], num_classes, activation, conv1, strides)
 
-def ResNet34(num_classes, activation):
-    return ResNet(BasicBlock, [3,4,6,3], num_classes, activation)
+def ResNet34(num_classes, activation, conv1, strides):
+    return ResNet(BasicBlock, [3,4,6,3], num_classes, activation, conv1, strides)
 
-def ResNet50(num_classes, activation):
-    return ResNet(Bottleneck, [3,4,6,3], num_classes, activation)
+def ResNet50(num_classes, activation, conv1, strides):
+    return ResNet(Bottleneck, [3,4,6,3], num_classes, activation, conv1, strides)
 
-def ResNet101(num_classes, activation):
-    return ResNet(Bottleneck, [3,4,23,3], num_classes, activation)
+def ResNet101(num_classes, activation, conv1, strides):
+    return ResNet(Bottleneck, [3,4,23,3], num_classes, activation, conv1, strides)
 
-def ResNet152(num_classes, activation):
-    return ResNet(Bottleneck, [3,8,36,3], num_classes, activation)
+def ResNet152(num_classes, activation, conv1, strides):
+    return ResNet(Bottleneck, [3,8,36,3], num_classes, activation, conv1, strides)
 
 def test():
     net = ResNet18()
