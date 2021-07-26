@@ -26,8 +26,8 @@ from active_learning_project.models.wide_resnet_28_10 import WideResNet28_10
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
     get_all_data_loader
 from active_learning_project.utils import remove_substr_from_keys, boolean_string, save_features, pytorch_evaluate, \
-    convert_tensor_to_image, get_image_shape, get_model, set_logger
-from active_learning_project.models.utils import get_strides, get_conv1_params
+    convert_tensor_to_image, get_image_shape, set_logger
+from active_learning_project.models.utils import get_strides, get_conv1_params, get_model
 from TRADES.trades import trades_loss
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')

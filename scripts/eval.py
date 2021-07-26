@@ -24,9 +24,9 @@ from active_learning_project.datasets.train_val_test_data_loaders import get_tes
 from active_learning_project.datasets.tta_dataset import TTADataset
 from active_learning_project.datasets.tta_transforms import get_tta_transforms
 from active_learning_project.datasets.utils import get_mini_dataset_inds, get_ensemble_dir, get_dump_dir
-from active_learning_project.utils import boolean_string, pytorch_evaluate, set_logger, get_model, get_ensemble_paths, \
+from active_learning_project.utils import boolean_string, pytorch_evaluate, set_logger, get_ensemble_paths, \
     majority_vote, convert_tensor_to_image, print_Linf_dists, calc_attack_rate, get_image_shape
-from active_learning_project.models.utils import get_strides, get_conv1_params
+from active_learning_project.models.utils import get_strides, get_conv1_params, get_model
 from art.classifiers import PyTorchClassifier
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
