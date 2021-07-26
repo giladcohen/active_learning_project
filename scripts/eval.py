@@ -31,6 +31,7 @@ from art.classifiers import PyTorchClassifier
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='checkpoint path file name')
 parser.add_argument('--method', default='simple', type=str, help='simple, ensemble, tta, random_forest')
 parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attack directory, or None for normal images')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
@@ -62,7 +63,7 @@ if is_attacked:
     with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'r') as f:
         attack_args = json.load(f)
     targeted = attack_args['targeted']
-CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
+CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, args.checkpoint_file)
 batch_size = args.batch_size
 
 DUMP_DIR = get_dump_dir(args.checkpoint_dir, args.dump_dir, args.attack_dir)
@@ -97,9 +98,11 @@ logger.info('==> Building model..')
 conv1 = get_conv1_params(dataset)
 strides = get_strides(dataset)
 global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
+if 'best_net' in global_state:
+    global_state = global_state['best_net']
 net = get_model(train_args['net'])(num_classes=len(classes), activation=train_args['activation'], conv1=conv1, strides=strides)
 net = net.to(device)
-net.load_state_dict(global_state['best_net'])
+net.load_state_dict(global_state)
 net.eval()  # frozen
 # summary(net, (img_shape[-1], img_shape[0], img_shape[1]))
 if device == 'cuda':
