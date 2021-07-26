@@ -25,7 +25,8 @@ from active_learning_project.datasets.tta_dataset import TTADataset
 from active_learning_project.datasets.tta_transforms import get_tta_transforms
 from active_learning_project.datasets.utils import get_mini_dataset_inds, get_ensemble_dir, get_dump_dir
 from active_learning_project.utils import boolean_string, pytorch_evaluate, set_logger, get_model, get_ensemble_paths, \
-    majority_vote, convert_tensor_to_image, print_Linf_dists, calc_attack_rate
+    majority_vote, convert_tensor_to_image, print_Linf_dists, calc_attack_rate, get_image_shape
+from active_learning_project.models.utils import get_strides, get_conv1_params
 from art.classifiers import PyTorchClassifier
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
@@ -88,22 +89,26 @@ test_loader = get_test_loader(
     pin_memory=device=='cuda')
 X_test = get_normalized_tensor(test_loader, batch_size)
 y_test = np.asarray(test_loader.dataset.targets)
+img_shape = get_image_shape(dataset)
 classes = test_loader.dataset.classes
 
-# get network:
+# Model
+logger.info('==> Building model..')
+conv1 = get_conv1_params(dataset)
+strides = get_strides(dataset)
 global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
-net = get_model(train_args['net'])(num_classes=len(classes), activation=train_args['activation'])
+net = get_model(train_args['net'])(num_classes=len(classes), activation=train_args['activation'], conv1=conv1, strides=strides)
 net = net.to(device)
 net.load_state_dict(global_state['best_net'])
 net.eval()  # frozen
-# summary(net, (3, 32, 32))
+# summary(net, (img_shape[-1], img_shape[0], img_shape[1]))
 if device == 'cuda':
     # net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
 
 # setting classifier
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=None,
-                               optimizer=None, input_shape=(3, 32, 32), nb_classes=len(classes))
+                               optimizer=None, input_shape=(img_shape[-1], img_shape[0], img_shape[1]), nb_classes=len(classes))
 
 y_gt = y_test[test_inds]
 y_orig_norm_preds = classifier.predict(X_test[test_inds], batch_size).argmax(axis=1)
