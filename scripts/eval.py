@@ -88,9 +88,9 @@ test_loader = get_test_loader(
     batch_size=batch_size,
     num_workers=1,
     pin_memory=device=='cuda')
-X_test = get_normalized_tensor(test_loader, batch_size)
-y_test = np.asarray(test_loader.dataset.targets)
 img_shape = get_image_shape(dataset)
+X_test = get_normalized_tensor(test_loader, img_shape, batch_size)
+y_test = np.asarray(test_loader.dataset.targets)
 classes = test_loader.dataset.classes
 
 # Model
@@ -104,14 +104,14 @@ net = get_model(train_args['net'])(num_classes=len(classes), activation=train_ar
 net = net.to(device)
 net.load_state_dict(global_state)
 net.eval()  # frozen
-# summary(net, (img_shape[-1], img_shape[0], img_shape[1]))
+# summary(net, (img_shape[2], img_shape[0], img_shape[1]))
 if device == 'cuda':
     # net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
 
 # setting classifier
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=None,
-                               optimizer=None, input_shape=(img_shape[-1], img_shape[0], img_shape[1]), nb_classes=len(classes))
+                               optimizer=None, input_shape=(img_shape[2], img_shape[0], img_shape[1]), nb_classes=len(classes))
 
 y_gt = y_test[test_inds]
 y_orig_norm_preds = classifier.predict(X_test[test_inds], batch_size).argmax(axis=1)

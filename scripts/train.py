@@ -122,7 +122,7 @@ conv1 = get_conv1_params(args.dataset)
 strides = get_strides(args.dataset)
 net = get_model(args.net)(num_classes=len(classes), activation=args.activation, conv1=conv1, strides=strides)
 net = net.to(device)
-summary(net, (img_shape[-1], img_shape[0], img_shape[1]))
+summary(net, (img_shape[2], img_shape[0], img_shape[1]))
 
 if device == 'cuda':
     # net = torch.nn.DataParallel(net)

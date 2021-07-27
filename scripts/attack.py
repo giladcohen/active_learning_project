@@ -94,7 +94,7 @@ net = get_model(train_args['net'])(num_classes=len(classes), activation=train_ar
 net = net.to(device)
 net.load_state_dict(global_state)
 net.eval()
-# summary(net, (img_shape[-1], img_shape[0], img_shape[1]))
+# summary(net, (img_shape[2], img_shape[0], img_shape[1]))
 if device == 'cuda':
     # net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
@@ -107,11 +107,11 @@ optimizer = optim.SGD(
     weight_decay=0.0,  # train_args['wd'],
     nesterov=train_args['mom'] > 0)
 
-X_test = get_normalized_tensor(testloader, batch_size)
+X_test = get_normalized_tensor(testloader, img_shape, batch_size)
 y_test = np.asarray(testloader.dataset.targets)
 
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
-                               optimizer=optimizer, input_shape=(img_shape[-1], img_shape[0], img_shape[1]), nb_classes=len(classes))
+                               optimizer=optimizer, input_shape=(img_shape[2], img_shape[0], img_shape[1]), nb_classes=len(classes))
 
 y_test_logits = classifier.predict(X_test, batch_size=batch_size)
 y_test_preds = y_test_logits.argmax(axis=1)
