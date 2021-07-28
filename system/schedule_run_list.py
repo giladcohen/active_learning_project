@@ -3,6 +3,13 @@ from time import time, sleep
 import subprocess as sp
 import os
 import yaml
+import argparse
+
+parser = argparse.ArgumentParser(description='Scheduling commands in order')
+parser.add_argument('-c', default='active_learning_project/system/commands.yml', type=str, help='commands (.yml) path')
+parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
+parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
+args = parser.parse_args()
 
 def run_cmd(cmd):
     print('start running command: \n{}'.format(cmd))
@@ -14,7 +21,7 @@ SAFE_TIME = 40
 ALLOWED_GPUS_INDS = [0,1,2,3,4,5,6,7]
 # yml_command_file = os.path.join(os.path.dirname(__file__), 'commands.yml')
 #debug:
-yml_command_file = 'active_learning_project/system/commands.yml'
+yml_command_file = args.c
 
 with open(yml_command_file) as f:
     d = yaml.load(f.read())
