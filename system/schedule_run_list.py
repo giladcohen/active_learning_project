@@ -7,6 +7,8 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Scheduling commands in order')
 parser.add_argument('-c', default='active_learning_project/system/commands.yml', type=str, help='commands (.yml) path')
+parser.add_argument('-gpus', nargs="+", type=int, help='gpus indices to use')
+
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 args = parser.parse_args()
@@ -18,7 +20,7 @@ def run_cmd(cmd):
 
 # buffer time for running different commands on the same GPU
 SAFE_TIME = 40
-ALLOWED_GPUS_INDS = [0,1,2,3,4,5,6,7]
+ALLOWED_GPUS_INDS = args.gpus
 # yml_command_file = os.path.join(os.path.dirname(__file__), 'commands.yml')
 #debug:
 yml_command_file = args.c
