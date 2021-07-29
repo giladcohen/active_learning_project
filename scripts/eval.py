@@ -32,10 +32,10 @@ from art.classifiers import PyTorchClassifier
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='checkpoint path file name')
-parser.add_argument('--method', default='tta', type=str, help='simple, ensemble, tta, random_forest')
+parser.add_argument('--method', default='simple', type=str, help='simple, ensemble, tta, random_forest')
 parser.add_argument('--attack_dir', default='', type=str, help='attack directory, or None for normal images')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--num_workers', default=0, type=int, help='Data loading threads')
+parser.add_argument('--num_workers', default=10, type=int, help='Data loading threads')
 
 # tta method params:
 parser.add_argument('--tta_size', default=256, type=int, help='number of test-time augmentations')
@@ -46,7 +46,7 @@ parser.add_argument('--clip_inputs', action='store_true', help='clipping TTA inp
 parser.add_argument('--overwrite', action='store_true', help='force calculating and saving TTA')
 
 # dump
-parser.add_argument('--dump_dir', default='tta_debug', type=str, help='dump dir for logs and data')
+parser.add_argument('--dump_dir', default=None, type=str, help='dump dir for logs and data')
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 
@@ -199,7 +199,9 @@ if is_attacked:
 
 exit(0)
 # debug:
-x_img = convert_tensor_to_image(x.detach().cpu().numpy())
+# clipping
+x_clipped = torch.clip(x, 0.0, 1.0)
+x_img = convert_tensor_to_image(x_clipped.detach().cpu().numpy())
 for i in range(0, 5):
     plt.imshow(x_img[i])
     plt.show()
