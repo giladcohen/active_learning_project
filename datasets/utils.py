@@ -13,6 +13,6 @@ def get_ensemble_dir(dataset: str, net: str):
 
 def get_dump_dir(checkpoint_dir, tta_dir, attack_dir):
     if attack_dir == '':
-        return os.path.join(checkpoint_dir, tta_dir)
+        return os.path.join(checkpoint_dir, 'normal', tta_dir)
     else:
         return os.path.join(checkpoint_dir, attack_dir, tta_dir)

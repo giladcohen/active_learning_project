@@ -25,7 +25,7 @@ def get_acc_from_log(file: str):
         for line in f:
             if 'INFO Test accuracy:' in line:
                 acc = float(line.split('accuracy: ')[1].split('%')[0])
-    # assert acc is not None
+    assert acc is not None
     return acc
 
 
@@ -34,6 +34,10 @@ CHECKPOINT_ROOT = '/data/gilad/logs/adv_robustness'
 datasets = ['cifar10', 'cifar100', 'svhn']
 attacks = ['PGD', 'Deepfool', 'CW']
 tta_size_vec = [4, 8, 16, 32, 64, 128, 256, 512, 1024]
+tta_size_ext_vec = []
+data_ext = {}
+for size in tta_size_vec:
+    tta_size_ext_vec.extend([size] * num_experiments)
 
 data = {}
 for dataset in datasets:
@@ -55,21 +59,19 @@ for dataset in datasets:
                 data[dataset][attack][tta_size].append(acc)
             data[dataset][attack][tta_size] = np.asarray(data[dataset][attack][tta_size])
 
+for dataset in datasets:
+    for attack in attacks:
+        data_ext[attack] = []
+        for size in tta_size_vec:
+            data_ext[attack].extend(data[dataset][attack][size])
 
-dataset = 'svhn'
-attack = 'CW'
-tta_size_ext_vec = []
-data_ext = []
-for size in tta_size_vec:
-    tta_size_ext_vec.extend([size] * num_experiments)
-    data_ext.extend(data[dataset][attack][size])
+    d = {'tta_size': tta_size_ext_vec}
+    for attack in attacks:
+        d.update({attack: data_ext[attack]})
+    df = pd.DataFrame(d)
 
-d = {'tta_size': tta_size_ext_vec, 'accuracy': data_ext}
-df = pd.DataFrame(d, columns=['tta_size', 'accuracy'])
-
-g = sns.lineplot(x='tta_size', y='accuracy', data=df, ci='sd')
-g.set(xscale='log', xlabel='TTA size', ylabel='Accuracy [%]')
-g.set_xticks(tta_size_vec)
-g.set_xticklabels(tta_size_vec)
-g.set()
-plt.show()
+    g = sns.lineplot(x='tta_size', y='value', hue='variable', data=pd.melt(df, ['tta_size']), ci='sd')
+    g.set(xscale='log', xlabel='TTA size', ylabel='Accuracy [%]', title=dataset)
+    g.set_xticks(tta_size_vec)
+    g.set_xticklabels(tta_size_vec)
+    plt.show()
