@@ -6,6 +6,10 @@ import os
 import matplotlib.pyplot as plt
 import sys
 import numpy as np
+import pandas as pd
+import seaborn as sns
+sns.set_style("whitegrid")
+
 
 def attack_to_dir(attack: str):
     if attack == 'PGD':
@@ -16,12 +20,12 @@ def attack_to_dir(attack: str):
         return 'cw_targeted_Linf_eps_0.031'
 
 def get_acc_from_log(file: str):
-    acc = None
+    acc = np.nan
     with open(file, 'r') as f:
         for line in f:
             if 'INFO Test accuracy:' in line:
                 acc = float(line.split('accuracy: ')[1].split('%')[0])
-    assert acc is not None
+    # assert acc is not None
     return acc
 
 
@@ -40,30 +44,32 @@ for dataset in datasets:
             data[dataset][attack][tta_size] = []
             for n in range(1, num_experiments + 1):
                 file = os.path.join(CHECKPOINT_ROOT, dataset, 'resnet34', 'regular', 'resnet34_00', attack_to_dir(attack), 'tta_size_{}_exp{}'.format(tta_size, n), 'log.log')
-                if (dataset == 'cifar100' and attack == 'CW' and tta_size == 1024 and n == 3) or \
-                   (dataset == 'svhn' and attack == 'CW' and tta_size == 512 and n == 3) or \
-                   (dataset == 'svhn' and attack == 'CW' and tta_size == 1024 and n == 2) or \
-                   (dataset == 'svhn' and attack == 'CW' and tta_size == 1024 and n == 3):
-                    continue
-                else:
-                    acc = get_acc_from_log(file)
-                    acc = np.round(acc, 2)
-                    data[dataset][attack][tta_size].append(acc)
+                # if (dataset == 'cifar100' and attack == 'CW' and tta_size == 1024 and n == 3) or \
+                #    (dataset == 'svhn' and attack == 'CW' and tta_size == 512 and n == 3) or \
+                #    (dataset == 'svhn' and attack == 'CW' and tta_size == 1024 and n == 2) or \
+                #    (dataset == 'svhn' and attack == 'CW' and tta_size == 1024 and n == 3):
+                #     continue
+                # else:
+                acc = get_acc_from_log(file)
+                acc = np.round(acc, 2)
+                data[dataset][attack][tta_size].append(acc)
             data[dataset][attack][tta_size] = np.asarray(data[dataset][attack][tta_size])
 
 
+dataset = 'svhn'
+attack = 'CW'
+tta_size_ext_vec = []
+data_ext = []
+for size in tta_size_vec:
+    tta_size_ext_vec.extend([size] * num_experiments)
+    data_ext.extend(data[dataset][attack][size])
 
+d = {'tta_size': tta_size_ext_vec, 'accuracy': data_ext}
+df = pd.DataFrame(d, columns=['tta_size', 'accuracy'])
 
-
-
-# data['cifar10'] = {}
-# data['cifar100'] = {}
-# data['svhn'] = {}
-#
-# data['cifar10']['pgd']  = [83.60, 85.72, 86.08, 86.88, 86.48, 87.12, 86.84, 86.80, 86.80]
-# data['cifar100']['pgd'] = [58.08, 60.52, 62.00, 62.24, 62.92, 62.56, 62.88, 63.00, 62.84]
-# data['svhn']['pgd']     = [86.88, 87.96, 88.88, 89.56, 89.68, 89.60, 89.80, 89.64, 89.68]
-#
-#
-#
-# data['cifar10']['cw']  = [77.56, 80.4, 80.52, 80.72, 81.36, 81.56, ]
+g = sns.lineplot(x='tta_size', y='accuracy', data=df, ci='sd')
+g.set(xscale='log', xlabel='TTA size', ylabel='Accuracy [%]')
+g.set_xticks(tta_size_vec)
+g.set_xticklabels(tta_size_vec)
+g.set()
+plt.show()
