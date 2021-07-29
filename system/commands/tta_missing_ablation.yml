@@ -1,0 +1,2 @@
+commands:
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00 --checkpoint_file ckpt.pth --method tta --attack_dir cw_targeted_Linf_eps_0.031 --tta_size 1024 --tta_output_dir tta_size_1024_exp3 --dump_dir tta_size_1024_exp3 --num_workers 10, 4600]

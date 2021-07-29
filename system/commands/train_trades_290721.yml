@@ -3,15 +3,15 @@
 # tiny_imagenet - resnet34/50/101
 
 commands:
-- [python active_learning_project/scripts/train.py  --dataset cifar10  --net resnet50    --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet50/adv_robust_trades       --num_workers 4   --metric accuracy   --adv_trades True   --epochs 101,  48300]
-- [python active_learning_project/scripts/train.py  --dataset cifar10  --net resnet101   --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet101/adv_robust_trades      --num_workers 4   --metric accuracy   --adv_trades True   --epochs 101,  48300]
+  - [python active_learning_project/scripts/train.py  --dataset cifar10  --net resnet50    --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet50/adv_robust_trades       --num_workers 4   --metric accuracy   --adv_trades True   --epochs 101,  48300]
+  - [python active_learning_project/scripts/train.py  --dataset cifar10  --net resnet101   --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet101/adv_robust_trades      --num_workers 4   --metric accuracy   --adv_trades True   --epochs 101,  48300]
 
-- [python active_learning_project/scripts/train.py  --dataset cifar100 --net resnet50    --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet50/adv_robust_trades      --num_workers 4   --metric accuracy   --adv_trades True   --epochs 101,  48300]
-- [python active_learning_project/scripts/train.py  --dataset cifar100 --net resnet101   --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_trades     --num_workers 4   --metric accuracy   --adv_trades True   --epochs 101,  48300]
+  - [python active_learning_project/scripts/train.py  --dataset cifar100 --net resnet50    --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet50/adv_robust_trades      --num_workers 4   --metric accuracy   --adv_trades True   --epochs 101,  48300]
+  - [python active_learning_project/scripts/train.py  --dataset cifar100 --net resnet101   --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_trades     --num_workers 4   --metric accuracy   --adv_trades True   --epochs 101,  48300]
 
-- [python active_learning_project/scripts/train.py  --dataset svhn     --net resnet50    --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet50/adv_robust_trades          --num_workers 4   --metric accuracy   --adv_trades True   --epochs 101,  48300]
-- [python active_learning_project/scripts/train.py  --dataset svhn     --net resnet101   --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/adv_robust_trades         --num_workers 4   --metric accuracy   --adv_trades True   --epochs 101,  48300]
+  - [python active_learning_project/scripts/train.py  --dataset svhn     --net resnet50    --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet50/adv_robust_trades          --num_workers 4   --metric accuracy   --adv_trades True   --epochs 101,  48300]
+  - [python active_learning_project/scripts/train.py  --dataset svhn     --net resnet101   --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/adv_robust_trades         --num_workers 4   --metric accuracy   --adv_trades True   --epochs 101,  48300]
 
-- [python active_learning_project/scripts/train.py  --dataset tiny_imagenet     --net resnet34    --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_trades          --num_workers 4   --metric accuracy   --adv_trades True   --epochs 101,  48300]
-- [python active_learning_project/scripts/train.py  --dataset tiny_imagenet     --net resnet50    --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/adv_robust_trades          --num_workers 4   --metric accuracy   --adv_trades True   --epochs 101,  48300]
-- [python active_learning_project/scripts/train.py  --dataset tiny_imagenet     --net resnet101   --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet101/adv_robust_trades         --num_workers 4   --metric accuracy   --adv_trades True   --epochs 101,  48300]
+  - [python active_learning_project/scripts/train.py  --dataset tiny_imagenet     --net resnet34    --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_trades          --num_workers 4   --metric accuracy   --adv_trades True   --epochs 101,  48300]
+  - [python active_learning_project/scripts/train.py  --dataset tiny_imagenet     --net resnet50    --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/adv_robust_trades          --num_workers 4   --metric accuracy   --adv_trades True   --epochs 101,  48300]
+  - [python active_learning_project/scripts/train.py  --dataset tiny_imagenet     --net resnet101   --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet101/adv_robust_trades         --num_workers 4   --metric accuracy   --adv_trades True   --epochs 101,  48300]
