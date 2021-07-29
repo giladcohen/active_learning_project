@@ -30,15 +30,15 @@ from active_learning_project.models.utils import get_strides, get_conv1_params, 
 from art.classifiers import PyTorchClassifier
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='checkpoint path file name')
-parser.add_argument('--method', default='simple', type=str, help='simple, ensemble, tta, random_forest')
-parser.add_argument('--attack_dir', default='cw_targeted', type=str, help='attack directory, or None for normal images')
+parser.add_argument('--method', default='tta', type=str, help='simple, ensemble, tta, random_forest')
+parser.add_argument('--attack_dir', default='', type=str, help='attack directory, or None for normal images')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--num_workers', default=4, type=int, help='Data loading threads')
+parser.add_argument('--num_workers', default=0, type=int, help='Data loading threads')
 
 # tta method params:
-parser.add_argument('--tta_size', default=1024, type=int, help='number of test-time augmentations')
+parser.add_argument('--tta_size', default=256, type=int, help='number of test-time augmentations')
 parser.add_argument('--gaussian_std', default=0.005, type=float, help='Standard deviation of Gaussian noise')  # was 0.0125
 parser.add_argument('--tta_output_dir', default='tta_debug', type=str, help='The dir to dump the tta results for further use')
 parser.add_argument('--soft_transforms', action='store_true', help='applying mellow transforms')
@@ -46,7 +46,7 @@ parser.add_argument('--clip_inputs', action='store_true', help='clipping TTA inp
 parser.add_argument('--overwrite', action='store_true', help='force calculating and saving TTA')
 
 # dump
-parser.add_argument('--dump_dir', default=None, type=str, help='dump dir for logs and data')
+parser.add_argument('--dump_dir', default='tta_debug', type=str, help='dump dir for logs and data')
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 

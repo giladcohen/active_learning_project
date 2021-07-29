@@ -37,7 +37,7 @@ def get_tta_transforms(dataset: str, gaussian_std: float=0.005, soft=False, clip
             fillcolor=None
         ),
         transforms.GaussianBlur(kernel_size=5, sigma=[0.001, 0.25] if soft else [0.001, 0.5]),
-        transforms.CenterCrop(size=32),
+        transforms.CenterCrop(size=n_pixels),
         transforms.RandomHorizontalFlip(p=p_hflip),
         my_transforms.GaussianNoise(0, gaussian_std),
         my_transforms.Clip(clip_min, clip_max)
