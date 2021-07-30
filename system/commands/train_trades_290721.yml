@@ -6,7 +6,7 @@ commands:
   # resnet34
   - [python active_learning_project/scripts/train.py  --dataset cifar10         --net resnet34    --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades        --num_workers 5   --metric accuracy   --adv_trades True   --epochs 300,  48300]
   - [python active_learning_project/scripts/train.py  --dataset cifar100        --net resnet34    --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_trades       --num_workers 5   --metric accuracy   --adv_trades True   --epochs 300,  48300]
-  - [python active_learning_project/scripts/train.py  --dataset svhn            --net resnet34    --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust_trades           --num_workers 5   --metric accuracy   --adv_trades True   --epochs 100,  48300]
+#  - [python active_learning_project/scripts/train.py  --dataset svhn            --net resnet34    --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust_trades           --num_workers 5   --metric accuracy   --adv_trades True   --epochs 100,  48300]
   - [python active_learning_project/scripts/train.py  --dataset tiny_imagenet   --net resnet34    --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_trades  --num_workers 5   --metric accuracy   --adv_trades True   --epochs 300,  48300]
 
   # resnet50
