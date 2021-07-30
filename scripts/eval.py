@@ -29,7 +29,7 @@ from active_learning_project.utils import boolean_string, pytorch_evaluate, set_
 from active_learning_project.models.utils import get_strides, get_conv1_params, get_model
 from art.classifiers import PyTorchClassifier
 
-parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
+parser = argparse.ArgumentParser(description='Evaluating robustness score')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='checkpoint path file name')
 parser.add_argument('--method', default='simple', type=str, help='simple, ensemble, tta, random_forest')
