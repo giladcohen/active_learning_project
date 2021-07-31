@@ -15,9 +15,8 @@ from typing import Tuple
 import logging
 from functools import wraps
 import matplotlib.pyplot as plt
-
 from numba import njit, jit
-
+from typing import Dict, List, Tuple
 import torch.nn as nn
 import torch.nn.init as init
 import torch.utils.data as data
@@ -98,7 +97,13 @@ def format_time(seconds):
 #         e = b + targets.shape[0]
 #         X[b:e] = inputs.cpu().numpy()
 
-def pytorch_evaluate(net: nn.Module, data_loader: data.DataLoader, fetch_keys: list, to_tensor: bool=False) -> tuple:
+def pytorch_evaluate(net: nn.Module, data_loader: data.DataLoader, fetch_keys: List,
+                     x_shape: Tuple = None, output_shapes: Dict = None, to_tensor: bool=False) -> Tuple:
+
+    if output_shapes is not None:
+        for key in fetch_keys:
+            assert key in output_shapes
+
     # Fetching inference outputs as numpy arrays
     batch_size = data_loader.batch_size
     num_samples = len(data_loader.dataset)
@@ -112,6 +117,8 @@ def pytorch_evaluate(net: nn.Module, data_loader: data.DataLoader, fetch_keys: l
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     for batch_idx, (inputs, targets) in enumerate(data_loader):
+        if x_shape is not None:
+            inputs = inputs.reshape(x_shape)
         inputs, targets = inputs.to(device), targets.to(device)
         outputs_dict = net(inputs)
         for key in fetch_keys:
@@ -120,6 +127,8 @@ def pytorch_evaluate(net: nn.Module, data_loader: data.DataLoader, fetch_keys: l
     # stack variables together
     for key in fetch_keys:
         fetch = np.vstack(fetches_dict[key])
+        if output_shapes is not None:
+            fetch = fetch.reshape(output_shapes[key])
         if to_tensor:
             fetch = torch.as_tensor(fetch, device=torch.device(device))
         fetches.append(fetch)
