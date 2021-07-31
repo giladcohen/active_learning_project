@@ -1,8 +1,11 @@
+import torch
 import numpy as np
 import PIL
 import torchvision.transforms as transforms
 import active_learning_project.datasets.my_transforms as my_transforms
-from active_learning_project.utils import get_image_shape
+from active_learning_project.utils import get_image_shape, pytorch_evaluate
+from active_learning_project.datasets.tta_dataset import TTADataset
+
 
 def get_tta_transforms(dataset: str, gaussian_std: float=0.005, soft=False, clip_inputs=False):
     img_shape = get_image_shape(dataset)
@@ -43,3 +46,21 @@ def get_tta_transforms(dataset: str, gaussian_std: float=0.005, soft=False, clip
         my_transforms.Clip(clip_min, clip_max)
     ])
     return tta_transforms
+
+def get_tta_logits(dataset, args, net, X, y, tta_size, num_classes):
+    """ Calculating the TTA output logits out of the inputs, transforms, to the tta_dir"""
+    tta_transforms = get_tta_transforms(dataset, args.gaussian_std, args.soft_transforms, args.clip_inputs)
+    tta_dataset = TTADataset(
+        torch.from_numpy(X),
+        torch.from_numpy(y),
+        tta_size,
+        transform=tta_transforms)
+    tta_loader = torch.utils.data.DataLoader(
+        tta_dataset, batch_size=1, shuffle=False,
+        num_workers=args.num_workers, pin_memory=torch.cuda.is_available())
+
+    with torch.no_grad():
+        tta_logits = pytorch_evaluate(net, tta_loader, ['logits'],
+                                      (-1,) + tta_dataset.img_shape, {'logits': (-1, tta_size, num_classes)})[0]
+
+    return tta_logits
