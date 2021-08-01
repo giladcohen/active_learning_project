@@ -34,7 +34,6 @@ parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='che
 parser.add_argument('--method', default='simple', type=str, help='simple, ensemble, tta, random_forest')
 parser.add_argument('--attack_dir', default='', type=str, help='attack directory, or None for normal images')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--num_workers', default=10, type=int, help='Data loading threads')
 
 # tta method params:
 parser.add_argument('--tta_size', default=256, type=int, help='number of test-time augmentations')
@@ -43,6 +42,7 @@ parser.add_argument('--tta_output_dir', default='tta', type=str, help='The dir t
 parser.add_argument('--soft_transforms', action='store_true', help='applying mellow transforms')
 parser.add_argument('--clip_inputs', action='store_true', help='clipping TTA inputs between 0 and 1')
 parser.add_argument('--overwrite', action='store_true', help='force calculating and saving TTA')
+parser.add_argument('--num_workers', default=10, type=int, help='Data loading threads for tta loader')
 
 # dump
 parser.add_argument('--dump_dir', default=None, type=str, help='dump dir for logs and data')
