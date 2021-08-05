@@ -1,4 +1,4 @@
-'''Test CIFAR10 robustness with PyTorch.'''
+'''Test robustness with PyTorch.'''
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -19,6 +19,7 @@ from sklearn.ensemble import RandomForestClassifier
 
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
+sys.path.insert(0, "./Set_Tree")
 
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
     get_loader_with_specific_inds, get_normalized_tensor
@@ -28,11 +29,12 @@ from active_learning_project.utils import boolean_string, pytorch_evaluate, set_
     majority_vote, convert_tensor_to_image, print_Linf_dists, calc_attack_rate, get_image_shape
 from active_learning_project.models.utils import get_strides, get_conv1_params, get_model
 from art.classifiers import PyTorchClassifier
+import settree
 
 parser = argparse.ArgumentParser(description='Evaluating robustness score')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='checkpoint path file name')
-parser.add_argument('--method', default='random_forest', type=str, help='simple, ensemble, tta, random_forest')
+parser.add_argument('--method', default='simple', type=str, help='simple, ensemble, tta, random_forest')
 parser.add_argument('--attack_dir', default='', type=str, help='attack directory, or None for normal images')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
@@ -43,7 +45,7 @@ parser.add_argument('--tta_output_dir', default='tta', type=str, help='The dir t
 parser.add_argument('--soft_transforms', action='store_true', help='applying mellow transforms')
 parser.add_argument('--clip_inputs', action='store_true', help='clipping TTA inputs between 0 and 1')
 parser.add_argument('--overwrite', action='store_true', help='force calculating and saving TTA')
-parser.add_argument('--num_workers', default=0, type=int, help='Data loading threads for tta loader')
+parser.add_argument('--num_workers', default=4, type=int, help='Data loading threads for tta loader')
 
 # dump
 parser.add_argument('--dump_dir', default=None, type=str, help='dump dir for logs and data')
@@ -174,8 +176,8 @@ elif args.method == 'tta':
     # y_preds = np.apply_along_axis(majority_vote, axis=1, arr=tta_preds)
     y_preds = tta_logits.sum(axis=1).argmax(axis=1)
 
-elif args.method == 'random_forest':
-    assert is_attacked, 'random_forest method can only be run with an attack'
+elif 'random_forest' in args.method:
+    assert is_attacked, 'method {} can only be run with an attack'.format(args.method)
 
     # load tta logits:
     tta_dir = get_dump_dir(args.checkpoint_dir, args.tta_output_dir, '')
@@ -184,39 +186,62 @@ elif args.method == 'random_forest':
     tta_logits_adv = np.load(os.path.join(tta_dir, 'tta_logits.npy'))
 
     # reshape to features:
-    print('cool')
     tta_logits_train_norm, tta_logits_test_norm = tta_logits_norm[val_inds], tta_logits_norm[test_inds]
     tta_logits_train_adv, tta_logits_test_adv = tta_logits_adv[val_inds], tta_logits_adv[test_inds]
 
-    features_train_norm = tta_logits_train_norm.reshape((val_size, -1))
-    features_test_norm = tta_logits_test_norm.reshape((test_size, -1))
-    features_train_adv = tta_logits_train_adv.reshape((val_size, -1))
-    features_test_adv = tta_logits_test_adv.reshape((test_size, -1))
+    if args.method == 'random_forest':
+        features_train_norm = tta_logits_train_norm.reshape((val_size, -1))
+        features_test_norm = tta_logits_test_norm.reshape((test_size, -1))
+        features_train_adv = tta_logits_train_adv.reshape((val_size, -1))
+        features_test_adv = tta_logits_test_adv.reshape((test_size, -1))
 
-    # concatenate features:
-    features_train = np.concatenate((features_train_norm, features_train_adv), axis=0)
-    # features_test = np.concatenate((features_test_norm, features_test_adv), axis=0)
-    labels_train = np.concatenate((y_test[val_inds], y_test[val_inds]), axis=0)
-    # labels_test = np.concatenate((y_test[test_inds], y_test[test_inds]), axis=0)
+        # concatenate features:
+        features_train = np.concatenate((features_train_norm, features_train_adv), axis=0)
+        # features_test = np.concatenate((features_test_norm, features_test_adv), axis=0)
+        labels_train = np.concatenate((y_test[val_inds], y_test[val_inds]), axis=0)
+        # labels_test = np.concatenate((y_test[test_inds], y_test[test_inds]), axis=0)
 
-    cls_rf = RandomForestClassifier(
-        n_estimators=1000,
-        criterion="gini",  # gini or entropy
-        max_depth=None, # The maximum depth of the tree. If None, then nodes are expanded until all leaves are pure or
-        # until all leaves contain less than min_samples_split samples.
-        bootstrap=True, # Whether bootstrap samples are used when building trees.
-        # If False, the whole datset is used to build each tree.
-        random_state=rand_gen,
-        verbose=1000,
-        n_jobs=args.num_workers
-    )
+        cls_rf = RandomForestClassifier(
+            n_estimators=1000,
+            criterion="gini",  # gini or entropy
+            max_depth=None, # The maximum depth of the tree. If None, then nodes are expanded until all leaves are pure or
+            # until all leaves contain less than min_samples_split samples.
+            bootstrap=True, # Whether bootstrap samples are used when building trees.
+            # If False, the whole datset is used to build each tree.
+            random_state=rand_gen,
+            verbose=1000,
+            n_jobs=args.num_workers
+        )
 
-    cls_rf.fit(features_train, labels_train)
-    y_preds_norm = cls_rf.predict(features_test_norm)
-    y_preds = cls_rf.predict(features_test_adv)
+        cls_rf.fit(features_train, labels_train)
+        y_preds_norm = cls_rf.predict(features_test_norm)
+        y_preds = cls_rf.predict(features_test_adv)
+
+    elif args.method == 'random_forest_sets':
+        # concatenate features:
+        features_train = np.concatenate((tta_logits_train_norm, tta_logits_train_adv), axis=0)
+        labels_train = np.concatenate((y_test[val_inds], y_test[val_inds]), axis=0)
+
+        set_data_train = settree.SetDataset(records=[features_train[i] for i in range(len(features_train))])
+        set_data_test_norm = settree.SetDataset(records=[tta_logits_test_norm[i] for i in range(len(tta_logits_test_norm))])
+        set_data_test_adv = settree.SetDataset(records=[tta_logits_test_adv[i] for i in range(len(tta_logits_test_adv))])
+
+        set_tree_model = settree.SetTree(classifier=True,
+                                         criterion='gini',
+                                         operations=settree.OPERATIONS,
+                                         use_attention_set=True,
+                                         use_attention_set_comp=True,
+                                         attention_set_limit=5,
+                                         max_depth=None,
+                                         random_state=rand_gen)
+        set_tree_model.fit(set_data_train, labels_train)
+        y_preds_norm = set_tree_model.predict(set_data_test_norm)
+        y_preds = set_tree_model.predict(set_data_test_adv)
+    else:
+        raise AssertionError('unknown method {}'.format(args.method))
 
     acc = np.mean(y_preds_norm == y_gt)
-    logger.info('New normal test accuracy of random forest: {}%'.format(100.0 * acc))
+    logger.info('New normal test accuracy of {}: {}%'.format(args.method, 100.0 * acc))
 
 # metrics calculation:
 acc = np.mean(y_preds == y_gt)
