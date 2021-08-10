@@ -185,6 +185,7 @@ def train():
     global global_state
     global global_step
     global epoch
+    global net
 
     net.train()
     train_loss = 0
@@ -226,6 +227,7 @@ def validate():
     global global_state
     global best_metric
     global epoch
+    global net
 
     net.eval()
     val_loss = 0
@@ -280,6 +282,7 @@ def test():
     global global_state
     global global_step
     global epoch
+    global net
 
     with torch.no_grad():
         # test
