@@ -15,9 +15,9 @@ import seaborn as sns
 sns.set_style("whitegrid")
 CHECKPOINT_ROOT = '/data/gilad/logs/adv_robustness'
 datasets = ['CIFAR10', 'CIFAR100', 'SVHN', 'Tiny-Imagenet']
-archs = ['Resnet34', 'Resnet50', 'Resnet101']
+archs = ['Resnet34']  #, 'Resnet50', 'Resnet101']
 attacks = ['', 'FGSM1', 'FGSM2', 'JSMA', 'PGD1', 'PGD2', 'Deepfool', 'CW_L2', 'CW_Linf']
-methods = ['simple', 'ensemble', 'TRADES', 'TTA', 'KATANA', 'TRADES+TTA', 'TRADES+KATANA']
+methods = ['simple', 'ensemble', 'TRADES', 'TTA', 'KATANA']  # 'TRADES+TTA', 'TRADES+KATANA']
 data = {}
 
 def dataset_to_dir(dataset: str):
@@ -121,6 +121,16 @@ def get_attack_success_from_log(log: str):
     ret = np.round(ret, 3)
     return ret
 
+def get_avg_attack_norm_from_log(log: str):
+    ret = None
+    with open(log, 'r') as f:
+        for line in f:
+            if 'INFO The adversarial attacks distance:' in line:
+                ret = float(line.split('E[L_inf]=')[1].split('%')[0])
+    assert ret is not None
+    ret = np.round(ret, 4)
+    return ret
+
 for dataset in datasets:
     data[dataset] = {}
     for arch in archs:
@@ -128,13 +138,16 @@ for dataset in datasets:
         for attack in attacks:
             data[dataset][arch][attack] = {}
             for method in methods:
-                data[dataset][arch][attack][method] = {'normal_acc': np.nan, 'adv_acc': np.nan, 'attack_rate':np.nan}
+                data[dataset][arch][attack][method] = \
+                    {'normal_acc': np.nan, 'adv_acc': np.nan, 'attack_rate': np.nan, 'avg_attack_norm': np.nan}
                 is_attacked = attack != ''
                 is_katana = 'KATANA' in method
                 if not is_attacked and is_katana:  # KATANA works only for attacked
                     continue
 
                 log = get_log(dataset, arch, attack, method)
+                print('for {}/{}/{}/{} , log: {}, we got:'.format(dataset, arch, attack, method, log))
+
                 if not is_attacked and method in ['simple', 'TRADES']:
                     data[dataset][arch][attack][method]['normal_acc'] = get_simple_acc_from_log(log)
                 elif not is_attacked:
@@ -142,9 +155,13 @@ for dataset in datasets:
                 elif not is_katana:
                     data[dataset][arch][attack][method]['adv_acc'] = get_acc_from_log(log)
                     data[dataset][arch][attack][method]['attack_rate'] = get_attack_success_from_log(log)
+                    data[dataset][arch][attack][method]['avg_attack_norm'] = get_avg_attack_norm_from_log(log)
                 else:
                     data[dataset][arch][attack][method]['normal_acc'] = get_normal_katana_acc_from_log(log)
                     data[dataset][arch][attack][method]['adv_acc'] = get_acc_from_log(log)
                     data[dataset][arch][attack][method]['attack_rate'] = get_attack_success_from_log(log)
+                    data[dataset][arch][attack][method]['avg_attack_norm'] = get_avg_attack_norm_from_log(log)
+
+                print(data[dataset][arch][attack][method])
                 print('cool')
 
