@@ -13,6 +13,12 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 sns.set_style("whitegrid")
+CHECKPOINT_ROOT = '/data/gilad/logs/adv_robustness'
+datasets = ['CIFAR10', 'CIFAR100', 'SVHN', 'Tiny-Imagenet']
+archs = ['Resnet34', 'Resnet50', 'Resnet101']
+attacks = ['', 'FGSM1', 'FGSM2', 'JSMA', 'PGD1', 'PGD2', 'Deepfool', 'CW_L2', 'CW_Linf']
+methods = ['simple', 'ensemble', 'TRADES', 'TTA', 'KATANA', 'TRADES+TTA', 'TRADES+KATANA']
+data = {}
 
 def dataset_to_dir(dataset: str):
     if dataset == 'CIFAR10':
@@ -24,8 +30,13 @@ def dataset_to_dir(dataset: str):
     elif dataset == 'Tiny-Imagenet':
         return 'tiny_imagenet'
 
-def attack_fo_dir(attack: str):
-    if attack == 'FGSM1':
+def arch_to_dir(arch: str):
+    return arch.lower()
+
+def attack_to_dir(attack: str):
+    if attack == '':
+        return 'normal'
+    elif attack == 'FGSM1':
         return 'fgsm_targeted'
     elif attack == 'FGSM2':
         return 'fgsm_targeted_eps_0.031'
@@ -42,15 +53,98 @@ def attack_fo_dir(attack: str):
     elif attack == 'CW_Linf':
         return 'cw_targeted_Linf_eps_0.031'
 
+def method_to_dir(method:str):
+    if method == 'simple':
+        return 'simple'
+    elif method == 'ensemble':
+        return 'ensemble'
+    elif method == 'TRADES':
+        return 'simple'
+    elif method == 'TTA':
+        return 'tta'
+    elif method == 'KATANA':
+        return 'random_forest'
+    elif method == 'TRADES+TTA':
+        return 'tta'
+    elif method == 'TRADES+KATANA':
+        return 'random_forest'
 
+def get_log(dataset: str, arch: str, attack: str, method: str):
+    path = os.path.join(CHECKPOINT_ROOT, dataset_to_dir(dataset))
+    path = os.path.join(path, arch_to_dir(arch))
+    if 'TRADES' in method:
+        path = os.path.join(path, 'adv_robust_trades')
+    else:
+        path = os.path.join(path, 'regular', arch_to_dir(arch) + '_00')
+    path = os.path.join(path, attack_to_dir(attack))
+    path = os.path.join(path, method_to_dir(method))
+    path = os.path.join(path, 'log.log')
+    return path
 
+def get_simple_acc_from_log(log: str):
+    ret = None
+    with open(log, 'r') as f:
+        for line in f:
+            if 'INFO Normal test accuracy:' in line:
+                ret = float(line.split('accuracy: ')[1].split('%')[0])
+    assert ret is not None
+    ret = np.round(ret, 2)
+    return ret
 
-datasets = ['CIFAR10', 'CIFAR100', 'SVHN', 'Tiny-Imagenet']
-attacks = ['FGSM1', 'FGSM2', 'JSMA', 'PGD1', 'PGD2', 'Deepfool', 'CW_L2', 'CW_Linf']
-method = ['simple', 'ensemble', 'TRADES', 'TTA', 'KATANA', 'TRADES+TTA', 'TARDES+KATANA']
+def get_normal_katana_acc_from_log(log: str):
+    ret = None
+    with open(log, 'r') as f:
+        for line in f:
+            if 'INFO New normal test accuracy of random_forest:' in line:
+                ret = float(line.split('random_forest: ')[1].split('%')[0])
+    assert ret is not None
+    ret = np.round(ret, 2)
+    return ret
 
+def get_acc_from_log(log: str):
+    ret = None
+    with open(log, 'r') as f:
+        for line in f:
+            if 'INFO Test accuracy:' in line:
+                ret = float(line.split('accuracy: ')[1].split('%')[0])
+    assert ret is not None
+    ret = np.round(ret, 2)
+    return ret
 
+def get_attack_success_from_log(log: str):
+    ret = None
+    with open(log, 'r') as f:
+        for line in f:
+            if 'INFO attack success rate:' in line:
+                ret = float(line.split('success rate: ')[1].split('%')[0])
+    assert ret is not None
+    ret = np.round(ret, 3)
+    return ret
 
+for dataset in datasets:
+    data[dataset] = {}
+    for arch in archs:
+        data[dataset][arch] = {}
+        for attack in attacks:
+            data[dataset][arch][attack] = {}
+            for method in methods:
+                data[dataset][arch][attack][method] = {'normal_acc': np.nan, 'adv_acc': np.nan, 'attack_rate':np.nan}
+                is_attacked = attack != ''
+                is_katana = 'KATANA' in method
+                if not is_attacked and is_katana:  # KATANA works only for attacked
+                    continue
 
-
+                log = get_log(dataset, arch, attack, method)
+                if not is_attacked and method in ['simple', 'TRADES']:
+                    data[dataset][arch][attack][method]['normal_acc'] = get_simple_acc_from_log(log)
+                elif not is_attacked:
+                    data[dataset][arch][attack][method]['normal_acc'] = get_acc_from_log(log)
+                elif not is_katana:
+                    data[dataset][arch][attack][method]['adv_acc'] = get_acc_from_log(log)
+                    data[dataset][arch][attack][method]['attack_rate'] = get_attack_success_from_log(log)
+                else:
+                    data[dataset][arch][attack][method]['normal_acc'] = get_normal_katana_acc_from_log(log)
+                    data[dataset][arch][attack][method]['adv_acc'] = get_acc_from_log(log)
+                    data[dataset][arch][attack][method]['attack_rate'] = get_attack_success_from_log(log)
+                print('cool')
 
