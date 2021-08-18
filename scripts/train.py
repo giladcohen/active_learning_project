@@ -347,6 +347,7 @@ def flush():
     train_writer.flush()
     val_writer.flush()
     test_writer.flush()
+    logger.handlers[0].flush()
 
 if __name__ == "__main__":
     if args.resume:

@@ -251,6 +251,8 @@ if is_attacked:
     attack_rate = calc_attack_rate(y_preds, y_orig_norm_preds, y_gt)
     logger.info('attack success rate: {}%'.format(100.0 * attack_rate))
 
+logger.handlers[0].flush()
+
 exit(0)
 # debug:
 # clipping

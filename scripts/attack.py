@@ -152,6 +152,15 @@ elif args.attack == 'pgd':
         targeted=args.targeted,
         batch_size=batch_size
     )
+# elif args.attack == 'whitebox_pgd':
+#     attack = TTAWhiteboxProjectedGradientDescent(
+#         estimator=classifier,
+#         norm=np.inf,
+#         eps=args.eps,
+#         eps_step=args.eps_step,
+#         targeted=args.targeted,
+#         batch_size=batch_size
+#     )
 elif args.attack == 'deepfool':
     attack = DeepFool(
         classifier=classifier,
@@ -270,3 +279,5 @@ np.save(os.path.join(ATTACK_DIR, 'inds', 'f0_inds_test.npy'), f0_inds_test)
 np.save(os.path.join(ATTACK_DIR, 'inds', 'f1_inds_test.npy'), f1_inds_test)
 np.save(os.path.join(ATTACK_DIR, 'inds', 'f2_inds_test.npy'), f2_inds_test)
 np.save(os.path.join(ATTACK_DIR, 'inds', 'f3_inds_test.npy'), f3_inds_test)
+
+logger.handlers[0].flush()
