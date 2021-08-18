@@ -1,7 +1,6 @@
 commands:
   # CIFAR100, resnet 101, all cw
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_trades           --checkpoint_file ckpt_epoch_100.pth        --method simple       --attack_dir cw_targeted                  --batch_size 100 --num_workers 4 --dump_dir simple, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_trades           --checkpoint_file ckpt_epoch_100.pth        --method ensemble     --attack_dir cw_targeted                  --batch_size 100 --num_workers 4 --dump_dir ensemble, 11000]
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_trades           --checkpoint_file ckpt_epoch_100.pth        --method tta          --attack_dir cw_targeted                  --batch_size 100 --num_workers 4 --dump_dir tta, 11000]
 
   # SVHN, resnet101, simple
@@ -14,17 +13,6 @@ commands:
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/adv_robust_trades               --checkpoint_file ckpt_epoch_100.pth        --method simple       --attack_dir deepfool                     --batch_size 100 --num_workers 4 --dump_dir simple, 11000]
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/adv_robust_trades               --checkpoint_file ckpt_epoch_100.pth        --method simple       --attack_dir cw_targeted                  --batch_size 100 --num_workers 4 --dump_dir simple, 11000]
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/adv_robust_trades               --checkpoint_file ckpt_epoch_100.pth        --method simple       --attack_dir cw_targeted_Linf_eps_0.031   --batch_size 100 --num_workers 4 --dump_dir simple, 11000]
-
-  # SVHN, resnet101, ensemble
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/adv_robust_trades               --checkpoint_file ckpt_epoch_100.pth        --method ensemble     --attack_dir ''                           --batch_size 100 --num_workers 4 --dump_dir ensemble, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/adv_robust_trades               --checkpoint_file ckpt_epoch_100.pth        --method ensemble     --attack_dir fgsm_targeted                --batch_size 100 --num_workers 4 --dump_dir ensemble, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/adv_robust_trades               --checkpoint_file ckpt_epoch_100.pth        --method ensemble     --attack_dir fgsm_targeted_eps_0.031      --batch_size 100 --num_workers 4 --dump_dir ensemble, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/adv_robust_trades               --checkpoint_file ckpt_epoch_100.pth        --method ensemble     --attack_dir jsma_targeted                --batch_size 100 --num_workers 4 --dump_dir ensemble, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/adv_robust_trades               --checkpoint_file ckpt_epoch_100.pth        --method ensemble     --attack_dir pgd_targeted                 --batch_size 100 --num_workers 4 --dump_dir ensemble, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/adv_robust_trades               --checkpoint_file ckpt_epoch_100.pth        --method ensemble     --attack_dir pgd_targeted_eps_0.031       --batch_size 100 --num_workers 4 --dump_dir ensemble, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/adv_robust_trades               --checkpoint_file ckpt_epoch_100.pth        --method ensemble     --attack_dir deepfool                     --batch_size 100 --num_workers 4 --dump_dir ensemble, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/adv_robust_trades               --checkpoint_file ckpt_epoch_100.pth        --method ensemble     --attack_dir cw_targeted                  --batch_size 100 --num_workers 4 --dump_dir ensemble, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/adv_robust_trades               --checkpoint_file ckpt_epoch_100.pth        --method ensemble     --attack_dir cw_targeted_Linf_eps_0.031   --batch_size 100 --num_workers 4 --dump_dir ensemble, 11000]
 
   # SVHN, resnet101, tta
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/adv_robust_trades               --checkpoint_file ckpt_epoch_100.pth        --method tta          --attack_dir ''                           --batch_size 100 --num_workers 4 --dump_dir tta, 11000]
@@ -39,5 +27,4 @@ commands:
 
   # Tiny Imagenet, resnet50, all cw
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/adv_robust_trades      --checkpoint_file ckpt.pth        --method simple       --attack_dir cw_targeted                  --batch_size 100 --num_workers 4 --dump_dir simple, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/adv_robust_trades      --checkpoint_file ckpt.pth        --method ensemble     --attack_dir cw_targeted                  --batch_size 100 --num_workers 4 --dump_dir ensemble, 11000]
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/adv_robust_trades      --checkpoint_file ckpt.pth        --method tta          --attack_dir cw_targeted                  --batch_size 100 --num_workers 4 --dump_dir tta, 11000]
