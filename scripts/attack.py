@@ -43,13 +43,13 @@ parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--num_workers', default=4, type=int, help='Data loading threads')
 parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
 
-# for FGSM/PGD/CW_Linf:
+# for FGSM/PGD/CW_Linf/whitebox_pgd:
 parser.add_argument('--eps'     , default=0.031, type=float, help='maximum Linf deviation from original image')
 parser.add_argument('--eps_step', default=0.003, type=float, help='step size of each adv iteration')
 
 # for whitebox_pgd:
+parser.add_argument('--max_iter', default=100, type=int, help='Number of TTAs to use in the PGD whitebox attack')
 parser.add_argument('--tta_size', default=256, type=int, help='Number of TTAs to use in the PGD whitebox attack')
-
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -171,6 +171,7 @@ elif args.attack == 'whitebox_pgd':
         norm=np.inf,
         eps=args.eps,
         eps_step=args.eps_step,
+        max_iter=args.max_iter,
         targeted=args.targeted,
         batch_size=batch_size,
         tta_transforms=get_tta_transforms(dataset)
