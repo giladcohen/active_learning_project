@@ -152,15 +152,12 @@ for dataset in datasets:
                     data[dataset][arch][attack][method]['normal_acc'] = get_simple_acc_from_log(log)
                 elif not is_attacked:
                     data[dataset][arch][attack][method]['normal_acc'] = get_acc_from_log(log)
-                elif not is_katana:
-                    data[dataset][arch][attack][method]['adv_acc'] = get_acc_from_log(log)
-                    data[dataset][arch][attack][method]['attack_rate'] = get_attack_success_from_log(log)
-                    data[dataset][arch][attack][method]['avg_attack_norm'] = get_avg_attack_norm_from_log(log)
                 else:
-                    data[dataset][arch][attack][method]['normal_acc'] = get_normal_katana_acc_from_log(log)
                     data[dataset][arch][attack][method]['adv_acc'] = get_acc_from_log(log)
                     data[dataset][arch][attack][method]['attack_rate'] = get_attack_success_from_log(log)
                     data[dataset][arch][attack][method]['avg_attack_norm'] = get_avg_attack_norm_from_log(log)
+                if is_katana:
+                    data[dataset][arch][attack][method]['normal_acc'] = get_normal_katana_acc_from_log(log)
 
                 print(data[dataset][arch][attack][method])
                 print('cool')
