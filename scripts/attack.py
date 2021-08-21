@@ -13,6 +13,7 @@ import time
 import pickle
 import logging
 import sys
+import random
 
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
@@ -20,13 +21,16 @@ sys.path.insert(0, "./adversarial_robustness_toolbox")
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
     get_loader_with_specific_inds, get_normalized_tensor
 from active_learning_project.datasets.utils import get_mini_dataset_inds
+from active_learning_project.datasets.tta_utils import get_tta_transforms
 from active_learning_project.utils import boolean_string, pytorch_evaluate, set_logger, get_image_shape
 from art.attacks.evasion import FastGradientMethod, ProjectedGradientDescent, DeepFool, SaliencyMapMethod, \
     CarliniL2Method, CarliniLInfMethod, ElasticNet
 from active_learning_project.models.utils import get_strides, get_conv1_params, get_model
 from active_learning_project.attacks.zero_grad_cw_try import ZeroGrad
+from active_learning_project.attacks.tta_whitebox_projected_gradient_descent import TTAWhiteboxProjectedGradientDescent
 
 from art.classifiers import PyTorchClassifier
+from active_learning_project.classifiers.pytorch_tta_classifier import PyTorchTTAClassifier
 from cleverhans.utils import random_targets, to_categorical
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
@@ -48,6 +52,11 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 
 args = parser.parse_args()
 
+# for reproduce
+# torch.manual_seed(9)
+# random.seed(9)
+# np.random.seed(9)
+
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
@@ -65,7 +74,7 @@ batch_size = args.batch_size
 log_file = os.path.join(ATTACK_DIR, 'log.log')
 set_logger(log_file)
 logger = logging.getLogger()
-rand_gen = np.random.RandomState(seed=12345)
+# rand_gen = np.random.RandomState(seed=12345)
 
 dataset = train_args['dataset']
 _, test_inds = get_mini_dataset_inds(dataset)
@@ -110,8 +119,8 @@ optimizer = optim.SGD(
 X_test = get_normalized_tensor(testloader, img_shape, batch_size)
 y_test = np.asarray(testloader.dataset.targets)
 
-classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=criterion,
-                               optimizer=optimizer, input_shape=(img_shape[2], img_shape[0], img_shape[1]), nb_classes=len(classes))
+classifier = PyTorchTTAClassifier(model=net, clip_values=(0, 1), loss=criterion,
+                                  optimizer=optimizer, input_shape=(img_shape[2], img_shape[0], img_shape[1]), nb_classes=len(classes))
 
 y_test_logits = classifier.predict(X_test, batch_size=batch_size)
 y_test_preds = y_test_logits.argmax(axis=1)
@@ -152,15 +161,16 @@ elif args.attack == 'pgd':
         targeted=args.targeted,
         batch_size=batch_size
     )
-# elif args.attack == 'whitebox_pgd':
-#     attack = TTAWhiteboxProjectedGradientDescent(
-#         estimator=classifier,
-#         norm=np.inf,
-#         eps=args.eps,
-#         eps_step=args.eps_step,
-#         targeted=args.targeted,
-#         batch_size=batch_size
-#     )
+elif args.attack == 'whitebox_pgd':
+    attack = TTAWhiteboxProjectedGradientDescent(
+        estimator=classifier,
+        norm=np.inf,
+        eps=args.eps,
+        eps_step=args.eps_step,
+        targeted=args.targeted,
+        batch_size=batch_size,
+        tta_transforms=get_tta_transforms(dataset)
+    )
 elif args.attack == 'deepfool':
     attack = DeepFool(
         classifier=classifier,

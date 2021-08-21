@@ -109,6 +109,8 @@ class ColorJitterPro(ColorJitter):
             if fn_id == 4 and self.gamma is not None:
                 gamma = self.gamma
                 gamma_factor = torch.tensor(1.0).uniform_(gamma[0], gamma[1]).item()
+                img = img.clamp(1e-8, 1.0)  # to fix Nan values in gradients, which happens when applying gamma
+                                            # after contrast
                 img = F.adjust_gamma(img, gamma_factor)
 
         return img
