@@ -1,9 +1,5 @@
 import torch
 import torchvision.transforms.functional as F
-from torch import Tensor
-
-from PIL import Image
-
 from torchvision.transforms import ColorJitter, Compose, Lambda
 from numpy import random
 
@@ -14,7 +10,9 @@ class GaussianNoise(torch.nn.Module):
         self.mean = mean
 
     def forward(self, img):
-        return img + torch.randn(img.size()) * self.std + self.mean
+        noise = torch.randn(img.size()) * self.std + self.mean
+        noise = noise.to(img.device)
+        return img + noise
 
     def __repr__(self):
         return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)

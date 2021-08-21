@@ -2,20 +2,9 @@ import numpy as np
 import torch
 import torchvision.transforms as transforms
 from art.attacks.evasion.projected_gradient_descent.projected_gradient_descent_pytorch import ProjectedGradientDescentPyTorch
-from art.attacks.attack import EvasionAttack
 
 class TTAWhiteboxProjectedGradientDescent(ProjectedGradientDescentPyTorch):
-    attack_params = EvasionAttack.attack_params + [
-        "norm",
-        "eps",
-        "eps_step",
-        "targeted",
-        "num_random_init",
-        "batch_size",
-        "minimal",
-        "max_iter",
-        "random_eps",
-    ]
+    attack_params = ProjectedGradientDescentPyTorch.attack_params + ["tta_size"]
 
     def __init__(
             self,
@@ -41,38 +30,14 @@ class TTAWhiteboxProjectedGradientDescent(ProjectedGradientDescentPyTorch):
             batch_size=batch_size,
             random_eps=random_eps)
 
+        self.tta_size = tta_size
         self._check_params()
         self.tta_transforms = tta_transforms
-        self.tta_size = tta_size
 
     def _check_params(self) -> None:
-        # Check if order of the norm is acceptable given current implementation
-        if self.norm not in [np.inf, int(1), int(2)]:
-            raise ValueError("Norm order must be either `np.inf`, 1, or 2.")
-
-        if self.eps <= 0:
-            raise ValueError("The perturbation size `eps` has to be positive.")
-
-        if self.eps_step <= 0:
-            raise ValueError("The perturbation step-size `eps_step` has to be positive.")
-
-        if not isinstance(self.targeted, bool):
-            raise ValueError("The flag `targeted` has to be of type bool.")
-
-        if not isinstance(self.num_random_init, (int, np.int)):
-            raise TypeError("The number of random initialisations has to be of type integer")
-
-        if self.num_random_init < 0:
-            raise ValueError("The number of random initialisations `random_init` has to be greater than or equal to 0.")
-
-        if self.batch_size <= 0:
-            raise ValueError("The batch size `batch_size` has to be positive.")
-
-        if self.eps_step > self.eps:
-            raise ValueError("The iteration step `eps_step` has to be smaller than the total attack `eps`.")
-
-        if self.max_iter <= 0:
-            raise ValueError("The number of iterations `max_iter` has to be a positive integer.")
+        super()._check_params()
+        if self.tta_size <= 0:
+            raise ValueError("The number of tta samples `tta_size` has to be a positive integer.")
 
     def _compute_perturbation(self, x: "torch.Tensor", y: "torch.Tensor", mask: "torch.Tensor") -> "torch.Tensor":
         """

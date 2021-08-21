@@ -47,6 +47,10 @@ parser.add_argument('--subset', default=-1, type=int, help='attack only subset o
 parser.add_argument('--eps'     , default=0.031, type=float, help='maximum Linf deviation from original image')
 parser.add_argument('--eps_step', default=0.003, type=float, help='step size of each adv iteration')
 
+# for whitebox_pgd:
+parser.add_argument('--tta_size', default=256, type=int, help='Number of TTAs to use in the PGD whitebox attack')
+
+
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 
