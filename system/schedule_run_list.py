@@ -19,7 +19,7 @@ def run_cmd(cmd):
     print('finished running command: \n{}'.format(cmd))
 
 # buffer time for running different commands on the same GPU
-SAFE_TIME = 40
+SAFE_TIME = 60
 ALLOWED_GPUS_INDS = args.gpus
 # yml_command_file = os.path.join(os.path.dirname(__file__), 'commands.yml')
 #debug:
