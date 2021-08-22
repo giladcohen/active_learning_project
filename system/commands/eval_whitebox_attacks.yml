@@ -22,8 +22,6 @@ commands:
   # adv_robust
   # CIFAR10, resnet34, simple
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades              --checkpoint_file ckpt.pth        --method simple         --attack_dir whitebox_pgd_targeted_iters_1_ttas_256    --batch_size 100 --num_workers 20 --dump_dir simple, 11000]
-  # CIFAR10, resnet34, ensemble
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades              --checkpoint_file ckpt.pth        --method ensemble       --attack_dir whitebox_pgd_targeted_iters_1_ttas_256    --batch_size 100 --num_workers 20 --dump_dir ensemble, 11000]
   # CIFAR10, resnet34, tta
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades              --checkpoint_file ckpt.pth        --method tta            --attack_dir whitebox_pgd_targeted_iters_1_ttas_256    --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
 #  # CIFAR10, resnet34, random_forest
@@ -31,8 +29,6 @@ commands:
 
 #  # tiny_imagenet, resnet34, simple
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_trades        --checkpoint_file ckpt.pth        --method simple         --attack_dir whitebox_pgd_targeted_iters_1_ttas_256    --batch_size 100 --num_workers 20 --dump_dir simple, 11000]
-#  # tiny_imagenet, resnet34, ensemble
-#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_trades        --checkpoint_file ckpt.pth        --method ensemble       --attack_dir whitebox_pgd_targeted_iters_1_ttas_256    --batch_size 100 --num_workers 20 --dump_dir ensemble, 11000]
 #  # tiny_imagenet, resnet34, tta
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_trades        --checkpoint_file ckpt.pth        --method tta            --attack_dir whitebox_pgd_targeted_iters_1_ttas_256    --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
 #  # tiny_imagenet, resnet34, random_forest
