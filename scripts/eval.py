@@ -177,6 +177,9 @@ elif args.method == 'tta':
 elif 'random_forest' in args.method:
     assert is_attacked, 'method {} can only be run with an attack'.format(args.method)
 
+    # delete unnecessary memory for random forest calculation
+    del test_loader, X_test, net, classifier, X
+
     # load tta logits:
     tta_dir = get_dump_dir(args.checkpoint_dir, args.tta_output_dir, '')
     tta_logits_norm = np.load(os.path.join(tta_dir, 'tta_logits.npy'))
