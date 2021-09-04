@@ -3,6 +3,8 @@
  attack: PGD [plot1] and CW_Linf [plot2]"""
 
 import os
+import matplotlib
+matplotlib.rcParams['figure.dpi'] = 300
 import matplotlib.pyplot as plt
 import sys
 import numpy as np
@@ -48,12 +50,6 @@ for dataset in datasets:
             data[dataset][attack][tta_size] = []
             for n in range(1, num_experiments + 1):
                 file = os.path.join(CHECKPOINT_ROOT, dataset, 'resnet34', 'regular', 'resnet34_00', attack_to_dir(attack), 'tta_size_{}_exp{}'.format(tta_size, n), 'log.log')
-                # if (dataset == 'cifar100' and attack == 'CW' and tta_size == 1024 and n == 3) or \
-                #    (dataset == 'svhn' and attack == 'CW' and tta_size == 512 and n == 3) or \
-                #    (dataset == 'svhn' and attack == 'CW' and tta_size == 1024 and n == 2) or \
-                #    (dataset == 'svhn' and attack == 'CW' and tta_size == 1024 and n == 3):
-                #     continue
-                # else:
                 acc = get_acc_from_log(file)
                 acc = np.round(acc, 2)
                 data[dataset][attack][tta_size].append(acc)
@@ -70,8 +66,17 @@ for dataset in datasets:
         d.update({attack: data_ext[attack]})
     df = pd.DataFrame(d)
 
+    if dataset == 'cifar10':
+        dataset_str = 'CIFAR-10'
+    elif dataset == 'cifar100':
+        dataset_str = 'CIFAR-100'
+    else:
+        dataset_str = 'SVHN'
+
     g = sns.lineplot(x='tta_size', y='value', hue='variable', data=pd.melt(df, ['tta_size']), ci='sd')
-    g.set(xscale='log', xlabel='TTA size', ylabel='Accuracy [%]', title=dataset)
+    g.set(xscale='log', xlabel='TTA size', ylabel='Accuracy [%]', title=dataset_str)
+    g.legend_.set_title('Attack')
     g.set_xticks(tta_size_vec)
     g.set_xticklabels(tta_size_vec)
     plt.show()
+    # plt.savefig('tta_size_ablation_{}.png'.format(dataset), dpi=300)

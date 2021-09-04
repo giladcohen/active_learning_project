@@ -14,10 +14,11 @@ import pandas as pd
 from typing import Dict
 import seaborn as sns
 sns.set_style("whitegrid")
+np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
 CHECKPOINT_ROOT = '/data/gilad/logs/adv_robustness'
 datasets = ['CIFAR-10', 'CIFAR-100', 'SVHN', 'Tiny-Imagenet']
 archs = ['Resnet34', 'Resnet50', 'Resnet101']
-attacks = ['', 'FGSM1', 'FGSM2', 'JSMA', 'PGD1', 'PGD2', 'Deepfool', 'CW_L2', 'CW_Linf']
+attacks = ['', 'FGSM1', 'FGSM2', 'JSMA', 'PGD1', 'PGD2', 'Deepfool', 'CW_L2', 'CW_Linf', 'FGSM_WB', 'PGD_WB']
 methods = ['simple', 'ensemble', 'TRADES', 'TTA', 'KATANA', 'TRADES+TTA', 'TRADES+KATANA']
 data = {}
 
@@ -53,6 +54,10 @@ def attack_to_dir(attack: str):
         return 'cw_targeted'
     elif attack == 'CW_Linf':
         return 'cw_targeted_Linf_eps_0.031'
+    elif attack == 'FGSM_WB':
+        return 'whitebox_pgd_targeted_iters_1_ttas_256'
+    elif attack == 'PGD_WB':
+        return 'whitebox_pgd_targeted_iters_10_ttas_25'
 
 def method_to_dir(method:str):
     if method == 'simple':
@@ -140,6 +145,34 @@ def calculate_normal_katana_stats(x: Dict):
             vals.append(x[attack]['normal_acc'])
     return np.mean(vals), np.std(vals)
 
+def print_accs(x: Dict):
+    vals = []
+    vals.append(x['']['normal_acc'])
+    vals.append(x['FGSM1']['adv_acc'])
+    vals.append(x['FGSM2']['adv_acc'])
+    vals.append(x['JSMA']['adv_acc'])
+    vals.append(x['PGD1']['adv_acc'])
+    vals.append(x['PGD2']['adv_acc'])
+    vals.append(x['Deepfool']['adv_acc'])
+    vals.append(x['CW_L2']['adv_acc'])
+    vals.append(x['CW_Linf']['adv_acc'])
+    if 'FGSM_WB' in x:
+        vals.append(x['FGSM_WB']['adv_acc'])
+    if 'PGD_WB' in x:
+        vals.append(x['PGD_WB']['adv_acc'])
+    vals = np.asarray(vals)
+    print(vals)
+
+def print_white(x: Dict):
+    vals = []
+    vals.append(x['FGSM2']['adv_acc'])
+    vals.append(x['FGSM_WB']['adv_acc'])
+    vals.append(x['PGD2']['adv_acc'])
+    vals.append(x['PGD_WB']['adv_acc'])
+    vals = np.asarray(vals)
+    print(vals)
+
+
 for dataset in datasets:
     data[dataset] = {}
     for arch in archs:
@@ -147,6 +180,8 @@ for dataset in datasets:
         for method in methods:
             data[dataset][arch][method] = {}
             for attack in attacks:
+                if attack in ['FGSM_WB', 'PGD_WB'] and arch != 'Resnet34':
+                    continue
                 data[dataset][arch][method][attack] = {}
                 # if dataset == 'CIFAR-100' and arch == 'Resnet50' and 'TRADES+' in method and attack == 'CW_L2':
                 #     continue  # attack is fucked. Now attacking again
