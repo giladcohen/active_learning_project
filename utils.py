@@ -236,14 +236,17 @@ def activation_batch_ratio(x):
 
 def convert_tensor_to_image(x: np.ndarray):
     """
-    :param X: np.array of size (Batch, feature_dims, H, W)
-    :return: X with (Batch, H, W, feature_dims) between 0:255, uint8
+    :param X: np.array of size (Batch, feature_dims, H, W) or (feature_dims, H, W)
+    :return: X with (Batch, H, W, feature_dims) or (H, W, feature_dims) between 0:255, uint8
     """
     X = x.copy()
     X *= 255.0
     X = np.round(X)
     X = X.astype(np.uint8)
-    X = np.transpose(X, [0, 2, 3, 1])
+    if len(x.shape) == 3:
+        X = np.transpose(X, [1, 2, 0])
+    else:
+        X = np.transpose(X, [0, 2, 3, 1])
     return X
 
 def convert_image_to_tensor(x: np.ndarray):

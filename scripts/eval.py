@@ -214,8 +214,11 @@ elif 'random_forest' in args.method:
             n_jobs=args.num_workers
         )
 
+        logger.info('Start training the Random Forest classifier...')
         cls_rf.fit(features_train, labels_train)
+        logger.info('Predicting normal samples with random forest...')
         y_preds_norm = cls_rf.predict(features_test_norm)
+        logger.info('Predicting adversarial samples with random forest...')
         y_preds = cls_rf.predict(features_test_adv)
     else:
         raise AssertionError('unknown method {}'.format(args.method))
