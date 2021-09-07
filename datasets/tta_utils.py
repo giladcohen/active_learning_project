@@ -5,7 +5,8 @@ import torchvision.transforms as transforms
 import active_learning_project.datasets.my_transforms as my_transforms
 from active_learning_project.utils import get_image_shape, pytorch_evaluate
 from active_learning_project.datasets.tta_dataset import TTADataset
-
+import logging
+from time import time
 
 def get_tta_transforms(dataset: str, gaussian_std: float=0.005, soft=False, clip_inputs=False):
     img_shape = get_image_shape(dataset)
@@ -59,8 +60,11 @@ def get_tta_logits(dataset, args, net, X, y, tta_size, num_classes):
         tta_dataset, batch_size=1, shuffle=False,
         num_workers=args.num_workers, pin_memory=torch.cuda.is_available())
 
+    logger = logging.getLogger()
+    start = time()
     with torch.no_grad():
         tta_logits = pytorch_evaluate(net, tta_loader, ['logits'],
                                       (-1,) + tta_dataset.img_shape, {'logits': (-1, tta_size, num_classes)})[0]
+    logger.info('Finished running DNN inference to fetch all the TTA logits. It took {} seconds'.format(time() - start))
 
     return tta_logits
