@@ -81,7 +81,7 @@ with open(os.path.join(DUMP_DIR, 'eval_args.txt'), 'w') as f:
 
 set_logger(log_file)
 logger = logging.getLogger()
-rand_gen = np.random.RandomState(seed=12345)
+rand_gen = np.random.RandomState(seed=123456)
 
 dataset = train_args['dataset']
 val_inds, test_inds = get_mini_dataset_inds(dataset)
