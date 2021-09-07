@@ -16,6 +16,11 @@ import logging
 import sys
 from tqdm import tqdm
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import LinearSVC
+from sklearn.svm import SVC
+
+
 
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
@@ -174,10 +179,10 @@ elif args.method == 'tta':
     # y_preds = np.apply_along_axis(majority_vote, axis=1, arr=tta_preds)
     y_preds = tta_logits.sum(axis=1).argmax(axis=1)
 
-elif 'random_forest' in args.method:
+elif args.method in ['logistic_regression', 'svm_linear', 'svm_rbf', 'random_forest']:
     assert is_attacked, 'method {} can only be run with an attack'.format(args.method)
 
-    # delete unnecessary memory for random forest calculation
+    # delete unnecessary memory for faster calculation
     del test_loader, X_test, net, classifier, X
 
     # load tta logits:
@@ -190,19 +195,29 @@ elif 'random_forest' in args.method:
     tta_logits_train_norm, tta_logits_test_norm = tta_logits_norm[val_inds], tta_logits_norm[test_inds]
     tta_logits_train_adv, tta_logits_test_adv = tta_logits_adv[val_inds], tta_logits_adv[test_inds]
 
-    if args.method == 'random_forest':
-        features_train_norm = tta_logits_train_norm.reshape((val_size, -1))
-        features_test_norm = tta_logits_test_norm.reshape((test_size, -1))
-        features_train_adv = tta_logits_train_adv.reshape((val_size, -1))
-        features_test_adv = tta_logits_test_adv.reshape((test_size, -1))
+    features_train_norm = tta_logits_train_norm.reshape((val_size, -1))
+    features_test_norm = tta_logits_test_norm.reshape((test_size, -1))
+    features_train_adv = tta_logits_train_adv.reshape((val_size, -1))
+    features_test_adv = tta_logits_test_adv.reshape((test_size, -1))
 
-        # concatenate features:
-        features_train = np.concatenate((features_train_norm, features_train_adv), axis=0)
-        # features_test = np.concatenate((features_test_norm, features_test_adv), axis=0)
-        labels_train = np.concatenate((y_test[val_inds], y_test[val_inds]), axis=0)
-        # labels_test = np.concatenate((y_test[test_inds], y_test[test_inds]), axis=0)
+    # concatenate features:
+    features_train = np.concatenate((features_train_norm, features_train_adv), axis=0)
+    # features_test = np.concatenate((features_test_norm, features_test_adv), axis=0)
+    labels_train = np.concatenate((y_test[val_inds], y_test[val_inds]), axis=0)
+    # labels_test = np.concatenate((y_test[test_inds], y_test[test_inds]), axis=0)
 
-        cls_rf = RandomForestClassifier(
+    if args.method == 'logistic_regression':
+        logger.info('Initializing logistic regression classifier...')
+        clf = LogisticRegression(multi_class='ovr', random_state=rand_gen, n_jobs=args.num_workers, verbose=1)
+    elif args.method == 'svm_linear':
+        logger.info('Initializing linear SVM classifier...')
+        clf = LinearSVC(loss='hinge', dual=False, multi_class='ovr', random_state=rand_gen, verbose=1)
+    elif args.method == 'svm_rbf':
+        logger.info('Initializing RBF SVM classifier...')
+        clf = SVC(kernel='rbf', decision_function_shape='ovr', break_ties=True, random_state=rand_gen, verbose=1)
+    elif args.method == 'random_forest':
+        logger.info('Initializing random forest classifier...')
+        clf = RandomForestClassifier(
             n_estimators=1000,
             criterion="gini",  # gini or entropy
             max_depth=None, # The maximum depth of the tree. If None, then nodes are expanded until all leaves are pure or
@@ -213,18 +228,21 @@ elif 'random_forest' in args.method:
             verbose=1000,
             n_jobs=args.num_workers
         )
-
-        logger.info('Start training the Random Forest classifier...')
-        cls_rf.fit(features_train, labels_train)
-        logger.info('Predicting normal samples with random forest...')
-        y_preds_norm = cls_rf.predict(features_test_norm)
-        logger.info('Predicting adversarial samples with random forest...')
-        y_preds = cls_rf.predict(features_test_adv)
     else:
-        raise AssertionError('unknown method {}'.format(args.method))
+        logger.error('How did we get here?')
+        raise AssertionError
+
+    logger.info('Start training the classifier...')
+    clf.fit(features_train, labels_train)
+    logger.info('Predicting normal samples with the classifier...')
+    y_preds_norm = clf.predict(features_test_norm)
+    logger.info('Predicting adversarial samples with the classifier...')
+    y_preds = clf.predict(features_test_adv)
 
     acc = np.mean(y_preds_norm == y_gt)
     logger.info('New normal test accuracy of {}: {}%'.format(args.method, 100.0 * acc))
+else:
+    raise AssertionError('unknown method {}'.format(args.method))
 
 # metrics calculation:
 acc = np.mean(y_preds == y_gt)
