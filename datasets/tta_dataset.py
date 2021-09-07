@@ -6,6 +6,7 @@ import numpy as np
 #debug:
 import matplotlib.pyplot as plt
 from active_learning_project.utils import convert_tensor_to_image
+from time import time
 
 class TTADataset(VisionDataset):
 
@@ -29,9 +30,11 @@ class TTADataset(VisionDataset):
         # first, duplicate the image to TTAs:
         img_ttas = np.nan * torch.ones(self.full_tta_size)
 
+        start = time()
         # now, transforming each image separately
         if self.transform is not None:
             for k in range(self.tta_size):
                 img_ttas[k] = self.transform(img)
+        print('TTA transforms generation time: {}'.format(time() - start))
 
         return img_ttas, y_gt
