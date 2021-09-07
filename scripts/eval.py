@@ -211,7 +211,7 @@ elif args.method in ['logistic_regression', 'svm_linear', 'svm_rbf', 'random_for
         clf = LogisticRegression(multi_class='ovr', random_state=rand_gen, n_jobs=args.num_workers, verbose=1)
     elif args.method == 'svm_linear':
         logger.info('Initializing linear SVM classifier...')
-        clf = LinearSVC(loss='hinge', dual=False, multi_class='ovr', random_state=rand_gen, verbose=1)
+        clf = LinearSVC(penalty='l1', loss='hinge', dual=False, multi_class='ovr', random_state=rand_gen, verbose=1)
     elif args.method == 'svm_rbf':
         logger.info('Initializing RBF SVM classifier...')
         clf = SVC(kernel='rbf', decision_function_shape='ovr', break_ties=True, random_state=rand_gen, verbose=1)
