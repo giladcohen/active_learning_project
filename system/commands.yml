@@ -1,6 +1,6 @@
 commands:
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00 --method linear_regression --attack_dir pgd_targeted_eps_0.031     --num_workers 10 --dump_dir logistic_regression, 3000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00 --method linear_regression --attack_dir cw_targeted_Linf_eps_0.031 --num_workers 10 --dump_dir logistic_regression, 3000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00 --method logistic_regression --attack_dir pgd_targeted_eps_0.031     --num_workers 10 --dump_dir logistic_regression, 3000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00 --method logistic_regression --attack_dir cw_targeted_Linf_eps_0.031 --num_workers 10 --dump_dir logistic_regression, 3000]
 
  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00       --method svm_linear        --attack_dir pgd_targeted_eps_0.031     --num_workers 10 --dump_dir svm_linear, 3000]
  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00       --method svm_linear        --attack_dir cw_targeted_Linf_eps_0.031 --num_workers 10 --dump_dir svm_linear, 3000]
