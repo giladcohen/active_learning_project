@@ -56,6 +56,7 @@ for dataset in datasets:
             data[dataset][attack][tta_size] = np.asarray(data[dataset][attack][tta_size])
 
 for dataset in datasets:
+    plt.close()
     for attack in attacks:
         data_ext[attack] = []
         for size in tta_size_vec:
@@ -73,7 +74,8 @@ for dataset in datasets:
     else:
         dataset_str = 'SVHN'
 
-    g = sns.lineplot(x='tta_size', y='value', hue='variable', data=pd.melt(df, ['tta_size']), ci='sd')
+    g = sns.lineplot(x='tta_size', y='value', hue='variable', data=pd.melt(df, ['tta_size']), ci='sd',
+                     palette='husl', style='variable')
     g.set(xscale='log', xlabel='TTA size', ylabel='Accuracy [%]', title=dataset_str)
     g.legend_.set_title('Attack')
     g.set_xticks(tta_size_vec)
