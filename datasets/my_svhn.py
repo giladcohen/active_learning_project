@@ -8,26 +8,15 @@ import torch
 class MySVHN(SVHN):
 
     def __init__(self, *args, **kwargs) -> None:
-        cls_to_omit = kwargs.pop('cls_to_omit', None)
-        super(MySVHN, self).__init__(kwargs['root'], transform=kwargs['transform'])
         train = kwargs['train']
         download = kwargs['download']
-
+        cls_to_omit = kwargs.pop('cls_to_omit', None)
         if train:
             split = 'train'
         else:
             split = 'test'
-        self.split = verify_str_arg(split, "split", tuple(self.split_list.keys()))
-        self.url = self.split_list[split][0]
-        self.filename = self.split_list[split][1]
-        self.file_md5 = self.split_list[split][2]
-
-        if download:
-            self.download()
-
-        if not self._check_integrity():
-            raise RuntimeError('Dataset not found or corrupted.' +
-                               ' You can use download=True to download it')
+        super(MySVHN, self).__init__(kwargs['root'], split, transform=kwargs['transform'],
+                                     download=download)  # just for the transform and download
 
         # import here rather than at top of file because this is
         # an optional dependency for torchvision
