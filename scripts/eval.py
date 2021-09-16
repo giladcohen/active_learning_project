@@ -20,8 +20,6 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC
 from sklearn.svm import SVC
 
-
-
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 
@@ -35,10 +33,10 @@ from active_learning_project.models.utils import get_strides, get_conv1_params, 
 from art.classifiers import PyTorchClassifier
 
 parser = argparse.ArgumentParser(description='Evaluating robustness score')
-parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/adv_robust_trades', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades', type=str, help='checkpoint dir')
 parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='checkpoint path file name')
-parser.add_argument('--method', default='random_forest', type=str, help='simple, ensemble, tta, random_forest, random_forest_sets')
-parser.add_argument('--attack_dir', default='jsma_targeted', type=str, help='attack directory, or None for normal images')
+parser.add_argument('--method', default='random_forest', type=str, help='simple, ensemble, tta, random_forest, logistic_regression, svm_linear, svm_rbf')
+parser.add_argument('--attack_dir', default='', type=str, help='attack directory, or None for normal images')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
 # tta method params:
@@ -48,14 +46,18 @@ parser.add_argument('--tta_output_dir', default='tta', type=str, help='The dir t
 parser.add_argument('--soft_transforms', action='store_true', help='applying mellow transforms')
 parser.add_argument('--clip_inputs', action='store_true', help='clipping TTA inputs between 0 and 1')
 parser.add_argument('--overwrite', action='store_true', help='force calculating and saving TTA')
-parser.add_argument('--num_workers', default=20, type=int, help='Data loading threads for tta loader or random forest')
+parser.add_argument('--num_workers', default=30, type=int, help='Data loading threads for tta loader or random forest')
+
+# random forest params
+parser.add_argument('--all_attacks', action='store_true', help='Train random forest on all attacks')
 
 # dump
-parser.add_argument('--dump_dir', default=None, type=str, help='dump dir for logs and data')
+parser.add_argument('--dump_dir', default='rf_all_attacks', type=str, help='dump dir for logs and data')
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 
 args = parser.parse_args()
+args.all_attacks = True
 if args.dump_dir is None:
     args.dump_dir = args.method
 
@@ -63,7 +65,13 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
 is_attacked = args.attack_dir != ''
-if is_attacked:
+
+if args.all_attacks:
+    ATTACK_DIR = os.path.join(args.checkpoint_dir, 'all_attacks')
+    attack_args = None
+    targeted = None
+    y_adv = None
+elif is_attacked:
     ATTACK_DIR = os.path.join(args.checkpoint_dir, args.attack_dir)
     with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'r') as f:
         attack_args = json.load(f)
@@ -71,7 +79,11 @@ if is_attacked:
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, args.checkpoint_file)
 batch_size = args.batch_size
 
-DUMP_DIR = get_dump_dir(args.checkpoint_dir, args.dump_dir, args.attack_dir)
+if args.all_attacks:
+    assert args.dump_dir is not None
+    DUMP_DIR = os.path.join(ATTACK_DIR, args.dump_dir)
+else:
+    DUMP_DIR = get_dump_dir(args.checkpoint_dir, args.dump_dir, args.attack_dir)
 os.makedirs(DUMP_DIR, exist_ok=True)
 log_file = os.path.join(DUMP_DIR, 'log.log')
 
@@ -125,7 +137,97 @@ y_orig_norm_preds = classifier.predict(X_test[test_inds], batch_size).argmax(axi
 orig_norm_acc = np.mean(y_orig_norm_preds == y_gt)
 logger.info('Normal test accuracy: {}%'.format(100 * orig_norm_acc))
 
-if not is_attacked:
+if args.method == 'random_forest' and args.all_attacks:
+    del test_loader, X_test, net, classifier
+    attack_train_set = [
+        'fgsm_targeted',
+        'fgsm_targeted_eps_0.031',
+        'jsma_targeted',
+        'pgd_targeted',
+        'pgd_targeted_eps_0.031',
+        'deepfool',
+        # 'cw_targeted',
+        # 'cw_targeted_Linf_eps_0.031'
+    ]
+    attack_test_set = [
+        # 'fgsm_targeted',
+        # 'fgsm_targeted_eps_0.031',
+        # 'jsma_targeted',
+        # 'pgd_targeted',
+        # 'pgd_targeted_eps_0.031',
+        # 'deepfool',
+        'cw_targeted',
+        'cw_targeted_Linf_eps_0.031'
+    ]
+    # load normal tta_logits:
+    tta_dir = get_dump_dir(args.checkpoint_dir, args.tta_output_dir, '')
+    tta_logits_norm = np.load(os.path.join(tta_dir, 'tta_logits.npy'))
+    tta_logits_train_norm, tta_logits_test_norm = tta_logits_norm[val_inds], tta_logits_norm[test_inds]
+
+    # load attacked tta_logits to train:
+    tta_logits_train_adv = []
+    for attack_dir in attack_train_set:
+        tta_dir = get_dump_dir(args.checkpoint_dir, args.tta_output_dir, attack_dir)
+        tta_logits_adv = np.load(os.path.join(tta_dir, 'tta_logits.npy'))
+        tta_logits_train_adv.append(tta_logits_adv[val_inds])
+    tta_logits_train_adv = np.vstack(tta_logits_train_adv)
+
+    # load attacked tta_logits to test:
+    tta_logits_test_adv = []
+    for attack_dir in attack_test_set:
+        tta_dir = get_dump_dir(args.checkpoint_dir, args.tta_output_dir, attack_dir)
+        tta_logits_adv = np.load(os.path.join(tta_dir, 'tta_logits.npy'))
+        tta_logits_test_adv.append(tta_logits_adv[test_inds])
+    tta_logits_test_adv = np.vstack(tta_logits_test_adv)
+
+    # reshape to features:
+    features_train_norm = tta_logits_train_norm.reshape((val_size, -1))
+    features_test_norm = tta_logits_test_norm.reshape((test_size, -1))
+    features_train_adv = tta_logits_train_adv.reshape((len(attack_train_set) * val_size, -1))
+    features_test_adv = tta_logits_test_adv.reshape((len(attack_test_set) * test_size, -1))
+
+    # concatenate features:
+    features_train = np.concatenate((features_train_norm, features_train_adv), axis=0)
+    labels_train = np.tile(y_test[val_inds], len(attack_train_set) + 1)
+
+    # set sample weights:
+    sample_weights = None
+    # sample_weights = []
+    # sample_weights.append([1.0] * val_size)  # for normal
+    # for attack, weight in attack_set.items():
+    #     sample_weights.append([weight] * val_size)
+    # sample_weights = np.hstack(sample_weights)
+
+    logger.info('Initializing random forest classifier for all attacks...')
+    clf = RandomForestClassifier(
+        n_estimators=1000,  # for debug
+        criterion="gini",  # gini or entropy
+        max_depth=None, # The maximum depth of the tree. If None, then nodes are expanded until all leaves are pure or
+        # until all leaves contain less than min_samples_split samples.
+        bootstrap=True, # Whether bootstrap samples are used when building trees.
+        # If False, the whole dataset is used to build each tree.
+        random_state=rand_gen,
+        verbose=1000,
+        n_jobs=args.num_workers
+    )
+    logger.info('Start training the classifier...')
+    clf.fit(features_train, labels_train, sample_weights)
+    logger.info('Predicting normal samples with the classifier...')
+    y_preds_norm = clf.predict(features_test_norm)
+    logger.info('Predicting adversarial samples with the classifier...')
+    y_preds_all_attacks = clf.predict(features_test_adv)
+
+    # print accuracies
+    all_acc = {}
+    all_acc['normal'] = np.round(np.mean(y_preds_norm == y_gt) * 100.0, 2)
+    cnt = 0
+    for attack in attack_test_set:
+        y_preds = y_preds_all_attacks[cnt*test_size:(cnt+1)*test_size]
+        all_acc[attack] = np.round(np.mean(y_preds == y_gt) * 100.0, 2)
+        cnt += 1
+    logger.info('Test accuracy on normal and all attacks: {}'.format(all_acc))
+
+elif not is_attacked:
     if args.method == 'simple':
         logger.info('done')  # already calculated above
         exit(0)
