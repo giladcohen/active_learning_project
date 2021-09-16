@@ -146,16 +146,16 @@ if args.method == 'random_forest' and args.all_attacks:
         'pgd_targeted',
         'pgd_targeted_eps_0.031',
         'deepfool',
-        # 'cw_targeted',
-        # 'cw_targeted_Linf_eps_0.031'
+        'cw_targeted',
+        'cw_targeted_Linf_eps_0.031'
     ]
     attack_test_set = [
-        # 'fgsm_targeted',
-        # 'fgsm_targeted_eps_0.031',
-        # 'jsma_targeted',
-        # 'pgd_targeted',
-        # 'pgd_targeted_eps_0.031',
-        # 'deepfool',
+        'fgsm_targeted',
+        'fgsm_targeted_eps_0.031',
+        'jsma_targeted',
+        'pgd_targeted',
+        'pgd_targeted_eps_0.031',
+        'deepfool',
         'cw_targeted',
         'cw_targeted_Linf_eps_0.031'
     ]
