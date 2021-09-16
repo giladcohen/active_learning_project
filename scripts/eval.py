@@ -52,12 +52,11 @@ parser.add_argument('--num_workers', default=30, type=int, help='Data loading th
 parser.add_argument('--all_attacks', action='store_true', help='Train random forest on all attacks')
 
 # dump
-parser.add_argument('--dump_dir', default='rf_all_attacks', type=str, help='dump dir for logs and data')
+parser.add_argument('--dump_dir', default='rf_global', type=str, help='dump dir for logs and data')
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 
 args = parser.parse_args()
-args.all_attacks = True
 if args.dump_dir is None:
     args.dump_dir = args.method
 
@@ -67,7 +66,7 @@ with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
 is_attacked = args.attack_dir != ''
 
 if args.all_attacks:
-    ATTACK_DIR = os.path.join(args.checkpoint_dir, 'all_attacks')
+    ATTACK_DIR = None
     attack_args = None
     targeted = None
     y_adv = None
@@ -81,7 +80,7 @@ batch_size = args.batch_size
 
 if args.all_attacks:
     assert args.dump_dir is not None
-    DUMP_DIR = os.path.join(ATTACK_DIR, args.dump_dir)
+    DUMP_DIR = os.path.join(args.checkpoint_dir, 'all_attacks', args.dump_dir)
 else:
     DUMP_DIR = get_dump_dir(args.checkpoint_dir, args.dump_dir, args.attack_dir)
 os.makedirs(DUMP_DIR, exist_ok=True)
