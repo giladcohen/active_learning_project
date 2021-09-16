@@ -225,6 +225,7 @@ if args.method == 'random_forest' and args.all_attacks:
         all_acc[attack] = np.round(np.mean(y_preds == y_gt) * 100.0, 2)
         cnt += 1
     logger.info('Test accuracy on normal and all attacks: {}'.format(all_acc))
+    exit(0)
 
 elif not is_attacked:
     if args.method == 'simple':
