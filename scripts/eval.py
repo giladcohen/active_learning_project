@@ -48,8 +48,9 @@ parser.add_argument('--clip_inputs', action='store_true', help='clipping TTA inp
 parser.add_argument('--overwrite', action='store_true', help='force calculating and saving TTA')
 parser.add_argument('--num_workers', default=30, type=int, help='Data loading threads for tta loader or random forest')
 
-# random forest params
+# all attacks params
 parser.add_argument('--all_attacks', action='store_true', help='Train random forest on all attacks')
+parser.add_argument('--rf_setup', default='all', type=str, help='all/fgsm/jsma/pgd/deepfool/cw. all for global, rest for loocv')
 
 # dump
 parser.add_argument('--dump_dir', default='rf_global', type=str, help='dump dir for logs and data')
@@ -138,6 +139,7 @@ logger.info('Normal test accuracy: {}%'.format(100 * orig_norm_acc))
 
 if args.method == 'random_forest' and args.all_attacks:
     del test_loader, X_test, net, classifier
+
     attack_train_set = [
         'fgsm_targeted',
         'fgsm_targeted_eps_0.031',
@@ -158,6 +160,11 @@ if args.method == 'random_forest' and args.all_attacks:
         'cw_targeted',
         'cw_targeted_Linf_eps_0.031'
     ]
+
+    if args.rf_setup != 'all':
+        attack_train_set = [a for a in attack_train_set if args.rf_setup not in a]
+        attack_test_set = [a for a in attack_test_set if args.rf_setup in a]
+
     # load normal tta_logits:
     tta_dir = get_dump_dir(args.checkpoint_dir, args.tta_output_dir, '')
     tta_logits_norm = np.load(os.path.join(tta_dir, 'tta_logits.npy'))
