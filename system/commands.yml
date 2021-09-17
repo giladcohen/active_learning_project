@@ -1,137 +1,137 @@
 commands:
  # global evaluations
  # cifar 10
-# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00           --method random_forest --attack_dir None --num_workers 25 --all_attacks --dump_dir global, 11000]
-# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet50/regular/resnet50_00           --method random_forest --attack_dir None --num_workers 25 --all_attacks --dump_dir global, 11000]
-# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet101/regular/resnet101_00         --method random_forest --attack_dir None --num_workers 25 --all_attacks --dump_dir global, 11000]
+# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00           --method random_forest --attack_dir None --num_workers 10 --all_attacks --dump_dir global, 11000]
+# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet50/regular/resnet50_00           --method random_forest --attack_dir None --num_workers 10 --all_attacks --dump_dir global, 11000]
+# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet101/regular/resnet101_00         --method random_forest --attack_dir None --num_workers 10 --all_attacks --dump_dir global, 11000]
 
  # cifar 100
-# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00          --method random_forest --attack_dir None --num_workers 25 --all_attacks --dump_dir global, 11000]
-# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet50/regular/resnet50_00          --method random_forest --attack_dir None --num_workers 25 --all_attacks --dump_dir global, 11000]
-# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00        --method random_forest --attack_dir None --num_workers 25 --all_attacks --dump_dir global, 11000]
+# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00          --method random_forest --attack_dir None --num_workers 10 --all_attacks --dump_dir global, 11000]
+# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet50/regular/resnet50_00          --method random_forest --attack_dir None --num_workers 10 --all_attacks --dump_dir global, 11000]
+# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00        --method random_forest --attack_dir None --num_workers 10 --all_attacks --dump_dir global, 11000]
 
  # svhn
-# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00              --method random_forest --attack_dir None --num_workers 25 --all_attacks --dump_dir global, 11000]
-# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet50/regular/resnet50_00              --method random_forest --attack_dir None --num_workers 25 --all_attacks --dump_dir global, 11000]
-# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/regular/resnet101_00            --method random_forest --attack_dir None --num_workers 25 --all_attacks --dump_dir global, 11000]
+# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00              --method random_forest --attack_dir None --num_workers 10 --all_attacks --dump_dir global, 11000]
+# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet50/regular/resnet50_00              --method random_forest --attack_dir None --num_workers 10 --all_attacks --dump_dir global, 11000]
+# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/regular/resnet101_00            --method random_forest --attack_dir None --num_workers 10 --all_attacks --dump_dir global, 11000]
 
  # tiny_imagenet
-# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00     --method random_forest --attack_dir None --num_workers 25 --all_attacks --dump_dir global, 11000]
-# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/regular/resnet50_00     --method random_forest --attack_dir None --num_workers 25 --all_attacks --dump_dir global, 11000]
-# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet101/regular/resnet101_00   --method random_forest --attack_dir None --num_workers 25 --all_attacks --dump_dir global, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00     --method random_forest --attack_dir None --num_workers 10 --all_attacks --dump_dir global, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/regular/resnet50_00     --method random_forest --attack_dir None --num_workers 10 --all_attacks --dump_dir global, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet101/regular/resnet101_00   --method random_forest --attack_dir None --num_workers 10 --all_attacks --dump_dir global, 11000]
 
 
 
  # fgsm
  # cifar 10
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00           --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet50/regular/resnet50_00           --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet101/regular/resnet101_00         --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
+# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00           --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
+# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet50/regular/resnet50_00           --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet101/regular/resnet101_00         --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
 
  # cifar 100
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00          --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet50/regular/resnet50_00          --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00        --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00          --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet50/regular/resnet50_00          --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00        --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
 
  # svhn
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00              --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet50/regular/resnet50_00              --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/regular/resnet101_00            --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00              --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet50/regular/resnet50_00              --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/regular/resnet101_00            --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
 
  # tiny_imagenet
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00     --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/regular/resnet50_00     --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet101/regular/resnet101_00   --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00     --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/regular/resnet50_00     --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet101/regular/resnet101_00   --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup fgsm     --dump_dir loocv_fgsm, 11000]
 
 
 
  # jsma
  # cifar 10
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00           --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet50/regular/resnet50_00           --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet101/regular/resnet101_00         --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
+# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00           --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet50/regular/resnet50_00           --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet101/regular/resnet101_00         --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
 
  # cifar 100
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00          --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet50/regular/resnet50_00          --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00        --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00          --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet50/regular/resnet50_00          --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00        --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
 
  # svhn
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00              --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet50/regular/resnet50_00              --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/regular/resnet101_00            --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00              --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet50/regular/resnet50_00              --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/regular/resnet101_00            --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
 
  # tiny_imagenet
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00     --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/regular/resnet50_00     --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet101/regular/resnet101_00   --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00     --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/regular/resnet50_00     --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet101/regular/resnet101_00   --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup jsma     --dump_dir loocv_jsma, 11000]
 
 
 
  # pgd
  # cifar 10
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00           --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet50/regular/resnet50_00           --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet101/regular/resnet101_00         --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
+# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00           --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet50/regular/resnet50_00           --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet101/regular/resnet101_00         --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
 
  # cifar 100
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00          --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet50/regular/resnet50_00          --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00        --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00          --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet50/regular/resnet50_00          --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00        --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
 
  # svhn
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00              --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet50/regular/resnet50_00              --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/regular/resnet101_00            --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00              --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet50/regular/resnet50_00              --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/regular/resnet101_00            --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
 
  # tiny_imagenet
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00     --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/regular/resnet50_00     --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet101/regular/resnet101_00   --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00     --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/regular/resnet50_00     --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet101/regular/resnet101_00   --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup pgd      --dump_dir loocv_pgd, 11000]
 
 
 
  # deepfool
  # cifar 10
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00           --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet50/regular/resnet50_00           --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet101/regular/resnet101_00         --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
+# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00           --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet50/regular/resnet50_00           --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet101/regular/resnet101_00         --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
 
  # cifar 100
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00          --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet50/regular/resnet50_00          --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00        --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00          --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet50/regular/resnet50_00          --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00        --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
 
  # svhn
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00              --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet50/regular/resnet50_00              --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/regular/resnet101_00            --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00              --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet50/regular/resnet50_00              --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/regular/resnet101_00            --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
 
  # tiny_imagenet
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00     --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/regular/resnet50_00     --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet101/regular/resnet101_00   --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00     --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/regular/resnet50_00     --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet101/regular/resnet101_00   --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup deepfool     --dump_dir loocv_deepfool, 11000]
 
 
 
 
  # cw
  # cifar 10
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00           --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet50/regular/resnet50_00           --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet101/regular/resnet101_00         --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
+# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00           --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet50/regular/resnet50_00           --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet101/regular/resnet101_00         --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
 
  # cifar 100
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00          --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet50/regular/resnet50_00          --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00        --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00          --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet50/regular/resnet50_00          --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00        --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
 
  # svhn
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00              --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet50/regular/resnet50_00              --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/regular/resnet101_00            --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00              --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet50/regular/resnet50_00              --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/regular/resnet101_00            --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
 
  # tiny_imagenet
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00     --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/regular/resnet50_00     --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet101/regular/resnet101_00   --method random_forest --attack_dir None --num_workers 25 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00     --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/regular/resnet50_00     --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
+ - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet101/regular/resnet101_00   --method random_forest --attack_dir None --num_workers 10 --all_attacks --rf_setup cw     --dump_dir loocv_cw, 11000]
