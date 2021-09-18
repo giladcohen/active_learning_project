@@ -311,6 +311,7 @@ def flush():
     logger.handlers[0].flush()
 
 def load_best_net():
+    global net
     global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
     net.load_state_dict(global_state['best_net'])
 
