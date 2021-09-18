@@ -21,12 +21,8 @@ sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
 sys.path.insert(0, "./TRADES")
 
-from active_learning_project.models.resnet import ResNet34, ResNet50, ResNet101
-from active_learning_project.models.wide_resnet_28_10 import WideResNet28_10
-from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
-    get_all_data_loader
-from active_learning_project.utils import remove_substr_from_keys, boolean_string, save_features, pytorch_evaluate, \
-    convert_tensor_to_image, get_image_shape, set_logger
+from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader
+from active_learning_project.utils import boolean_string, get_image_shape, set_logger
 from active_learning_project.models.utils import get_strides, get_conv1_params, get_model
 from TRADES.trades import trades_loss
 
@@ -51,6 +47,9 @@ parser.add_argument('--adv_trades', default=False, type=boolean_string, help='Us
 # TRADES params
 parser.add_argument('--epsilon', default=0.031, type=float, help='epsilon for TRADES loss')
 parser.add_argument('--step_size', default=0.007, type=float, help='step size for TRADES loss')
+
+# GloVe settings
+parser.add_argument('--glove_dim', default=200, type=int, help='Size of the words embeddings')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -109,7 +108,8 @@ test_size  = len(testloader.dataset)
 logger.info('==> Building model..')
 conv1 = get_conv1_params(args.dataset)
 strides = get_strides(args.dataset)
-net = get_model(args.net)(num_classes=len(classes), activation=args.activation, conv1=conv1, strides=strides)
+net = get_model(args.net)(num_classes=len(classes), activation=args.activation, conv1=conv1, strides=strides,
+                          ext_linear=args.glove_dim)
 net = net.to(device)
 summary(net, (img_shape[2], img_shape[0], img_shape[1]))
 

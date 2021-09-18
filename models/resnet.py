@@ -67,7 +67,7 @@ class Bottleneck(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, block, num_blocks, num_classes=10, activation='relu', conv1=None, strides=None):
+    def __init__(self, block, num_blocks, num_classes=10, activation='relu', conv1=None, strides=None, ext_linear=None):
         super(ResNet, self).__init__()
         self.in_planes = 64
         if activation == 'relu':
@@ -85,7 +85,13 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=strides[2])
         self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=strides[3])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.linear = nn.Linear(512*block.expansion, num_classes)
+
+        self.use_ext_linear = ext_linear is not None
+        if self.use_ext_linear:
+            self.ext_linear = nn.Linear(512*block.expansion, ext_linear)
+            self.linear = nn.Linear(ext_linear, num_classes)
+        else:
+            self.linear = nn.Linear(512*block.expansion, num_classes)
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1]*(num_blocks-1)
@@ -106,6 +112,9 @@ class ResNet(nn.Module):
         out = out.view(out.size(0), -1)
         # with torch.no_grad():
         net['embeddings'] = out
+        if self.use_ext_linear:
+            out = self.ext_linear(out)
+            net['glove_embeddings'] = out
         out = self.linear(out)
         net['logits'] = out
         net['probs'] = F.softmax(out, dim=1)
@@ -113,20 +122,20 @@ class ResNet(nn.Module):
         return net
 
 
-def ResNet18(num_classes, activation, conv1, strides):
-    return ResNet(BasicBlock, [2,2,2,2], num_classes, activation, conv1, strides)
+def ResNet18(num_classes, activation, conv1, strides, ext_linear=None):
+    return ResNet(BasicBlock, [2,2,2,2], num_classes, activation, conv1, strides, ext_linear)
 
-def ResNet34(num_classes, activation, conv1, strides):
-    return ResNet(BasicBlock, [3,4,6,3], num_classes, activation, conv1, strides)
+def ResNet34(num_classes, activation, conv1, strides, ext_linear=None):
+    return ResNet(BasicBlock, [3,4,6,3], num_classes, activation, conv1, strides, ext_linear)
 
-def ResNet50(num_classes, activation, conv1, strides):
-    return ResNet(Bottleneck, [3,4,6,3], num_classes, activation, conv1, strides)
+def ResNet50(num_classes, activation, conv1, strides, ext_linear=None):
+    return ResNet(Bottleneck, [3,4,6,3], num_classes, activation, conv1, strides, ext_linear)
 
-def ResNet101(num_classes, activation, conv1, strides):
-    return ResNet(Bottleneck, [3,4,23,3], num_classes, activation, conv1, strides)
+def ResNet101(num_classes, activation, conv1, strides, ext_linear=None):
+    return ResNet(Bottleneck, [3,4,23,3], num_classes, activation, conv1, strides, ext_linear)
 
-def ResNet152(num_classes, activation, conv1, strides):
-    return ResNet(Bottleneck, [3,8,36,3], num_classes, activation, conv1, strides)
+def ResNet152(num_classes, activation, conv1, strides, ext_linear=None):
+    return ResNet(Bottleneck, [3,8,36,3], num_classes, activation, conv1, strides, ext_linear)
 
 def test():
     net = ResNet18()
