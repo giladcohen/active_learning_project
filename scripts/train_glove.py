@@ -251,10 +251,7 @@ def validate():
     if (args.metric == 'accuracy' and metric > best_metric) or (args.metric == 'loss' and metric < best_metric):
         best_metric = metric
         logger.info('Found new best model. Saving...')
-        global_state['best_net'] = copy.deepcopy(net).state_dict()
-        global_state['best_metric'] = best_metric
-        global_state['epoch'] = epoch
-        global_state['global_step'] = global_step
+        save_global_state()
     logger.info('Epoch #{} (VAL): loss={}\tacc={:.2f}\tbest_metric({})={}'.format(epoch + 1, val_loss, val_acc, args.metric, best_metric))
 
     # updating learning rate if we see no improvement
@@ -296,7 +293,11 @@ def test():
     logger.info('Epoch #{} (TEST): loss={}\tacc={:.2f}'.format(epoch + 1, test_loss, test_acc))
 
 def save_global_state():
-    global global_state
+    global global_state, net, best_metric, epoch, global_step
+    global_state['best_net'] = copy.deepcopy(net).state_dict()
+    global_state['best_metric'] = best_metric
+    global_state['epoch'] = epoch
+    global_state['global_step'] = global_step
     torch.save(global_state, CHECKPOINT_PATH)
 
 def save_current_state():
@@ -308,6 +309,10 @@ def flush():
     val_writer.flush()
     test_writer.flush()
     logger.handlers[0].flush()
+
+def load_best_net():
+    global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
+    net.load_state_dict(global_state['best_net'])
 
 if __name__ == "__main__":
     best_metric    = WORST_METRIC
@@ -330,10 +335,11 @@ if __name__ == "__main__":
         validate()
         if epoch % 10 == 0 and epoch > 0:
             test()
-            save_global_state()  # save the best network to the checkpoint file
             if epoch % 100 == 0:
                 save_current_state()  # once every 100 epochs, save network to a new, distinctive checkpoint file
-    save_global_state()
     save_current_state()
+
+    # getting best metric, loading best net
+    load_best_net()
     test()
     flush()
