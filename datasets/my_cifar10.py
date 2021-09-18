@@ -7,6 +7,7 @@ from typing import Any, Callable, Optional, Tuple
 
 from torchvision.datasets import CIFAR10
 import torch
+from utils import inverse_map
 
 class MyCIFAR10(CIFAR10):
 
@@ -41,6 +42,7 @@ class MyCIFAR10(CIFAR10):
                     self.targets[i] = target - 1
                 else:
                     raise AssertionError('target={} should have been deleted by now'.format(target))
+        self.idx_to_class = inverse_map(self.class_to_idx)
 
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
         """
