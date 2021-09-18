@@ -131,9 +131,9 @@ if device == 'cuda':
 classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=None,
                                optimizer=None, input_shape=(img_shape[2], img_shape[0], img_shape[1]), nb_classes=len(classes))
 
-y_gt = y_test[test_inds]
+y_gt = y_test
 # y_orig_norm_preds = pytorch_evaluate(net, test_loader, ['probs'])[0].argmax(axis=1)[test_inds]
-y_orig_norm_preds = classifier.predict(X_test[test_inds], batch_size).argmax(axis=1)
+y_orig_norm_preds = classifier.predict(X_test, batch_size).argmax(axis=1)
 orig_norm_acc = np.mean(y_orig_norm_preds == y_gt)
 logger.info('Normal test accuracy: {}%'.format(100 * orig_norm_acc))
 
