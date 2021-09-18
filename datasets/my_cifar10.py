@@ -4,10 +4,9 @@ import os.path
 import numpy as np
 import pickle
 from typing import Any, Callable, Optional, Tuple
-
 from torchvision.datasets import CIFAR10
 import torch
-from utils import inverse_map
+from active_learning_project.utils import inverse_map
 
 class MyCIFAR10(CIFAR10):
 
