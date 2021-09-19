@@ -15,6 +15,7 @@ from tqdm import tqdm
 import time
 import sys
 import logging
+from sklearn.neighbors import NearestNeighbors
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, ".")
@@ -27,12 +28,12 @@ from active_learning_project.models.utils import get_strides, get_conv1_params, 
 from TRADES.trades import trades_loss
 
 parser = argparse.ArgumentParser(description='Training networks using PyTorch')
-parser.add_argument('--dataset', default='cifar10', type=str, help='dataset: cifar10, cifar100, svhn, tiny_imagenet')
+parser.add_argument('--dataset', default='cifar100', type=str, help='dataset: cifar10, cifar100, svhn, tiny_imagenet')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--net', default='resnet34', type=str, help='network architecture')
 parser.add_argument('--activation', default='relu', type=str, help='network activation: relu or softplus')
-parser.add_argument('--checkpoint_dir', default='/tmp/results/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/globe_emb/debug', type=str, help='checkpoint dir')
 parser.add_argument('--epochs', default='300', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.0001, type=float, help='weight decay')  # was 5e-4 for batch_size=128
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
@@ -50,11 +51,19 @@ parser.add_argument('--step_size', default=0.007, type=float, help='step size fo
 
 # GloVe settings
 parser.add_argument('--glove_dim', default=200, type=int, help='Size of the words embeddings')
+parser.add_argument('--norm', default=2, type=int, help='Norm in loss')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 
 args = parser.parse_args()
+
+# dumping args to txt file
+with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'w') as f:
+    json.dump(args.__dict__, f, indent=2)
+
+if args.norm == 'inf':
+    args.norm = np.inf
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
@@ -113,6 +122,10 @@ net = get_model(args.net)(num_classes=len(classes), activation=args.activation, 
 net = net.to(device)
 summary(net, (img_shape[2], img_shape[0], img_shape[1]))
 
+# knn model
+knn = NearestNeighbors(n_neighbors=1, algorithm='brute', p=args.norm)
+knn.fit(glove_vecs)
+
 if device == 'cuda':
     # net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
@@ -142,28 +155,6 @@ def reset_optim():
         cooldown=args.cooldown
     )
 
-def output_loss_robust(inputs, targets, is_training=False) -> Tuple[Dict, torch.Tensor]:
-    global net
-    global optimizer
-    return trades_loss(net, inputs, targets, optimizer, args.step_size, args.epsilon, is_training=is_training)
-
-def output_loss_normal(inputs, targets, is_training=False) -> Tuple[Dict, torch.Tensor]:
-    global net
-    global optimizer
-    outputs = net(inputs)
-    return outputs, criterion(outputs['logits'], targets)
-
-if args.adv_trades:
-    loss_func = output_loss_robust
-else:
-    loss_func = output_loss_normal
-
-def convert_targets_to_embs(targets: torch.Tensor) -> torch.Tensor:
-    embs = [glove_vecs[int(t)] for t in targets]
-    embs = np.vstack(embs)
-    embs = torch.from_numpy(embs)
-    return embs
-
 def train():
     """Train and validate"""
     # Training
@@ -176,25 +167,24 @@ def train():
     predicted = []
     labels = []
     for batch_idx, (inputs, targets) in enumerate(trainloader):  # train a single step
-        embs = convert_targets_to_embs(targets)
+        embs = torch.from_numpy(glove_vecs[targets])
         inputs, targets, embs = inputs.to(device), targets.to(device), embs.to(device)
         optimizer.zero_grad()
-        outputs, loss_ce = loss_func(inputs, targets, is_training=True)
-        loss = loss_ce
+        outputs = net(inputs)
+        loss = torch.linalg.norm(outputs['glove_embeddings'] - embs, ord=args.norm, dim=1).mean()
         loss.backward()
         optimizer.step()
-
         train_loss += loss.item()
 
-        _, preds = outputs['logits'].max(1)
-        predicted.extend(preds.cpu().numpy())
-        labels.extend(targets.cpu().numpy())
-        num_corrected = preds.eq(targets).sum().item()
+        preds = knn.kneighbors(outputs['glove_embeddings'].detach().cpu().numpy(), return_distance=False).squeeze()
+        targets_np = targets.cpu().numpy()
+        predicted.extend(preds)
+        labels.extend(targets_np)
+        num_corrected = np.sum(preds == targets_np)
         acc = num_corrected / targets.size(0)
 
         if global_step % 10 == 0:  # sampling, once ever 10 train iterations
             train_writer.add_scalar('losses/loss',    loss.item(),    global_step)
-            train_writer.add_scalar('losses/loss_ce', loss_ce.item(), global_step)
             train_writer.add_scalar('metrics/acc', 100.0 * acc, global_step)
             train_writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], global_step)
 
@@ -216,29 +206,25 @@ def validate():
 
     net.eval()
     val_loss = 0
-    val_loss_ce = 0
     predicted = []
 
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(valloader):
-            embs = convert_targets_to_embs(targets)
+            embs = torch.from_numpy(glove_vecs[targets])
             inputs, targets, embs = inputs.to(device), targets.to(device), embs.to(device)
-            outputs, loss_ce = loss_func(inputs, targets, is_training=False)
-            loss = loss_ce
+            outputs = net(inputs)
+            loss = torch.linalg.norm(outputs['glove_embeddings'] - embs, ord=args.norm, dim=1).mean()
+            preds = knn.kneighbors(outputs['glove_embeddings'].detach().cpu().numpy(), return_distance=False).squeeze()
 
-            val_loss    += loss.item()
-            val_loss_ce += loss_ce.item()
-
-            predicted.extend(outputs['logits'].max(1)[1].cpu().numpy())
+            val_loss += loss.item()
+            predicted.extend(preds)
 
     N = batch_idx + 1
     val_loss    = val_loss / N
-    val_loss_ce = val_loss_ce / N
     predicted = np.asarray(predicted)
     val_acc = 100.0 * np.mean(predicted == y_val)
 
     val_writer.add_scalar('losses/loss',    val_loss,    global_step)
-    val_writer.add_scalar('losses/loss_ce', val_loss_ce, global_step)
     val_writer.add_scalar('metrics/acc', val_acc, global_step)
 
     if args.metric == 'accuracy':
@@ -266,28 +252,24 @@ def test():
         # test
         net.eval()
         test_loss = 0
-        test_loss_ce = 0
         predicted = []
 
         for batch_idx, (inputs, targets) in enumerate(testloader):
-            embs = convert_targets_to_embs(targets)
+            embs = torch.from_numpy(glove_vecs[targets])
             inputs, targets, embs = inputs.to(device), targets.to(device), embs.to(device)
-            outputs, loss_ce = loss_func(inputs, targets, is_training=False)
-            loss = loss_ce
+            outputs = net(inputs)
+            loss = torch.linalg.norm(outputs['glove_embeddings'] - embs, ord=args.norm, dim=1).mean()
+            preds = knn.kneighbors(outputs['glove_embeddings'].detach().cpu().numpy(), return_distance=False).squeeze()
 
-            test_loss    += loss.item()
-            test_loss_ce += loss_ce.item()
-
-            predicted.extend(outputs['logits'].max(1)[1].cpu().numpy())
+            test_loss += loss.item()
+            predicted.extend(preds)
 
     N = batch_idx + 1
     test_loss    = test_loss / N
-    test_loss_ce = test_loss_ce / N
     predicted = np.asarray(predicted)
     test_acc = 100.0 * np.mean(predicted == y_test)
 
     test_writer.add_scalar('losses/loss',    test_loss,    global_step)
-    test_writer.add_scalar('losses/loss_ce', test_loss_ce, global_step)
     test_writer.add_scalar('metrics/acc', test_acc, global_step)
 
     logger.info('Epoch #{} (TEST): loss={}\tacc={:.2f}'.format(epoch + 1, test_loss, test_acc))
@@ -321,12 +303,7 @@ if __name__ == "__main__":
     global_step = 0
     global_state = {}
 
-    # dumping args to txt file
-    with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'w') as f:
-        json.dump(args.__dict__, f, indent=2)
-
     reset_optim()
-
     logger.info('Testing epoch #{}'.format(epoch + 1))
     test()
 
