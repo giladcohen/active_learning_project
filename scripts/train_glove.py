@@ -51,7 +51,7 @@ parser.add_argument('--step_size', default=0.007, type=float, help='step size fo
 
 # GloVe settings
 parser.add_argument('--glove_dim', default=200, type=int, help='Size of the words embeddings')
-parser.add_argument('--norm', default=2, type=int, help='Norm in loss')
+parser.add_argument('--norm', default=2, help='Norm in loss')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
