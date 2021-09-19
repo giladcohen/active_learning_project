@@ -16,7 +16,7 @@ commands:
 # - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/regular/resnet101_00            --method random_forest --attack_dir None --num_workers 10 --all_attacks --dump_dir global, 11000]
 
  # tiny_imagenet
- - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00     --method random_forest --attack_dir None --num_workers 10 --all_attacks --dump_dir global, 11000]
+# - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00     --method random_forest --attack_dir None --num_workers 10 --all_attacks --dump_dir global, 11000]
  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/regular/resnet50_00     --method random_forest --attack_dir None --num_workers 10 --all_attacks --dump_dir global, 11000]
  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet101/regular/resnet101_00   --method random_forest --attack_dir None --num_workers 10 --all_attacks --dump_dir global, 11000]
 
