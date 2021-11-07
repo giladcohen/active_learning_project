@@ -26,7 +26,6 @@ from active_learning_project.utils import boolean_string, pytorch_evaluate, set_
 from art.attacks.evasion import FastGradientMethod, ProjectedGradientDescent, DeepFool, SaliencyMapMethod, \
     CarliniL2Method, CarliniLInfMethod, ElasticNet
 from active_learning_project.models.utils import get_strides, get_conv1_params, get_model
-from active_learning_project.attacks.zero_grad_cw_try import ZeroGrad
 from active_learning_project.attacks.tta_whitebox_projected_gradient_descent import TTAWhiteboxProjectedGradientDescent
 
 from art.classifiers import PyTorchClassifier
@@ -34,13 +33,13 @@ from active_learning_project.classifiers.pytorch_tta_classifier import PyTorchTT
 from cleverhans.utils import random_targets, to_categorical
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
-parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='checkpoint path file name')
 parser.add_argument('--attack', default='deepfool', type=str, help='attack: fgsm, jsma, cw, deepfool, ead, pgd')
 parser.add_argument('--targeted', default=False, type=boolean_string, help='use trageted attack')
 parser.add_argument('--attack_dir', default='debug', type=str, help='attack directory')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--num_workers', default=4, type=int, help='Data loading threads')
+parser.add_argument('--num_workers', default=0, type=int, help='Data loading threads')
 parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
 
 # for FGSM/PGD/CW_Linf/whitebox_pgd:
@@ -215,12 +214,6 @@ elif args.attack == 'ead':
         beta=0.01,  # EAD paper shows good results for L1
         batch_size=batch_size,
         decision_rule='L1'
-    )
-elif args.attack == 'zga':
-    attack = ZeroGrad(
-        classifier=classifier,
-        initial_const=0.00005,
-        batch_size=100,
     )
 else:
     err_str = 'Attack {} is not supported'.format(args.attack)
