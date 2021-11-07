@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 import numpy as np
 import torch
 
-from art.utils import CLIP_VALUES_TYPE, PREPROCESSING_TYPE
+from art.utils import CLIP_VALUES_TYPE
 from art.estimators.classification.pytorch import PyTorchClassifier
 
 logger = logging.getLogger(__name__)
