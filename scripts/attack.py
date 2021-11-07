@@ -28,7 +28,6 @@ from art.attacks.evasion import FastGradientMethod, ProjectedGradientDescent, De
 from active_learning_project.models.utils import get_strides, get_conv1_params, get_model
 from active_learning_project.attacks.tta_whitebox_projected_gradient_descent import TTAWhiteboxProjectedGradientDescent
 
-from art.classifiers import PyTorchClassifier
 from active_learning_project.classifiers.pytorch_tta_classifier import PyTorchTTAClassifier
 from cleverhans.utils import random_targets, to_categorical
 
