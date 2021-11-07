@@ -5,13 +5,14 @@ from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 import numpy as np
 import torch
 
+from active_learning_project.classifiers.pytorch_classifier_specific import PyTorchClassifierSpecific
 from art.utils import CLIP_VALUES_TYPE
-from art.estimators.classification.pytorch import PyTorchClassifier
+# from art.estimators.classification.pytorch import PyTorchClassifier
 
 logger = logging.getLogger(__name__)
 
 
-class PyTorchTTAClassifier(PyTorchClassifier):  # lgtm [py/missing-call-to-init]
+class PyTorchTTAClassifier(PyTorchClassifierSpecific):  # lgtm [py/missing-call-to-init]
 
     def __init__(self,
                  model: "torch.nn.Module",
@@ -20,6 +21,7 @@ class PyTorchTTAClassifier(PyTorchClassifier):  # lgtm [py/missing-call-to-init]
                  nb_classes: int,
                  optimizer: Optional["torch.optim.Optimizer"] = None,  # type: ignore
                  clip_values: Optional[CLIP_VALUES_TYPE] = None,
+                 fields=None,
                  ) -> None:
         super().__init__(
             model=model,
@@ -27,7 +29,8 @@ class PyTorchTTAClassifier(PyTorchClassifier):  # lgtm [py/missing-call-to-init]
             input_shape=input_shape,
             nb_classes=nb_classes,
             optimizer=optimizer,
-            clip_values=clip_values
+            clip_values=clip_values,
+            fields=fields
         )
 
     def tta_loss_gradient_framework(self, x: "torch.Tensor", y: "torch.Tensor", tta_transforms, tta_size) -> "torch.Tensor":
@@ -58,7 +61,7 @@ class PyTorchTTAClassifier(PyTorchClassifier):  # lgtm [py/missing-call-to-init]
 
         # Compute the gradient and return
         model_outputs = self._model(x_ttas)
-        loss = self._loss(model_outputs[-1]['logits'], y_ttas)
+        loss = self._loss(model_outputs[-1], y_ttas)
 
         # Clean gradients
         self._model.zero_grad()

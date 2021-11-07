@@ -122,7 +122,8 @@ X_test = get_normalized_tensor(testloader, img_shape, batch_size)
 y_test = np.asarray(testloader.dataset.targets)
 
 classifier = PyTorchTTAClassifier(model=net, clip_values=(0, 1), loss=criterion,
-                                  optimizer=optimizer, input_shape=(img_shape[2], img_shape[0], img_shape[1]), nb_classes=len(classes))
+                                  optimizer=optimizer, input_shape=(img_shape[2], img_shape[0], img_shape[1]),
+                                  nb_classes=len(classes), fields=['logits'])
 
 y_test_logits = classifier.predict(X_test, batch_size=batch_size)
 y_test_preds = y_test_logits.argmax(axis=1)
