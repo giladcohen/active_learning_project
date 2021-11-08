@@ -6,7 +6,7 @@ import torch.optim as optim
 import torch.backends.cudnn as cudnn
 from torchsummary import summary
 from typing import Tuple, Any, Dict
-
+import copy
 import numpy as np
 import json
 import os
@@ -29,6 +29,7 @@ from active_learning_project.utils import remove_substr_from_keys, boolean_strin
     convert_tensor_to_image, get_image_shape, set_logger
 from active_learning_project.models.utils import get_strides, get_conv1_params, get_model
 from TRADES.trades import trades_loss
+from VAT_pytorch.vat import VATLoss
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--dataset', default='cifar100', type=str, help='dataset: cifar10, cifar100, svhn, tiny_imagenet')
@@ -49,20 +50,29 @@ parser.add_argument('--num_workers', default=0, type=int, help='Data loading thr
 parser.add_argument('--metric', default='accuracy', type=str, help='metric to optimize. accuracy or sparsity')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--adv_trades', default=False, type=boolean_string, help='Use adv robust training using TRADES')
+parser.add_argument('--adv_vat', default=True, type=boolean_string, help='Use adv robust training using VAT')
 
 # TRADES params
 parser.add_argument('--epsilon', default=0.031, type=float, help='epsilon for TRADES loss')
 parser.add_argument('--step_size', default=0.007, type=float, help='step size for TRADES loss')
+
+# VAT params
+parser.add_argument('--alpha', default=1.0, type=float, help='alpha for VAT loss')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 
 args = parser.parse_args()
 
+assert not (args.adv_trades and args.adv_vat), 'TRADES and VAT cannot be set together'
+
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, 'ckpt.pth')
 log_file = os.path.join(args.checkpoint_dir, 'log.log')
 os.makedirs(args.checkpoint_dir, exist_ok=True)
+with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'w') as f:
+    json.dump(args.__dict__, f, indent=2)
+
 if args.record:
     os.makedirs(os.path.join(args.checkpoint_dir, 'records', 'trainval'), exist_ok=True)
     os.makedirs(os.path.join(args.checkpoint_dir, 'records', 'test'), exist_ok=True)
@@ -128,7 +138,6 @@ if device == 'cuda':
     # net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
 
-criterion = nn.CrossEntropyLoss()
 y_train    = np.asarray(trainloader.dataset.targets)
 y_val      = np.asarray(valloader.dataset.targets)
 y_test     = np.asarray(testloader.dataset.targets)
@@ -144,45 +153,42 @@ np.save(os.path.join(args.checkpoint_dir, 'val_inds.npy'), val_inds)
 if args.record:
     np.save(os.path.join(args.checkpoint_dir, 'y_trainval.npy'), y_trainval)
 
-def reset_optim():
-    global optimizer
-    global lr_scheduler
-    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.mom, weight_decay=args.wd, nesterov=args.mom > 0)
-    lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer,
-        mode=metric_mode,
-        factor=args.factor,
-        patience=args.patience,
-        verbose=True,
-        cooldown=args.cooldown
-    )
+cross_entropy = nn.CrossEntropyLoss()
+vat_loss = VATLoss()
 
-def reset_net():
-    global net
-    global global_step
-    net.load_state_dict(global_state['best_net'])
-    global_step = global_state['global_step']
+optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.mom, weight_decay=args.wd, nesterov=args.mom > 0)
+lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+    optimizer,
+    mode=metric_mode,
+    factor=args.factor,
+    patience=args.patience,
+    verbose=True,
+    cooldown=args.cooldown
+)
 
-def output_loss_robust(inputs, targets, is_training=False) -> Tuple[Dict, torch.Tensor]:
-    global net
-    global optimizer
+def output_loss_trades(inputs, targets, is_training=False) -> Tuple[Dict, torch.Tensor]:
     return trades_loss(net, inputs, targets, optimizer, args.step_size, args.epsilon, is_training=is_training)
 
-def output_loss_normal(inputs, targets, is_training=False) -> Tuple[Dict, torch.Tensor]:
-    global net
-    global optimizer
+def output_loss_vat(inputs, targets, is_training=False) -> Tuple[Dict, torch.Tensor]:
+    lds = vat_loss(net, inputs)
     outputs = net(inputs)
-    return outputs, criterion(outputs['logits'], targets)
+    loss = cross_entropy(outputs['logits'], targets) + args.alpha * lds
+    return outputs, loss
+
+def output_loss_normal(inputs, targets, is_training=False) -> Tuple[Dict, torch.Tensor]:
+    outputs = net(inputs)
+    return outputs, cross_entropy(outputs['logits'], targets)
 
 if args.adv_trades:
-    loss_func = output_loss_robust
+    loss_func = output_loss_trades
+elif args.adv_vat:
+    loss_func = output_loss_vat
 else:
     loss_func = output_loss_normal
 
 def train():
     """Train and validate"""
     # Training
-    global global_state
     global global_step
     global epoch
     global net
@@ -194,11 +200,10 @@ def train():
     for batch_idx, (inputs, targets) in enumerate(trainloader):  # train a single step
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
-        outputs, loss_ce = loss_func(inputs, targets, is_training=True)
-        loss = loss_ce
+        outputs, loss = loss_func(inputs, targets, is_training=True)
+
         loss.backward()
         optimizer.step()
-
         train_loss += loss.item()
 
         _, preds = outputs['logits'].max(1)
@@ -209,7 +214,6 @@ def train():
 
         if global_step % 10 == 0:  # sampling, once ever 10 train iterations
             train_writer.add_scalar('losses/loss',    loss.item(),    global_step)
-            train_writer.add_scalar('losses/loss_ce', loss_ce.item(), global_step)
             train_writer.add_scalar('metrics/acc', 100.0 * acc, global_step)
             train_writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], global_step)
 
@@ -231,28 +235,22 @@ def validate():
 
     net.eval()
     val_loss = 0
-    val_loss_ce = 0
     predicted = []
 
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(valloader):
             inputs, targets = inputs.to(device), targets.to(device)
-            outputs, loss_ce = loss_func(inputs, targets, is_training=False)
-            loss = loss_ce
+            outputs, loss = loss_func(inputs, targets, is_training=False)
 
             val_loss    += loss.item()
-            val_loss_ce += loss_ce.item()
-
             predicted.extend(outputs['logits'].max(1)[1].cpu().numpy())
 
     N = batch_idx + 1
     val_loss    = val_loss / N
-    val_loss_ce = val_loss_ce / N
     predicted = np.asarray(predicted)
     val_acc = 100.0 * np.mean(predicted == y_val)
 
     val_writer.add_scalar('losses/loss',    val_loss,    global_step)
-    val_writer.add_scalar('losses/loss_ce', val_loss_ce, global_step)
     val_writer.add_scalar('metrics/acc', val_acc, global_step)
 
     if args.metric == 'accuracy':
@@ -265,50 +263,37 @@ def validate():
     if (args.metric == 'accuracy' and metric > best_metric) or (args.metric == 'loss' and metric < best_metric):
         best_metric = metric
         logger.info('Found new best model. Saving...')
-        global_state['best_net'] = net.state_dict()
-        global_state['best_metric'] = best_metric
-        global_state['epoch'] = epoch
-        global_state['global_step'] = global_step
-
-    if epoch > 0 and epoch % 100 == 0:
-        save_current_state()
+        save_global_state()
 
     logger.info('Epoch #{} (VAL): loss={}\tacc={:.2f}\tbest_metric({})={}'.format(epoch + 1, val_loss, val_acc, args.metric, best_metric))
 
     # updating learning rate if we see no improvement
-    lr_scheduler.step(metrics=metric, epoch=epoch)
+    lr_scheduler.step(metrics=metric)
 
 def test():
-    global global_state
     global global_step
     global epoch
     global net
 
-    with torch.no_grad():
-        # test
-        net.eval()
-        test_loss = 0
-        test_loss_ce = 0
-        predicted = []
+    # test
+    net.eval()
+    test_loss = 0
+    predicted = []
 
+    with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(testloader):
             inputs, targets = inputs.to(device), targets.to(device)
-            outputs, loss_ce = loss_func(inputs, targets, is_training=False)
-            loss = loss_ce
+            outputs, loss = loss_func(inputs, targets, is_training=False)
 
             test_loss    += loss.item()
-            test_loss_ce += loss_ce.item()
-
             predicted.extend(outputs['logits'].max(1)[1].cpu().numpy())
 
     N = batch_idx + 1
     test_loss    = test_loss / N
-    test_loss_ce = test_loss_ce / N
     predicted = np.asarray(predicted)
     test_acc = 100.0 * np.mean(predicted == y_test)
 
-    test_writer.add_scalar('losses/loss',    test_loss,    global_step)
-    test_writer.add_scalar('losses/loss_ce', test_loss_ce, global_step)
+    test_writer.add_scalar('losses/loss', test_loss,    global_step)
     test_writer.add_scalar('metrics/acc', test_acc, global_step)
 
     logger.info('Epoch #{} (TEST): loss={}\tacc={:.2f}'.format(epoch + 1, test_loss, test_acc))
@@ -332,11 +317,11 @@ def record(subset):
         np.save(os.path.join(args.checkpoint_dir, 'records', subset, 'rec_{}_{}.npy'.format(epoch, key)), outputs[i])
 
 def save_global_state():
-    global epoch
-    global global_state
-
-    global_state['train_inds'] = train_inds
-    global_state['val_inds'] = val_inds
+    global global_state, net, best_metric, epoch, global_step
+    global_state['best_net'] = copy.deepcopy(net).state_dict()
+    global_state['best_metric'] = best_metric
+    global_state['epoch'] = epoch
+    global_state['global_step'] = global_step
     torch.save(global_state, CHECKPOINT_PATH)
 
 def save_current_state():
@@ -349,40 +334,16 @@ def flush():
     test_writer.flush()
     logger.handlers[0].flush()
 
+def load_best_net():
+    global net
+    global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
+    net.load_state_dict(global_state['best_net'])
+
 if __name__ == "__main__":
-    if args.resume:
-        # Load checkpoint.
-        logger.info('==> Resuming from checkpoint..')
-        assert os.path.isfile(CHECKPOINT_PATH), 'Error: no checkpoint file found!'
-        checkpoint = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
-
-        # check if trained for DataParallel:
-        if 'module' in list(checkpoint['best_net'].keys())[0]:
-            checkpoint['best_net'] = remove_substr_from_keys(checkpoint['best_net'], 'module.')
-
-        net.load_state_dict(checkpoint['best_net'])
-        best_metric    = checkpoint['best_metric']
-        epoch          = checkpoint['epoch']
-        global_step    = checkpoint['global_step']
-        train_inds     = checkpoint['train_inds']
-        val_inds       = checkpoint['val_inds']
-
-        global_state = checkpoint
-    else:
-        # no old knowledge
-        best_metric    = WORST_METRIC
-        epoch          = 0
-        global_step    = 0
-        # train_inds     = train_inds
-        # val_inds       = val_inds
-
-        global_state = {}
-
-    # dumping args to txt file
-    with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'w') as f:
-        json.dump(args.__dict__, f, indent=2)
-
-    reset_optim()
+    best_metric    = WORST_METRIC
+    epoch          = 0
+    global_step    = 0
+    global_state = {}
 
     logger.info('Testing epoch #{}'.format(epoch + 1))
     test()
@@ -396,12 +357,13 @@ if __name__ == "__main__":
         validate()
         if epoch % 10 == 0 and epoch > 0:
             test()
-            save_global_state()
-    save_global_state()
+            if epoch % 100 == 0:
+                save_current_state()  # once every 100 epochs, save network to a new, distinctive checkpoint file
     save_current_state()
+
+    # getting best metric, loading best net
+    load_best_net()
     test()
-    reset_net()
-    test()  # post test the final best model
     flush()
 
 exit(0)
