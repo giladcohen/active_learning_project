@@ -35,7 +35,6 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--dataset', default='cifar100', type=str, help='dataset: cifar10, cifar100, svhn, tiny_imagenet')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
-parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--net', default='resnet34', type=str, help='network architecture')
 parser.add_argument('--activation', default='relu', type=str, help='network activation: relu or softplus')
 parser.add_argument('--checkpoint_dir', default='/Users/giladcohen/data/gilad/logs/adv_robustness/debug', type=str, help='checkpoint dir')
@@ -46,17 +45,15 @@ parser.add_argument('--factor', default=0.9, type=float, help='LR schedule facto
 parser.add_argument('--patience', default=3, type=int, help='LR schedule patience')
 parser.add_argument('--cooldown', default=0, type=int, help='LR cooldown')
 parser.add_argument('--val_size', default=0.05, type=float, help='Fraction of validation size')
-parser.add_argument('--num_workers', default=0, type=int, help='Data loading threads')
-parser.add_argument('--metric', default='accuracy', type=str, help='metric to optimize. accuracy or sparsity')
+parser.add_argument('--num_workers', default=5, type=int, help='Data loading threads')
+parser.add_argument('--metric', default='accuracy', type=str, help='metric to optimize. accuracy or loss')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--adv_trades', default=False, type=boolean_string, help='Use adv robust training using TRADES')
-parser.add_argument('--adv_vat', default=True, type=boolean_string, help='Use adv robust training using VAT')
+parser.add_argument('--adv_vat', default=False, type=boolean_string, help='Use adv robust training using VAT')
 
-# TRADES params
-parser.add_argument('--epsilon', default=0.031, type=float, help='epsilon for TRADES loss')
+# TRADES/VAT params
+parser.add_argument('--epsilon', default=0.031, type=float, help='epsilon for TRADES/VAT loss')
 parser.add_argument('--step_size', default=0.007, type=float, help='step size for TRADES loss')
-
-# VAT params
 parser.add_argument('--alpha', default=1.0, type=float, help='alpha for VAT loss')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -154,7 +151,7 @@ if args.record:
     np.save(os.path.join(args.checkpoint_dir, 'y_trainval.npy'), y_trainval)
 
 cross_entropy = nn.CrossEntropyLoss()
-vat_loss = VATLoss()
+vat_loss = VATLoss(eps=args.epsilon)
 
 optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.mom, weight_decay=args.wd, nesterov=args.mom > 0)
 lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
