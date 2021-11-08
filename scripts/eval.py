@@ -30,12 +30,12 @@ from active_learning_project.datasets.utils import get_mini_dataset_inds, get_en
 from active_learning_project.utils import boolean_string, pytorch_evaluate, set_logger, get_ensemble_paths, \
     majority_vote, convert_tensor_to_image, print_Linf_dists, calc_attack_rate, get_image_shape
 from active_learning_project.models.utils import get_strides, get_conv1_params, get_model
-from art.classifiers import PyTorchClassifier
+from active_learning_project.classifiers.pytorch_classifier_specific import PyTorchClassifierSpecific
 
 parser = argparse.ArgumentParser(description='Evaluating robustness score')
-parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_vat_acc', type=str, help='checkpoint dir')
 parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='checkpoint path file name')
-parser.add_argument('--method', default='random_forest', type=str, help='simple, ensemble, tta, random_forest, logistic_regression, svm_linear, svm_rbf')
+parser.add_argument('--method', default='simple', type=str, help='simple, ensemble, tta, random_forest, logistic_regression, svm_linear, svm_rbf')
 parser.add_argument('--attack_dir', default='', type=str, help='attack directory, or None for normal images')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
@@ -53,7 +53,7 @@ parser.add_argument('--all_attacks', action='store_true', help='Train random for
 parser.add_argument('--rf_setup', default='all', type=str, help='all/fgsm/jsma/pgd/deepfool/cw. all for global, rest for loocv')
 
 # dump
-parser.add_argument('--dump_dir', default='rf_global', type=str, help='dump dir for logs and data')
+parser.add_argument('--dump_dir', default='debug', type=str, help='dump dir for logs and data')
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 
@@ -128,8 +128,10 @@ if device == 'cuda':
     cudnn.benchmark = True
 
 # setting classifier
-classifier = PyTorchClassifier(model=net, clip_values=(0, 1), loss=None,
-                               optimizer=None, input_shape=(img_shape[2], img_shape[0], img_shape[1]), nb_classes=len(classes))
+classifier = PyTorchClassifierSpecific(
+    model=net, clip_values=(0, 1), loss=None,
+    optimizer=None, input_shape=(img_shape[2], img_shape[0], img_shape[1]),
+    nb_classes=len(classes), fields=['logits'])
 
 y_gt = y_test[test_inds]
 # y_orig_norm_preds = pytorch_evaluate(net, test_loader, ['probs'])[0].argmax(axis=1)[test_inds]
