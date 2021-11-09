@@ -14,6 +14,7 @@ import pickle
 import logging
 import sys
 import random
+from cleverhans.utils import random_targets, to_categorical
 
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
@@ -23,25 +24,24 @@ from active_learning_project.datasets.train_val_test_data_loaders import get_tes
 from active_learning_project.datasets.utils import get_mini_dataset_inds
 from active_learning_project.datasets.tta_utils import get_tta_transforms
 from active_learning_project.utils import boolean_string, pytorch_evaluate, set_logger, get_image_shape
-from art.attacks.evasion import FastGradientMethod, ProjectedGradientDescent, DeepFool, SaliencyMapMethod, \
-    CarliniL2Method, CarliniLInfMethod, ElasticNet
 from active_learning_project.models.utils import get_strides, get_conv1_params, get_model
 from active_learning_project.attacks.tta_whitebox_projected_gradient_descent import TTAWhiteboxProjectedGradientDescent
-
 from active_learning_project.classifiers.pytorch_tta_classifier import PyTorchTTAClassifier
-from cleverhans.utils import random_targets, to_categorical
+
+from art.attacks.evasion import FastGradientMethod, ProjectedGradientDescent, DeepFool, SaliencyMapMethod, \
+    CarliniL2Method, CarliniLInfMethod, ElasticNet, SquareAttack, BoundaryAttack
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='checkpoint path file name')
-parser.add_argument('--attack', default='deepfool', type=str, help='attack: fgsm, jsma, cw, deepfool, ead, pgd')
+parser.add_argument('--attack', default='deepfool', type=str, help='attack: fgsm, jsma, cw, deepfool, ead, pgd, square, boundary')
 parser.add_argument('--targeted', default=False, type=boolean_string, help='use trageted attack')
 parser.add_argument('--attack_dir', default='debug', type=str, help='attack directory')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--num_workers', default=0, type=int, help='Data loading threads')
 parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
 
-# for FGSM/PGD/CW_Linf/whitebox_pgd:
+# for FGSM/PGD/CW_Linf/whitebox_pgd/square:
 parser.add_argument('--eps'     , default=0.031, type=float, help='maximum Linf deviation from original image')
 parser.add_argument('--eps_step', default=0.003, type=float, help='step size of each adv iteration')
 
@@ -58,6 +58,8 @@ args = parser.parse_args()
 # torch.manual_seed(9)
 # random.seed(9)
 # np.random.seed(9)
+if args.attack in ['deepfool', 'square']:
+    assert not args.targeted
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
@@ -205,6 +207,19 @@ elif args.attack == 'cw_Linf':
         targeted=args.targeted,
         batch_size=batch_size,
         eps=args.eps
+    )
+elif args.attack == 'square':
+    attack = SquareAttack(
+        estimator=classifier,
+        norm=np.inf,
+        eps=args.eps,
+        batch_size=batch_size
+    )
+elif args.attack == 'boundary':
+    attack = BoundaryAttack(
+        estimator=classifier,
+        batch_size=batch_size,
+        targeted=args.targeted
     )
 elif args.attack == 'ead':
     attack = ElasticNet(
