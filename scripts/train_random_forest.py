@@ -84,7 +84,7 @@ classes = test_loader.dataset.classes
 y_gt = y_test[test_inds]
 
 ATTACK_DIRS = ['fgsm_targeted', 'fgsm_targeted_eps_0.031', 'jsma_targeted', 'pgd_targeted', 'pgd_targeted_eps_0.031',
-               'deepfool', 'cw_targeted', 'cw_targeted_Linf_eps_0.031']  #TODO: add boundary and square
+               'deepfool', 'cw_targeted', 'cw_targeted_Linf_eps_0.031', 'square']  # TODO: add boundary
 
 # load normal tta_logits:
 tta_dir = get_dump_dir(args.checkpoint_dir, args.tta_input_dir, '')
