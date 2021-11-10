@@ -48,13 +48,13 @@ def get_tta_transforms(dataset: str, gaussian_std: float=0.005, soft=False, clip
     ])
     return tta_transforms
 
-def get_tta_logits(dataset, args, net, X, y, tta_size, num_classes):
+def get_tta_logits(dataset, args, net, X, y, num_classes):
     """ Calculating the TTA output logits out of the inputs, transforms, to the tta_dir"""
     tta_transforms = get_tta_transforms(dataset, args.gaussian_std, args.soft_transforms, args.clip_inputs)
     tta_dataset = TTADataset(
         torch.from_numpy(X),
         torch.from_numpy(y),
-        tta_size,
+        args.tta_size,
         transform=tta_transforms)
     tta_loader = torch.utils.data.DataLoader(
         tta_dataset, batch_size=1, shuffle=False,
@@ -64,7 +64,7 @@ def get_tta_logits(dataset, args, net, X, y, tta_size, num_classes):
     start = time()
     with torch.no_grad():
         tta_logits = pytorch_evaluate(net, tta_loader, ['logits'],
-                                      (-1,) + tta_dataset.img_shape, {'logits': (-1, tta_size, num_classes)})[0]
+                                      (-1,) + tta_dataset.img_shape, {'logits': (-1, args.tta_size, num_classes)})[0]
     logger.info('Finished running DNN inference to fetch all the TTA logits. It took {} seconds'.format(time() - start))
 
     return tta_logits

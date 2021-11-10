@@ -31,6 +31,8 @@ from active_learning_project.utils import boolean_string, pytorch_evaluate, set_
     majority_vote, convert_tensor_to_image, print_Linf_dists, calc_attack_rate, get_image_shape
 from active_learning_project.models.utils import get_strides, get_conv1_params, get_model
 from active_learning_project.classifiers.pytorch_classifier_specific import PyTorchClassifierSpecific
+from active_learning_project.classifiers.hybrid_classifier import HybridClassifier
+
 
 parser = argparse.ArgumentParser(description='Evaluating robustness score')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_vat_acc', type=str, help='checkpoint dir')
@@ -271,7 +273,7 @@ elif args.method == 'tta':
     tta_file = os.path.join(tta_dir, 'tta_logits.npy')
     if args.overwrite:
         logger.info('Calculating tta logits (overwrite). It will take couple of minutes...')
-        tta_logits = get_tta_logits(dataset, args, net, X, y_test, args.tta_size, len(classes))
+        tta_logits = get_tta_logits(dataset, args, net, X, y_test, len(classes))
         np.save(os.path.join(tta_dir, 'tta_logits.npy'), tta_logits)
     else:
         try:
@@ -280,7 +282,7 @@ elif args.method == 'tta':
         except Exception as e:
             logger.warning('Did not load tta logits from {}. Exception err: {}'.format(tta_file, e))
             logger.info('Calculating tta logits. It will take couple of minutes...')
-            tta_logits = get_tta_logits(dataset, args, net, X, y_test, args.tta_size, len(classes))
+            tta_logits = get_tta_logits(dataset, args, net, X, y_test, len(classes))
             np.save(os.path.join(tta_dir, 'tta_logits.npy'), tta_logits)
 
     # testing only test_inds:
@@ -289,6 +291,25 @@ elif args.method == 'tta':
     # tta_preds = tta_probs.argmax(axis=2)
     # y_preds = np.apply_along_axis(majority_vote, axis=1, arr=tta_preds)
     y_preds = tta_logits.sum(axis=1).argmax(axis=1)
+
+elif args.method == 'random_forest':
+    rf_model_path = os.path.join(args.checkpoint_dir, 'random_forest', 'random_forest_classifier.pkl')
+    with open(rf_model_path, "rb") as f:
+        rf_model = pickle.load(f)
+    rf_model.n_jobs = args.num_workers  # overwrite
+    hybrid_classifier = HybridClassifier(
+        dnn_model=net,
+        rf_model=rf_model,
+        dataset=dataset,
+        tta_args=args,
+        # tta_transforms=get_tta_transforms(dataset, args.gaussian_std, args.soft_transforms, True),  # TODO: change True to args.clip_inputs
+        input_shape=(img_shape[2], img_shape[0], img_shape[1]),
+        nb_classes=len(classes),
+        clip_values=(0, 1),
+        fields=['logits']
+    )
+    hybrid_probs = hybrid_classifier.predict(X[test_inds], batch_size)
+    y_preds = hybrid_probs.argmax(axis=1)
 
 elif args.method in ['logistic_regression', 'svm_linear', 'svm_rbf', 'random_forest']:
     assert is_attacked, 'method {} can only be run with an attack'.format(args.method)
