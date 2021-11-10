@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
 from torchsummary import summary
-
+import matplotlib.pyplot as plt
 import numpy as np
 import json
 import os
@@ -21,9 +21,10 @@ sys.path.insert(0, "./adversarial_robustness_toolbox")
 
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
     get_loader_with_specific_inds, get_normalized_tensor
-from active_learning_project.datasets.utils import get_mini_dataset_inds
+from active_learning_project.datasets.utils import get_dataset_inds, get_mini_dataset_inds
 from active_learning_project.datasets.tta_utils import get_tta_transforms
-from active_learning_project.utils import boolean_string, pytorch_evaluate, set_logger, get_image_shape
+from active_learning_project.utils import boolean_string, pytorch_evaluate, set_logger, get_image_shape, \
+    convert_tensor_to_image
 from active_learning_project.models.utils import get_strides, get_conv1_params, get_model
 from active_learning_project.attacks.tta_whitebox_projected_gradient_descent import TTAWhiteboxProjectedGradientDescent
 from active_learning_project.classifiers.pytorch_tta_classifier import PyTorchTTAClassifier
@@ -39,7 +40,6 @@ parser.add_argument('--targeted', default=False, type=boolean_string, help='use 
 parser.add_argument('--attack_dir', default='debug', type=str, help='attack directory')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--num_workers', default=0, type=int, help='Data loading threads')
-parser.add_argument('--subset', default=-1, type=int, help='attack only subset of test set')
 
 # for FGSM/PGD/CW_Linf/whitebox_pgd/square:
 parser.add_argument('--eps'     , default=0.031, type=float, help='maximum Linf deviation from original image')
@@ -81,8 +81,6 @@ logger = logging.getLogger()
 # rand_gen = np.random.RandomState(seed=12345)
 
 dataset = train_args['dataset']
-_, test_inds = get_mini_dataset_inds(dataset)
-test_size = len(test_inds)
 
 # Data
 logger.info('==> Preparing data..')
@@ -244,15 +242,43 @@ for param in attack.attack_params:
 with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'w') as f:
     json.dump(dump_args, f, indent=2)
 
-# attack test set
-if args.subset != -1:  # debug
-    X_test = X_test[:args.subset]
-    y_test = y_test[:args.subset]
-    if y_test_targets is not None:
-        y_test_targets = y_test_targets[:args.subset]
+if args.attack == 'boundary':
+    assert args.targeted, 'This code supports only targeted boundary attack'
+
+    init_inds_file = os.path.join(ATTACK_DIR, 'init_inds.npy')
+    if not os.path.isfile(init_inds_file):
+        # generate X_adv_init
+        init_inds = []
+        for i in range(X_test.shape[0]):
+            permitted_inds = np.where(y_test == y_test_adv[i])[0]
+            ind = np.random.choice(permitted_inds, 1)[0]
+            init_inds.append(ind)
+        init_inds = np.asarray(init_inds)
+        np.save(os.path.join(ATTACK_DIR, 'init_inds.npy'), init_inds)
+    else:
+        init_inds = np.load(os.path.join(ATTACK_DIR, 'init_inds.npy'))
+
+    X_adv_init = X_test[init_inds]
+
+    # Boundary attack is expensive. Using only mini val/test samples
+    mini_val_inds, mini_test_inds = get_mini_dataset_inds(dataset)
+    mini_inds = np.concatenate((mini_val_inds, mini_test_inds))
+    mini_inds.sort()
+
+    X_test            = X_test[mini_inds]
+    y_test            = y_test[mini_inds]
+    y_test_preds      = y_test_preds[mini_inds]
+    y_test_adv        = y_test_adv[mini_inds]
+    y_test_targets    = y_test_targets[mini_inds]
+    X_adv_init        = X_adv_init[mini_inds]
+
+    test_inds = np.asarray([i for i in range(len(mini_inds)) if mini_inds[i] in mini_test_inds])
+else:
+    X_adv_init = None
+    _, test_inds = get_dataset_inds(dataset)
 
 if not os.path.exists(os.path.join(ATTACK_DIR, 'X_test_adv.npy')):
-    X_test_adv = attack.generate(x=X_test, y=y_test_targets)
+    X_test_adv = attack.generate(x=X_test, y=y_test_targets, x_adv_init=X_adv_init)
     test_adv_logits = classifier.predict(X_test_adv, batch_size=batch_size)
     y_test_adv_preds = np.argmax(test_adv_logits, axis=1)
     np.save(os.path.join(ATTACK_DIR, 'X_test_adv.npy'), X_test_adv)
@@ -262,7 +288,7 @@ else:
     y_test_adv_preds = np.load(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'))
 
 test_adv_accuracy = np.mean(y_test_adv_preds == y_test)
-logger.info('Accuracy on adversarial test examples: {}% (subset={})'.format(test_adv_accuracy * 100, args.subset))
+logger.info('Accuracy on adversarial test examples: {}%'.format(test_adv_accuracy * 100))
 
 # checking on the mini test set
 f0_inds = []  # net_fail
@@ -292,16 +318,26 @@ f2_inds = np.asarray(f2_inds)
 f3_inds = np.asarray(f3_inds)
 
 logger.info("Number of test samples: {}. #net_succ: {}. #net_succ_attack_flip: {}. #net_succ_attack_succ: {}"
-      .format(test_size, len(f1_inds), len(f2_inds), len(f3_inds)))
+      .format(len(test_inds), len(f1_inds), len(f2_inds), len(f3_inds)))
 
-f0_inds_test = np.asarray([ind for ind in f0_inds if ind in test_inds])
-f1_inds_test = np.asarray([ind for ind in f1_inds if ind in test_inds])
-f2_inds_test = np.asarray([ind for ind in f2_inds if ind in test_inds])
-f3_inds_test = np.asarray([ind for ind in f3_inds if ind in test_inds])
-
-np.save(os.path.join(ATTACK_DIR, 'inds', 'f0_inds_test.npy'), f0_inds_test)
-np.save(os.path.join(ATTACK_DIR, 'inds', 'f1_inds_test.npy'), f1_inds_test)
-np.save(os.path.join(ATTACK_DIR, 'inds', 'f2_inds_test.npy'), f2_inds_test)
-np.save(os.path.join(ATTACK_DIR, 'inds', 'f3_inds_test.npy'), f3_inds_test)
+# f0_inds_test = np.asarray([ind for ind in f0_inds if ind in test_inds])
+# f1_inds_test = np.asarray([ind for ind in f1_inds if ind in test_inds])
+# f2_inds_test = np.asarray([ind for ind in f2_inds if ind in test_inds])
+# f3_inds_test = np.asarray([ind for ind in f3_inds if ind in test_inds])
+#
+# np.save(os.path.join(ATTACK_DIR, 'inds', 'f0_inds_test.npy'), f0_inds_test)
+# np.save(os.path.join(ATTACK_DIR, 'inds', 'f1_inds_test.npy'), f1_inds_test)
+# np.save(os.path.join(ATTACK_DIR, 'inds', 'f2_inds_test.npy'), f2_inds_test)
+# np.save(os.path.join(ATTACK_DIR, 'inds', 'f3_inds_test.npy'), f3_inds_test)
 
 logger.handlers[0].flush()
+
+exit(0)
+# debug:
+# clipping
+x_clipped = torch.clip(x, 0.0, 1.0)
+#x_img = convert_tensor_to_image(x_clipped.detach().cpu().numpy())
+x_img = convert_tensor_to_image(X)
+for i in range(0, 5):
+    plt.imshow(x_img[i])
+    plt.show()

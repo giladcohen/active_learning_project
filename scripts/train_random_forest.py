@@ -29,7 +29,7 @@ sys.path.insert(0, "./adversarial_robustness_toolbox")
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
     get_loader_with_specific_inds, get_normalized_tensor
 from active_learning_project.datasets.tta_utils import get_tta_transforms, get_tta_logits
-from active_learning_project.datasets.utils import get_mini_dataset_inds, get_ensemble_dir, get_dump_dir
+from active_learning_project.datasets.utils import get_dataset_inds, get_ensemble_dir, get_dump_dir
 from active_learning_project.utils import boolean_string, pytorch_evaluate, set_logger, get_ensemble_paths, \
     majority_vote, convert_tensor_to_image, print_Linf_dists, calc_attack_rate, get_image_shape
 from active_learning_project.models.utils import get_strides, get_conv1_params, get_model
@@ -67,7 +67,7 @@ logger = logging.getLogger()
 rand_gen = np.random.RandomState(seed=12345)
 
 dataset = train_args['dataset']
-val_inds, test_inds = get_mini_dataset_inds(dataset)
+val_inds, test_inds = get_dataset_inds(dataset)
 val_size = len(val_inds)
 test_size = len(test_inds)
 

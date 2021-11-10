@@ -26,7 +26,7 @@ sys.path.insert(0, "./adversarial_robustness_toolbox")
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
     get_loader_with_specific_inds, get_normalized_tensor
 from active_learning_project.datasets.tta_utils import get_tta_transforms, get_tta_logits
-from active_learning_project.datasets.utils import get_mini_dataset_inds, get_ensemble_dir, get_dump_dir
+from active_learning_project.datasets.utils import get_dataset_inds, get_ensemble_dir, get_dump_dir
 from active_learning_project.utils import boolean_string, pytorch_evaluate, set_logger, get_ensemble_paths, \
     majority_vote, convert_tensor_to_image, print_Linf_dists, calc_attack_rate, get_image_shape
 from active_learning_project.models.utils import get_strides, get_conv1_params, get_model
@@ -35,10 +35,10 @@ from active_learning_project.classifiers.hybrid_classifier import HybridClassifi
 
 
 parser = argparse.ArgumentParser(description='Evaluating robustness score')
-parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_vat_acc', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='checkpoint path file name')
 parser.add_argument('--method', default='simple', type=str, help='simple, ensemble, tta, random_forest, logistic_regression, svm_linear, svm_rbf')
-parser.add_argument('--attack_dir', default='', type=str, help='attack directory, or None for normal images')
+parser.add_argument('--attack_dir', default='square', type=str, help='attack directory, or None for normal images')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
 # tta method params:
@@ -48,7 +48,7 @@ parser.add_argument('--tta_output_dir', default='tta', type=str, help='The dir t
 parser.add_argument('--soft_transforms', action='store_true', help='applying mellow transforms')
 parser.add_argument('--clip_inputs', action='store_true', help='clipping TTA inputs between 0 and 1')
 parser.add_argument('--overwrite', action='store_true', help='force calculating and saving TTA')
-parser.add_argument('--num_workers', default=30, type=int, help='Data loading threads for tta loader or random forest')
+parser.add_argument('--num_workers', default=20, type=int, help='Data loading threads for tta loader or random forest')
 
 # all attacks params
 parser.add_argument('--all_attacks', action='store_true', help='Train random forest on all attacks')
@@ -98,7 +98,7 @@ logger = logging.getLogger()
 rand_gen = np.random.RandomState(seed=12345)
 
 dataset = train_args['dataset']
-val_inds, test_inds = get_mini_dataset_inds(dataset)
+val_inds, test_inds = get_dataset_inds(dataset)
 val_size = len(val_inds)
 test_size = len(test_inds)
 
@@ -390,7 +390,8 @@ exit(0)
 # debug:
 # clipping
 x_clipped = torch.clip(x, 0.0, 1.0)
-x_img = convert_tensor_to_image(x_clipped.detach().cpu().numpy())
+#x_img = convert_tensor_to_image(x_clipped.detach().cpu().numpy())
+x_img = convert_tensor_to_image(X)
 for i in range(0, 5):
     plt.imshow(x_img[i])
     plt.show()

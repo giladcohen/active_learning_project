@@ -32,7 +32,7 @@ from active_learning_project.datasets.train_val_test_data_loaders import get_tes
     get_single_img_dataloader, get_explicit_train_loader
 from active_learning_project.utils import EMA, update_moving_average, convert_tensor_to_image, set_logger, get_model, \
     reset_net, pytorch_evaluate
-from active_learning_project.datasets.utils import get_mini_dataset_inds
+from active_learning_project.datasets.utils import get_dataset_inds
 from active_learning_project.metric_utils import calc_first_n_adv_acc, calc_first_n_adv_acc_from_probs_summation
 from active_learning_project.models.projection_head import MLP
 from Pointnet_Pointnet2_pytorch.models.pointnet_utils import feature_transform_reguliarzer
@@ -93,7 +93,7 @@ logger = logging.getLogger()
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
 dataset = train_args['dataset']
-val_inds, test_inds = get_mini_dataset_inds(dataset)
+val_inds, test_inds = get_dataset_inds(dataset)
 
 with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'r') as f:
     attack_args = json.load(f)
