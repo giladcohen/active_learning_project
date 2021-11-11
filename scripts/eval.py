@@ -26,7 +26,8 @@ sys.path.insert(0, "./adversarial_robustness_toolbox")
 from active_learning_project.datasets.train_val_test_data_loaders import get_test_loader, get_train_valid_loader, \
     get_loader_with_specific_inds, get_normalized_tensor
 from active_learning_project.datasets.tta_utils import get_tta_transforms, get_tta_logits
-from active_learning_project.datasets.utils import get_dataset_inds, get_ensemble_dir, get_dump_dir
+from active_learning_project.datasets.utils import get_dataset_inds, get_mini_dataset_inds, get_ensemble_dir, \
+    get_dump_dir
 from active_learning_project.utils import boolean_string, pytorch_evaluate, set_logger, get_ensemble_paths, \
     majority_vote, convert_tensor_to_image, print_Linf_dists, calc_attack_rate, get_image_shape
 from active_learning_project.models.utils import get_strides, get_conv1_params, get_model
@@ -35,10 +36,10 @@ from active_learning_project.classifiers.hybrid_classifier import HybridClassifi
 
 
 parser = argparse.ArgumentParser(description='Evaluating robustness score')
-parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='checkpoint path file name')
 parser.add_argument('--method', default='simple', type=str, help='simple, ensemble, tta, random_forest, logistic_regression, svm_linear, svm_rbf')
-parser.add_argument('--attack_dir', default='square', type=str, help='attack directory, or None for normal images')
+parser.add_argument('--attack_dir', default='boundary_targeted', type=str, help='attack directory, or None for normal images')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
 # tta method params:
@@ -98,7 +99,11 @@ logger = logging.getLogger()
 rand_gen = np.random.RandomState(seed=12345)
 
 dataset = train_args['dataset']
-val_inds, test_inds = get_dataset_inds(dataset)
+if 'boundary' not in args.attack_dir:
+    val_inds, test_inds = get_dataset_inds(dataset)
+else:
+    val_inds, test_inds = get_mini_dataset_inds(dataset)
+
 val_size = len(val_inds)
 test_size = len(test_inds)
 
@@ -106,7 +111,7 @@ test_size = len(test_inds)
 test_loader = get_test_loader(
     dataset=dataset,
     batch_size=batch_size,
-    num_workers=1,
+    num_workers=0,
     pin_memory=device=='cuda')
 img_shape = get_image_shape(dataset)
 X_test = get_normalized_tensor(test_loader, img_shape, batch_size)
