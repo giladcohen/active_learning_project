@@ -67,9 +67,8 @@ logger = logging.getLogger()
 rand_gen = np.random.RandomState(seed=12345)
 
 dataset = train_args['dataset']
-val_inds, test_inds = get_dataset_inds(dataset)
+val_inds, _ = get_dataset_inds(dataset)
 val_size = len(val_inds)
-test_size = len(test_inds)
 
 # get data:
 test_loader = get_test_loader(
@@ -81,7 +80,6 @@ img_shape = get_image_shape(dataset)
 X_test = get_normalized_tensor(test_loader, img_shape, batch_size)
 y_test = np.asarray(test_loader.dataset.targets)
 classes = test_loader.dataset.classes
-y_gt = y_test[test_inds]
 
 ATTACK_DIRS = ['fgsm_targeted', 'fgsm_targeted_eps_0.031', 'jsma_targeted', 'pgd_targeted', 'pgd_targeted_eps_0.031',
                'deepfool', 'cw_targeted', 'cw_targeted_Linf_eps_0.031', 'square']  # TODO: add boundary
