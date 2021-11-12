@@ -137,7 +137,8 @@ def kl_loss(t_probs, s_logits):
 
 WORST_METRIC = np.inf
 metric_mode = 'min'
-optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.mom, weight_decay=args.wd, nesterov=args.mom > 0)
+# optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.mom, weight_decay=args.wd, nesterov=args.mom > 0)
+optimizer = optim.Adam(net.parameters(), lr=args.lr, weight_decay=args.wd)
 lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
     optimizer,
     mode=metric_mode,
