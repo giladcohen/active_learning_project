@@ -25,15 +25,25 @@ class MLP(nn.Module):
 
         self.linear5 = nn.Linear(net_dims[4], net_dims[5], bias=True)
 
+        self.dropout = nn.Dropout(0.5)
+
     def forward(self, x):
         '''Forward pass'''
         net = {}
         out = x.view(x.size(0), -1)
 
         out = F.relu(self.bn1(self.linear1(out)))
+        out = self.dropout(out)
+
         out = F.relu(self.bn2(self.linear2(out)))
+        out = self.dropout(out)
+
         out = F.relu(self.bn3(self.linear3(out)))
+        out = self.dropout(out)
+
         out = F.relu(self.bn4(self.linear4(out)))
+        out = self.dropout(out)
+
         out = self.linear5(out)
 
         net['logits'] = out
