@@ -118,9 +118,7 @@ train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True,
                           num_workers=args.num_workers, pin_memory=device=='cuda')
 val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=False,
                         num_workers=args.num_workers, pin_memory=device=='cuda')
-# test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False,
-#                          num_workers=args.num_workers, pin_memory=device=='cuda')
-test_loader = DataLoader(train_set, batch_size=batch_size, shuffle=False,  # debug
+test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False,
                          num_workers=args.num_workers, pin_memory=device=='cuda')
 
 train_writer = SummaryWriter(os.path.join(SUB_DIR, 'train'))
