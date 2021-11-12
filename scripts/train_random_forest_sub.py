@@ -268,6 +268,7 @@ for epoch in tqdm(range(epoch, epoch + args.epochs)):
         test()
         if epoch % 100 == 0:
             save_current_state()  # once every 100 epochs, save network to a new, distinctive checkpoint file
+    flush()
 save_current_state()
 
 # getting best metric, loading best net
