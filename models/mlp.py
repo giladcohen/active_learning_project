@@ -9,7 +9,8 @@ class MLP(nn.Module):
         super().__init__()
         self.num_classes = num_classes
         self.e = e  # expansion
-        net_dims = num_classes * np.array([e, e / 2, e / 4, e / 8, e / 16, 1], dtype=int)
+        # net_dims = num_classes * np.array([e, e / 2, e / 4, e / 8, e / 16, 1], dtype=int)
+        net_dims = num_classes * np.array([e, e, e / 2, e / 4, e / 8, e / 16, 1], dtype=int)
 
         self.linear1 = nn.Linear(net_dims[0], net_dims[1], bias=False)
         self.bn1 = nn.BatchNorm1d(net_dims[1])
@@ -23,10 +24,10 @@ class MLP(nn.Module):
         self.linear4 = nn.Linear(net_dims[3], net_dims[4], bias=False)
         self.bn4 = nn.BatchNorm1d(net_dims[4])
 
-        self.linear5 = nn.Linear(net_dims[4], net_dims[5], bias=True)
+        self.linear5 = nn.Linear(net_dims[4], net_dims[5], bias=False)
+        self.bn5 = nn.BatchNorm1d(net_dims[5])
 
-        self.dropout1 = nn.Dropout(0.5)
-        self.dropout2 = nn.Dropout(0.2)
+        self.linear6 = nn.Linear(net_dims[5], net_dims[6], bias=True)
 
     def forward(self, x):
         '''Forward pass'''
@@ -38,12 +39,12 @@ class MLP(nn.Module):
         out = F.relu(self.bn2(self.linear2(out)))
 
         out = F.relu(self.bn3(self.linear3(out)))
-        out = self.dropout1(out)
 
         out = F.relu(self.bn4(self.linear4(out)))
-        out = self.dropout2(out)
 
-        out = self.linear5(out)
+        out = F.relu(self.bn5(self.linear5(out)))
+
+        out = self.linear6(out)
 
         net['logits'] = out
         net['probs'] = F.softmax(out, dim=1)
