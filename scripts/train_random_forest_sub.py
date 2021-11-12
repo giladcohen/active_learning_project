@@ -43,7 +43,7 @@ parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness
 parser.add_argument('--random_forest_dir', default='random_forest', type=str, help='The dir which holds the RF paramd')
 parser.add_argument('--sub_dir', default='sub_model', type=str, help='The dir which holds the substitute model')
 
-parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
+parser.add_argument('--lr', default=0.01, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--epochs', default='300', type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
@@ -118,8 +118,11 @@ train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True,
                           num_workers=args.num_workers, pin_memory=device=='cuda')
 val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=False,
                         num_workers=args.num_workers, pin_memory=device=='cuda')
-test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False,
+# test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False,
+#                          num_workers=args.num_workers, pin_memory=device=='cuda')
+test_loader = DataLoader(train_set, batch_size=batch_size, shuffle=False,  # debug
                          num_workers=args.num_workers, pin_memory=device=='cuda')
+
 train_writer = SummaryWriter(os.path.join(SUB_DIR, 'train'))
 val_writer   = SummaryWriter(os.path.join(SUB_DIR, 'val'))
 test_writer  = SummaryWriter(os.path.join(SUB_DIR, 'test'))
@@ -137,8 +140,8 @@ def kl_loss(t_probs, s_logits):
 
 WORST_METRIC = np.inf
 metric_mode = 'min'
-# optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.mom, weight_decay=args.wd, nesterov=args.mom > 0)
-optimizer = optim.Adam(net.parameters(), lr=args.lr, weight_decay=args.wd)
+optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.mom, weight_decay=args.wd, nesterov=args.mom > 0)
+# optimizer = optim.SGD(net.parameters(), lr=args.lr, weight_decay=args.wd)
 lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
     optimizer,
     mode=metric_mode,
