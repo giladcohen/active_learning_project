@@ -12,16 +12,16 @@ class MLP(nn.Module):
         net_dims = num_classes * np.array([e, e / 2, e / 4, e / 8, e / 16, 1], dtype=int)
 
         self.linear1 = nn.Linear(net_dims[0], net_dims[1], bias=False)
-        self.bn1 = nn.BatchNorm1d(net_dims[1])
+        self.bn1 = nn.BatchNorm1d(net_dims[1], momentum=0.9)
 
         self.linear2 = nn.Linear(net_dims[1], net_dims[2], bias=False)
-        self.bn2 = nn.BatchNorm1d(net_dims[2])
+        self.bn2 = nn.BatchNorm1d(net_dims[2], momentum=0.9)
 
         self.linear3 = nn.Linear(net_dims[2], net_dims[3], bias=False)
-        self.bn3 = nn.BatchNorm1d(net_dims[3])
+        self.bn3 = nn.BatchNorm1d(net_dims[3], momentum=0.9)
 
         self.linear4 = nn.Linear(net_dims[3], net_dims[4], bias=False)
-        self.bn4 = nn.BatchNorm1d(net_dims[4])
+        self.bn4 = nn.BatchNorm1d(net_dims[4], momentum=0.9)
 
         self.linear5 = nn.Linear(net_dims[4], net_dims[5], bias=True)
 
