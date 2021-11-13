@@ -72,8 +72,6 @@ logger.info('==> Preparing Data..')
 dataset = train_args['dataset']
 val_inds, _ = get_dataset_inds(dataset)
 mini_val_inds, _ = get_mini_dataset_inds(dataset)
-val_size = len(val_inds)
-mini_val_size = len(mini_val_inds)
 
 test_loader = get_test_loader(
     dataset=dataset,
@@ -155,7 +153,7 @@ for attack_dir in ATTACK_DIRS:
 tta_logits_train_adv = np.vstack(tta_logits_train_adv)
 
 # reshape to features:
-features_train_norm = tta_logits_train_norm.reshape((val_size, -1))
+features_train_norm = tta_logits_train_norm.reshape((tta_logits_train_norm.shape[0], -1))
 features_train_adv = tta_logits_train_adv.reshape((tta_logits_train_adv.shape[0], -1))
 assert features_train_norm.shape[1] == features_train_adv.shape[1] == len(classes) * 256
 
