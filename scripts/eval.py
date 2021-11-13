@@ -39,7 +39,7 @@ parser = argparse.ArgumentParser(description='Evaluating robustness score')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='checkpoint path file name')
 parser.add_argument('--method', default='random_forest', type=str, help='simple, ensemble, tta, random_forest, logistic_regression, svm_linear, svm_rbf')
-parser.add_argument('--attack_dir', default='boundary_targeted', type=str, help='attack directory, or None for normal images')
+parser.add_argument('--attack_dir', default='', type=str, help='attack directory, or None for normal images')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
 # tta method params:
@@ -52,14 +52,11 @@ parser.add_argument('--overwrite', action='store_true', help='force calculating 
 parser.add_argument('--num_workers', default=20, type=int, help='Data loading threads for tta loader or random forest')
 
 # dump
-parser.add_argument('--dump_dir', default='debug', type=str, help='dump dir for logs and data')
+parser.add_argument('--dump_dir', default='random_forest_global', type=str, help='dump dir for logs and data')
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 
 args = parser.parse_args()
-args.overwrite = True
-if args.dump_dir is None:
-    args.dump_dir = args.method
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
