@@ -47,9 +47,9 @@ parser.add_argument('--alpha', default=0.5, type=float, help='distillation ratio
 parser.add_argument('--lr', default=0.01, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--epochs', default='300', type=int, help='number of epochs')
-parser.add_argument('--wd', default=0.0, type=float, help='weight decay')
+parser.add_argument('--wd', default=0.0001, type=float, help='weight decay')
 parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
-parser.add_argument('--patience', default=3, type=int, help='LR schedule patience')
+parser.add_argument('--patience', default=2, type=int, help='LR schedule patience')
 parser.add_argument('--cooldown', default=0, type=int, help='LR cooldown')
 parser.add_argument('--val_size', default=0.04, type=float, help='Fraction of validation size')
 parser.add_argument('--num_workers', default=20, type=int, help='Data loading threads for tta loader or random forest')
@@ -133,6 +133,9 @@ summary(net, input_shape)
 if device == 'cuda':
     cudnn.benchmark = True
 
+# losses
+cross_entropy = nn.CrossEntropyLoss()
+
 def kl(s_logits, t_probs):
     return F.kl_div(F.log_softmax(s_logits, dim=1), t_probs, reduction="batchmean")
 
@@ -190,12 +193,12 @@ def train():
     kl_loss = 0
     ce_loss = 0
 
-    for batch_idx, (inputs, targets) in enumerate(train_loader):  # train a single step
-        inputs, targets = inputs.to(device), targets.to(device)
+    for batch_idx, (inputs, t_probs, targets) in enumerate(train_loader):  # train a single step
+        inputs, t_probs, targets = inputs.to(device), t_probs.do(device), targets.to(device)
         optimizer.zero_grad()
         outputs = net(inputs)
-        loss_kl = kl(outputs['logits'].double(), targets)
-        loss_ce = softXEnt(outputs['logits'].double(), targets)
+        loss_kl = kl(outputs['logits'].double(), t_probs)
+        loss_ce = cross_entropy(outputs['logits'].double(), targets)
         loss = args.alpha * loss_kl + (1 - args.alpha) * loss_ce
 
         loss.backward()
@@ -226,11 +229,11 @@ def validate():
     ce_loss = 0
 
     with torch.no_grad():
-        for batch_idx, (inputs, targets) in enumerate(val_loader):
-            inputs, targets = inputs.to(device), targets.to(device)
+        for batch_idx, (inputs, t_probs, targets) in enumerate(val_loader):
+            inputs, t_probs, targets = inputs.to(device), t_probs.do(device), targets.to(device)
             outputs = net(inputs)
-            loss_kl = kl(outputs['logits'].double(), targets)
-            loss_ce = softXEnt(outputs['logits'].double(), targets)
+            loss_kl = kl(outputs['logits'].double(), t_probs)
+            loss_ce = cross_entropy(outputs['logits'].double(), targets)
             loss = args.alpha * loss_kl + (1 - args.alpha) * loss_ce
 
             kl_loss += loss_kl.item()
@@ -266,11 +269,11 @@ def test():
     ce_loss = 0
 
     with torch.no_grad():
-        for batch_idx, (inputs, targets) in enumerate(test_loader):
-            inputs, targets = inputs.to(device), targets.to(device)
+        for batch_idx, (inputs, t_probs, targets) in enumerate(test_loader):
+            inputs, t_probs, targets = inputs.to(device), t_probs.do(device), targets.to(device)
             outputs = net(inputs)
-            loss_kl = kl(outputs['logits'].double(), targets)
-            loss_ce = softXEnt(outputs['logits'].double(), targets)
+            loss_kl = kl(outputs['logits'].double(), t_probs)
+            loss_ce = cross_entropy(outputs['logits'].double(), targets)
             loss = args.alpha * loss_kl + (1 - args.alpha) * loss_ce
 
             kl_loss += loss_kl.item()
