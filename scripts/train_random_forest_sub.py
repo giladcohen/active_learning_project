@@ -142,6 +142,7 @@ dnn.eval()  # frozen
 
 def generate_new_train_logits():
     global logits, train_set, train_loader
+    logger.info('Generating new train set TTA logits for epoch {}...'.format(epoch))
     logits = get_tta_logits(dataset, dnn, X[train_inds], y_gt[train_inds], len(classes), tta_args)
     train_set = TTALogitsDataset(torch.from_numpy(logits[train_inds]), torch.from_numpy(rf_probs[train_inds]), torch.from_numpy(y_gt[train_inds]))
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True,
@@ -326,6 +327,8 @@ test()
 
 logger.info('start training from epoch #{} for {} epochs'.format(epoch + 1, args.epochs))
 for epoch in tqdm(range(epoch, epoch + args.epochs)):
+    if epoch > 0:
+        generate_new_train_logits()
     train()
     validate()
     if epoch % 10 == 0 and epoch > 0:
@@ -333,7 +336,6 @@ for epoch in tqdm(range(epoch, epoch + args.epochs)):
         if epoch % 100 == 0:
             save_current_state()  # once every 100 epochs, save network to a new, distinctive checkpoint file
     flush()
-    generate_new_train_logits()
 save_current_state()
 
 # getting best metric, loading best net
