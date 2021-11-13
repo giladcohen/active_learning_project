@@ -40,6 +40,7 @@ from active_learning_project.models.mlp import MLP
 
 parser = argparse.ArgumentParser(description='Evaluating robustness score')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
+parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='checkpoint path file name of teacher')
 parser.add_argument('--random_forest_dir', default='random_forest', type=str, help='The dir which holds the RF params')
 parser.add_argument('--sub_dir', default='sub_model', type=str, help='The dir which holds the substitute model')
 
@@ -52,7 +53,7 @@ parser.add_argument('--factor', default=0.9, type=float, help='LR schedule facto
 parser.add_argument('--patience', default=2, type=int, help='LR schedule patience')
 parser.add_argument('--cooldown', default=0, type=int, help='LR cooldown')
 parser.add_argument('--val_size', default=0.04, type=float, help='Fraction of validation size')
-parser.add_argument('--num_workers', default=4, type=int, help='Data loading threads for tta loader or random forest')
+parser.add_argument('--num_workers', default=10, type=int, help='Data loading threads for tta loader or random forest')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -61,6 +62,7 @@ parser.add_argument('--port', default='null', type=str, help='to bypass pycharm 
 args = parser.parse_args()
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, args.checkpoint_file)
 RF_DIR = os.path.join(args.checkpoint_dir, args.random_forest_dir)
 SUB_DIR = os.path.join(RF_DIR, args.sub_dir)
 SUB_PATH = os.path.join(SUB_DIR, 'ckpt.pth')
@@ -74,9 +76,13 @@ with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
 batch_size = args.batch_size
 dataset = train_args['dataset']
+image_shape = get_image_shape(dataset)
 
 # load logits of normal images:
 logits = np.load(os.path.join(args.checkpoint_dir, 'normal', 'tta', 'tta_logits.npy'))
+with open(os.path.join(args.checkpoint_dir, 'normal', 'tta', 'eval_args.txt'), 'r') as f:
+    tta_args = json.load(f)
+tta_args.update({'num_workers': args.num_workers})
 
 # get RF predictions (probs):
 rf_model_path = os.path.join(RF_DIR, 'random_forest_classifier.pkl')
@@ -93,14 +99,14 @@ def get_gt(dataset):
         batch_size=batch_size,
         num_workers=0,
         pin_memory=False)
+    X = get_normalized_tensor(tmp_loader, image_shape, batch_size)
     y_gt = np.asarray(tmp_loader.dataset.targets)
     classes = tmp_loader.dataset.classes
-    return y_gt, classes
+    return X, y_gt, classes
 
-
+X, y_gt, classes = get_gt(dataset)
 train_val_inds, test_inds = get_dataset_inds(dataset)
 val_size = int(np.floor(args.val_size * len(train_val_inds)))
-y_gt, classes = get_gt(dataset)
 input_shape = (logits.shape[1], len(classes))
 
 train_inds, val_inds = train_test_split(train_val_inds, test_size=val_size, random_state=rand_gen, shuffle=True,
@@ -121,6 +127,25 @@ val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=False,
                         num_workers=args.num_workers, pin_memory=device=='cuda')
 test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False,
                          num_workers=args.num_workers, pin_memory=device=='cuda')
+
+# set up network for data augmentation
+logger.info('==> Building teacher model..')
+conv1 = get_conv1_params(dataset)
+strides = get_strides(dataset)
+global_state = torch.load(CHECKPOINT_PATH, map_location=torch.device(device))
+if 'best_net' in global_state:
+    global_state = global_state['best_net']
+dnn = get_model(train_args['net'])(num_classes=len(classes), activation=train_args['activation'], conv1=conv1, strides=strides)
+dnn = dnn.to(device)
+dnn.load_state_dict(global_state)
+dnn.eval()  # frozen
+
+def generate_new_train_logits():
+    global logits, train_set, train_loader
+    logits = get_tta_logits(dataset, dnn, X[train_inds], y_gt[train_inds], len(classes), tta_args)
+    train_set = TTALogitsDataset(torch.from_numpy(logits[train_inds]), torch.from_numpy(rf_probs[train_inds]), torch.from_numpy(y_gt[train_inds]))
+    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True,
+                              num_workers=args.num_workers, pin_memory=device=='cuda')
 
 train_writer = SummaryWriter(os.path.join(SUB_DIR, 'train'))
 val_writer   = SummaryWriter(os.path.join(SUB_DIR, 'val'))
@@ -308,6 +333,7 @@ for epoch in tqdm(range(epoch, epoch + args.epochs)):
         if epoch % 100 == 0:
             save_current_state()  # once every 100 epochs, save network to a new, distinctive checkpoint file
     flush()
+    generate_new_train_logits()
 save_current_state()
 
 # getting best metric, loading best net
