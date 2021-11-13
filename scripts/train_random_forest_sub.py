@@ -43,6 +43,7 @@ parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness
 parser.add_argument('--random_forest_dir', default='random_forest', type=str, help='The dir which holds the RF paramd')
 parser.add_argument('--sub_dir', default='sub_model', type=str, help='The dir which holds the substitute model')
 
+parser.add_argument('--alpha', default=0.5, type=float, help='distillation ratio')
 parser.add_argument('--lr', default=0.01, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
 parser.add_argument('--epochs', default='300', type=int, help='number of epochs')
@@ -111,9 +112,9 @@ np.save(os.path.join(SUB_DIR, 'sub_val_inds.npy'), val_inds)
 
 # Set up train/val/test sets and loaders
 logger.info('==> Preparing data..')
-train_set = TTALogitsDataset(torch.from_numpy(logits[train_inds]), torch.from_numpy(rf_probs[train_inds]))
-val_set   = TTALogitsDataset(torch.from_numpy(logits[val_inds]), torch.from_numpy(rf_probs[val_inds]))
-test_set  = TTALogitsDataset(torch.from_numpy(logits[test_inds]), torch.from_numpy(rf_probs[test_inds]))
+train_set = TTALogitsDataset(torch.from_numpy(logits[train_inds]), torch.from_numpy(rf_probs[train_inds]), torch.from_numpy(y_gt[train_inds]))
+val_set   = TTALogitsDataset(torch.from_numpy(logits[val_inds]), torch.from_numpy(rf_probs[val_inds]), torch.from_numpy(y_gt[val_inds]))
+test_set  = TTALogitsDataset(torch.from_numpy(logits[test_inds]), torch.from_numpy(rf_probs[test_inds]), torch.from_numpy(y_gt[test_inds]))
 train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True,
                           num_workers=args.num_workers, pin_memory=device=='cuda')
 val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=False,
@@ -132,8 +133,12 @@ summary(net, input_shape)
 if device == 'cuda':
     cudnn.benchmark = True
 
-def kl_loss(t_probs, s_logits):
+def kl_loss(s_logits, t_probs):
     return F.kl_div(F.log_softmax(s_logits, dim=1), t_probs, reduction="batchmean")
+
+def softXEnt(s_logits, t_probs):
+    logprobs = F.log_softmax(s_logits, dim=1)
+    return -(t_probs * logprobs).sum() / s_logits.shape[0]
 
 
 WORST_METRIC = np.inf
@@ -186,7 +191,7 @@ def train():
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
         outputs = net(inputs)
-        loss = kl_loss(targets, outputs['logits'].double())
+        loss = kl_loss(outputs['logits'].double(), targets)
 
         loss.backward()
         optimizer.step()
@@ -213,7 +218,7 @@ def validate():
         for batch_idx, (inputs, targets) in enumerate(val_loader):
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = net(inputs)
-            loss = kl_loss(targets, outputs['logits'].double())
+            loss = kl_loss(outputs['logits'].double(), targets)
             val_loss += loss.item()
 
     N = batch_idx + 1
@@ -242,7 +247,7 @@ def test():
         for batch_idx, (inputs, targets) in enumerate(test_loader):
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = net(inputs)
-            loss = kl_loss(targets, outputs['logits'].double())
+            loss = kl_loss(outputs['logits'].double(), targets)
             test_loss += loss.item()
 
     N = batch_idx + 1

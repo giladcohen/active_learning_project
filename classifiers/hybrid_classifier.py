@@ -5,6 +5,7 @@ import torch
 import torchvision
 import sklearn
 import matplotlib.pyplot as plt
+import argparse
 
 from active_learning_project.classifiers.pytorch_classifier_specific import PyTorchClassifierSpecific
 from active_learning_project.utils import convert_tensor_to_image
@@ -23,7 +24,6 @@ class HybridClassifier(PyTorchClassifierSpecific):  # lgtm [py/missing-call-to-i
                  rf_model: sklearn.ensemble.RandomForestClassifier,
                  dataset: str,
                  tta_args: Dict,
-                 # tta_transforms: torchvision.transforms.Compose,
                  input_shape: Tuple[int, ...],
                  nb_classes: int,
                  clip_values: Optional[CLIP_VALUES_TYPE] = None,
@@ -39,7 +39,6 @@ class HybridClassifier(PyTorchClassifierSpecific):  # lgtm [py/missing-call-to-i
             fields=fields
         )
         self.rf_model = rf_model
-        # self.tta_transforms = tta_transforms
         self.tta_args = tta_args
         self.dataset = dataset
 
@@ -51,7 +50,7 @@ class HybridClassifier(PyTorchClassifierSpecific):  # lgtm [py/missing-call-to-i
         self._model.train(mode=training_mode)
 
         y = -1 * np.ones(x.shape[0])
-        tta_logits = get_tta_logits(self.dataset, self.tta_args, self._model._model, x, y, self.nb_classes)
+        tta_logits = get_tta_logits(self.dataset, self._model._model, x, y, self.nb_classes, self.tta_args)
         rf_features = tta_logits.reshape(x.shape[0], -1)  # (N, 2560)
 
         output_probs = self.rf_model.predict_proba(rf_features)

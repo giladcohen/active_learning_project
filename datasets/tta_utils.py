@@ -48,23 +48,28 @@ def get_tta_transforms(dataset: str, gaussian_std: float=0.005, soft=False, clip
     ])
     return tta_transforms
 
-def get_tta_logits(dataset, args, net, X, y, num_classes):
-    """ Calculating the TTA output logits out of the inputs, transforms, to the tta_dir"""
-    tta_transforms = get_tta_transforms(dataset, args.gaussian_std, args.soft_transforms, args.clip_inputs)
+def get_tta_logits(dataset, net, X, y, num_classes, tta_args):
+    """ Calculating the TTA output logits out of the inputs, transforms, to the tta_dir
+    tta_args is a dict of
+    {'gaussian_std': float, 'soft_transforms': bool, 'clip_inputs': bool, 'tta_size': int, 'num_workers': int}
+    """
+    tta_transforms = get_tta_transforms(dataset,
+                                        tta_args['gaussian_std'], tta_args['soft_transforms'], tta_args['clip_inputs'])
     tta_dataset = TTADataset(
         torch.from_numpy(X),
         torch.from_numpy(y),
-        args.tta_size,
+        tta_args['tta_size'],
         transform=tta_transforms)
     tta_loader = torch.utils.data.DataLoader(
         tta_dataset, batch_size=1, shuffle=False,
-        num_workers=args.num_workers, pin_memory=torch.cuda.is_available())
+        num_workers=tta_args['num_workers'], pin_memory=torch.cuda.is_available())
 
     logger = logging.getLogger()
     start = time()
     with torch.no_grad():
         tta_logits = pytorch_evaluate(net, tta_loader, ['logits'],
-                                      (-1,) + tta_dataset.img_shape, {'logits': (-1, args.tta_size, num_classes)})[0]
+                                      (-1,) + tta_dataset.img_shape,
+                                      {'logits': (-1, tta_args['tta_size'], num_classes)})[0]
     logger.info('Finished running DNN inference to fetch all the TTA logits. It took {} seconds'.format(time() - start))
 
     return tta_logits
