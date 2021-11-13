@@ -133,7 +133,7 @@ summary(net, input_shape)
 if device == 'cuda':
     cudnn.benchmark = True
 
-def kl_loss(s_logits, t_probs):
+def kl(s_logits, t_probs):
     return F.kl_div(F.log_softmax(s_logits, dim=1), t_probs, reduction="batchmean")
 
 def softXEnt(s_logits, t_probs):
@@ -187,25 +187,34 @@ def train():
 
     net.train()
     train_loss = 0
+    kl_loss = 0
+    ce_loss = 0
+
     for batch_idx, (inputs, targets) in enumerate(train_loader):  # train a single step
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
         outputs = net(inputs)
-        loss = kl_loss(outputs['logits'].double(), targets)
+        loss_kl = kl(outputs['logits'].double(), targets)
+        loss_ce = softXEnt(outputs['logits'].double(), targets)
+        loss = args.alpha * loss_kl + (1 - args.alpha) * loss_ce
 
         loss.backward()
         optimizer.step()
+        kl_loss += loss_kl.item()
+        ce_loss += loss_ce.item()
         train_loss += loss.item()
 
         if global_step % 10 == 0:  # sampling, once ever 10 train iterations
-            train_writer.add_scalar('losses/loss',    loss.item(),    global_step)
+            train_writer.add_scalar('losses/kl', loss_kl.item(), global_step)
+            train_writer.add_scalar('losses/ce', loss_ce.item(), global_step)
+            train_writer.add_scalar('losses/loss', loss.item(), global_step)
             train_writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], global_step)
 
         global_step += 1
 
     N = batch_idx + 1
     train_loss = train_loss / N
-    logger.info('Epoch #{} (TRAIN): loss={}'.format(epoch + 1, train_loss))
+    logger.info('Epoch #{} (TRAIN): kl_loss={}, ce_loss={}, loss={}'.format(epoch + 1, kl_loss, ce_loss, train_loss))
 
 def validate():
     global global_state
@@ -213,48 +222,70 @@ def validate():
 
     net.eval()
     val_loss = 0
+    kl_loss = 0
+    ce_loss = 0
 
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(val_loader):
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = net(inputs)
-            loss = kl_loss(outputs['logits'].double(), targets)
+            loss_kl = kl(outputs['logits'].double(), targets)
+            loss_ce = softXEnt(outputs['logits'].double(), targets)
+            loss = args.alpha * loss_kl + (1 - args.alpha) * loss_ce
+
+            kl_loss += loss_kl.item()
+            ce_loss += loss_ce.item()
             val_loss += loss.item()
 
     N = batch_idx + 1
-    val_loss    = val_loss / N
+    kl_loss = kl_loss / N
+    ce_loss = ce_loss / N
+    val_loss = val_loss / N
 
-    val_writer.add_scalar('losses/loss',    val_loss,    global_step)
-    metric = val_loss
+    val_writer.add_scalar('losses/kl', kl_loss, global_step)
+    val_writer.add_scalar('losses/ce', ce_loss, global_step)
+    val_writer.add_scalar('losses/loss', val_loss, global_step)
+    metric = kl_loss
 
     if metric < best_metric:
         best_metric = metric
         logger.info('Found new best model. Saving...')
         save_global_state()
 
-    logger.info('Epoch #{} (VAL): loss={}\tbest_metric({})={}'.format(epoch + 1, val_loss, 'KL div', best_metric))
+    logger.info('Epoch #{} (VAL): kl_loss={}, ce_loss={}, loss={},\tbest_metric({})={}'
+                .format(epoch + 1, kl_loss, ce_loss, val_loss, 'KL div', best_metric))
 
     # updating learning rate if we see no improvement
     lr_scheduler.step(metrics=metric)
-
 
 def test():
     # test
     net.eval()
     test_loss = 0
+    kl_loss = 0
+    ce_loss = 0
 
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(test_loader):
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = net(inputs)
-            loss = kl_loss(outputs['logits'].double(), targets)
+            loss_kl = kl(outputs['logits'].double(), targets)
+            loss_ce = softXEnt(outputs['logits'].double(), targets)
+            loss = args.alpha * loss_kl + (1 - args.alpha) * loss_ce
+
+            kl_loss += loss_kl.item()
+            ce_loss += loss_ce.item()
             test_loss += loss.item()
 
     N = batch_idx + 1
-    test_loss    = test_loss / N
+    kl_loss = kl_loss / N
+    ce_loss = ce_loss / N
+    test_loss = test_loss / N
 
-    test_writer.add_scalar('losses/loss', test_loss,    global_step)
-    logger.info('Epoch #{} (TEST): loss={}'.format(epoch + 1, test_loss))
+    test_writer.add_scalar('losses/kl', kl_loss, global_step)
+    test_writer.add_scalar('losses/ce', ce_loss, global_step)
+    test_writer.add_scalar('losses/loss', test_loss, global_step)
+    logger.info('Epoch #{} (TEST): kl_loss={}, ce_loss={}, loss={}'.format(epoch + 1, kl_loss, ce_loss, test_loss))
 
 
 best_metric    = WORST_METRIC
