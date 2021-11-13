@@ -142,12 +142,13 @@ dnn.eval()  # frozen
 
 def generate_new_train_logits():
     global train_set, train_loader
-    logger.info('Generating new train set TTA logits for epoch {}...'.format(epoch))
+    logger.info('Generating new train set TTA logits for epoch {}...'.format(epoch + 1))
     new_logits = get_tta_logits(dataset, dnn, X[train_inds], y_gt[train_inds], len(classes), tta_args)
     new_rf_probs = rf_model.predict_proba(new_logits.reshape(new_logits.shape[0], -1))
     train_set = TTALogitsDataset(torch.from_numpy(new_logits), torch.from_numpy(new_rf_probs), torch.from_numpy(y_gt[train_inds]))
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True,
                               num_workers=args.num_workers, pin_memory=device=='cuda')
+
 
 train_writer = SummaryWriter(os.path.join(SUB_DIR, 'train'))
 val_writer   = SummaryWriter(os.path.join(SUB_DIR, 'val'))

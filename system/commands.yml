@@ -1,5 +1,7 @@
 commands:
- - [python active_learning_project/scripts/train_random_forest_sub.py --sub_dir mlp6_aug_alpha_0.25_lr_0.01_wd_0.0001    --alpha 0.25, 5000]
- - [python active_learning_project/scripts/train_random_forest_sub.py --sub_dir mlp6_aug_alpha_0.5_lr_0.01_wd_0.0001     --alpha 0.5, 5000]
- - [python active_learning_project/scripts/train_random_forest_sub.py --sub_dir mlp6_aug_alpha_0.75_lr_0.01_wd_0.0001    --alpha 0.75, 5000]
- - [python active_learning_project/scripts/train_random_forest_sub.py --sub_dir mlp6_aug_alpha_1_lr_0.01_wd_0.0001       --alpha 1, 5000]
+ - [python active_learning_project/scripts/train_random_forest_sub.py --sub_dir mlp6_aug_alpha_0_lr_0.01_wd_0.0001      --alpha 0, 11000]
+ - [python active_learning_project/scripts/train_random_forest_sub.py --sub_dir mlp6_aug_alpha_0.2_lr_0.01_wd_0.0001    --alpha 0.2, 11000]
+ - [python active_learning_project/scripts/train_random_forest_sub.py --sub_dir mlp6_aug_alpha_0.4_lr_0.01_wd_0.0001    --alpha 0.4, 11000]
+ - [python active_learning_project/scripts/train_random_forest_sub.py --sub_dir mlp6_aug_alpha_0.6_lr_0.01_wd_0.0001    --alpha 0.6, 11000]
+ - [python active_learning_project/scripts/train_random_forest_sub.py --sub_dir mlp6_aug_alpha_0.8_lr_0.01_wd_0.0001    --alpha 0.8, 11000]
+ - [python active_learning_project/scripts/train_random_forest_sub.py --sub_dir mlp6_aug_alpha_1_lr_0.01_wd_0.0001      --alpha 1, 11000]
