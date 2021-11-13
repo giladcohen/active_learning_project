@@ -194,7 +194,7 @@ def train():
     ce_loss = 0
 
     for batch_idx, (inputs, t_probs, targets) in enumerate(train_loader):  # train a single step
-        inputs, t_probs, targets = inputs.to(device), t_probs.do(device), targets.to(device)
+        inputs, t_probs, targets = inputs.to(device), t_probs.to(device), targets.to(device)
         optimizer.zero_grad()
         outputs = net(inputs)
         loss_kl = kl(outputs['logits'].double(), t_probs)
@@ -230,7 +230,7 @@ def validate():
 
     with torch.no_grad():
         for batch_idx, (inputs, t_probs, targets) in enumerate(val_loader):
-            inputs, t_probs, targets = inputs.to(device), t_probs.do(device), targets.to(device)
+            inputs, t_probs, targets = inputs.to(device), t_probs.to(device), targets.to(device)
             outputs = net(inputs)
             loss_kl = kl(outputs['logits'].double(), t_probs)
             loss_ce = cross_entropy(outputs['logits'].double(), targets)
@@ -270,7 +270,7 @@ def test():
 
     with torch.no_grad():
         for batch_idx, (inputs, t_probs, targets) in enumerate(test_loader):
-            inputs, t_probs, targets = inputs.to(device), t_probs.do(device), targets.to(device)
+            inputs, t_probs, targets = inputs.to(device), t_probs.to(device), targets.to(device)
             outputs = net(inputs)
             loss_kl = kl(outputs['logits'].double(), t_probs)
             loss_ce = cross_entropy(outputs['logits'].double(), targets)
