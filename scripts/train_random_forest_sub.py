@@ -47,13 +47,13 @@ parser.add_argument('--sub_dir', default='sub_model', type=str, help='The dir wh
 parser.add_argument('--alpha', default=1, type=float, help='distillation ratio')
 parser.add_argument('--lr', default=0.01, type=float, help='learning rate')
 parser.add_argument('--mom', default=0.9, type=float, help='weight momentum of SGD optimizer')
-parser.add_argument('--epochs', default=30, type=int, help='number of epochs')
+parser.add_argument('--epochs', default=50, type=int, help='number of epochs')
 parser.add_argument('--wd', default=0.0001, type=float, help='weight decay')
-parser.add_argument('--factor', default=0.9, type=float, help='LR schedule factor')
+parser.add_argument('--factor', default=0.75, type=float, help='LR schedule factor')
 parser.add_argument('--patience', default=2, type=int, help='LR schedule patience')
 parser.add_argument('--cooldown', default=0, type=int, help='LR cooldown')
 parser.add_argument('--val_size', default=0.04, type=float, help='Fraction of validation size')
-parser.add_argument('--num_workers', default=20, type=int, help='Data loading threads for tta loader or random forest')
+parser.add_argument('--num_workers', default=4, type=int, help='Data loading threads for tta loader or random forest')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -329,12 +329,11 @@ test()
 
 logger.info('start training from epoch #{} for {} epochs'.format(epoch + 1, args.epochs))
 for epoch in tqdm(range(epoch, epoch + args.epochs)):
-    if epoch % 10 == 0 and epoch > 0:
-        generate_new_train_logits()
+    # if epoch % 10 == 0 and epoch > 0:
+    #     generate_new_train_logits()
     train()
     validate()
-    if epoch % 10 == 0 and epoch > 0:
-        test()
+    test()
     flush()
 
 # getting best metric, loading best net
