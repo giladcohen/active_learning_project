@@ -329,15 +329,13 @@ test()
 
 logger.info('start training from epoch #{} for {} epochs'.format(epoch + 1, args.epochs))
 for epoch in tqdm(range(epoch, epoch + args.epochs)):
+    if epoch % 10 == 0 and epoch > 0:
+        generate_new_train_logits()
     train()
     validate()
     if epoch % 10 == 0 and epoch > 0:
         test()
-        if epoch % 100 == 0:
-            save_current_state()  # once every 100 epochs, save network to a new, distinctive checkpoint file
-        generate_new_train_logits()
     flush()
-save_current_state()
 
 # getting best metric, loading best net
 load_best_net()
