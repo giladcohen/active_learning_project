@@ -1,4 +1,4 @@
 commands:
-  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth            --num_workers 40, 11000]
-  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust_trades             --checkpoint_file ckpt_epoch_100.pth  --num_workers 40, 11000]
-  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust_vat                --checkpoint_file ckpt_epoch_199.pth  --num_workers 40, 11000]
+ - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth            --num_workers 40, 11000]
+ - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust_trades             --checkpoint_file ckpt_epoch_100.pth  --num_workers 40, 11000]
+ - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust_vat                --checkpoint_file ckpt_epoch_199.pth  --num_workers 40, 11000]
