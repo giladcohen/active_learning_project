@@ -11,7 +11,7 @@ commands:
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method simple       --attack_dir cw_targeted                  --batch_size 100 --num_workers 20 --dump_dir simple, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method simple       --attack_dir cw_targeted_Linf_eps_0.031   --batch_size 100 --num_workers 20 --dump_dir simple, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method simple       --attack_dir square                       --batch_size 100 --num_workers 0 --dump_dir simple, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method simple       --attack_dir boundary_targeted            --batch_size 100 --num_workers 0 --dump_dir simple, 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method simple       --attack_dir boundary_targeted            --batch_size 100 --num_workers 0 --dump_dir simple, 11000]
 
 
 #  # CIFAR10, resnet34, ensemble
@@ -25,7 +25,7 @@ commands:
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method ensemble     --attack_dir cw_targeted                  --batch_size 100 --num_workers 20 --dump_dir ensemble, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method ensemble     --attack_dir cw_targeted_Linf_eps_0.031   --batch_size 100 --num_workers 20 --dump_dir ensemble, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method ensemble     --attack_dir square                       --batch_size 100 --num_workers 0  --dump_dir ensemble, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method ensemble       --attack_dir boundary_targeted            --batch_size 100 --num_workers 0 --dump_dir ensemble, 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method ensemble       --attack_dir boundary_targeted            --batch_size 100 --num_workers 0 --dump_dir ensemble, 11000]
 
 
 #  # CIFAR10, resnet34, tta
@@ -39,7 +39,7 @@ commands:
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method tta          --attack_dir cw_targeted                  --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method tta          --attack_dir cw_targeted_Linf_eps_0.031   --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method tta         --attack_dir square                        --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
-########  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method tta       --attack_dir boundary_targeted            --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method tta       --attack_dir boundary_targeted            --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
 
 
 #  # CIFAR10, resnet34, random_forest
@@ -65,8 +65,8 @@ commands:
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth        --method simple       --attack_dir deepfool                     --batch_size 100 --num_workers 20 --dump_dir simple, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth        --method simple       --attack_dir cw_targeted                  --batch_size 100 --num_workers 20 --dump_dir simple, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth        --method simple       --attack_dir cw_targeted_Linf_eps_0.031   --batch_size 100 --num_workers 20 --dump_dir simple, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method simple       --attack_dir square                       --batch_size 100 --num_workers 0 --dump_dir simple, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method simple       --attack_dir boundary_targeted            --batch_size 100 --num_workers 0 --dump_dir simple, 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method simple       --attack_dir square                       --batch_size 100 --num_workers 0 --dump_dir simple, 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method simple       --attack_dir boundary_targeted            --batch_size 100 --num_workers 0 --dump_dir simple, 11000]
 
 
 
@@ -81,8 +81,8 @@ commands:
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth        --method ensemble     --attack_dir deepfool                     --batch_size 100 --num_workers 20 --dump_dir ensemble, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth        --method ensemble     --attack_dir cw_targeted                  --batch_size 100 --num_workers 20 --dump_dir ensemble, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth        --method ensemble     --attack_dir cw_targeted_Linf_eps_0.031   --batch_size 100 --num_workers 20 --dump_dir ensemble, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method ensemble     --attack_dir square                       --batch_size 100 --num_workers 0 --dump_dir ensemble, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method ensemble     --attack_dir boundary_targeted            --batch_size 100 --num_workers 0 --dump_dir ensemble, 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method ensemble     --attack_dir square                       --batch_size 100 --num_workers 0 --dump_dir ensemble, 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method ensemble     --attack_dir boundary_targeted            --batch_size 100 --num_workers 0 --dump_dir ensemble, 11000]
 
 
 
@@ -97,8 +97,8 @@ commands:
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth        --method tta          --attack_dir deepfool                     --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth        --method tta          --attack_dir cw_targeted                  --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth        --method tta          --attack_dir cw_targeted_Linf_eps_0.031   --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
-  ########- [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method tta         --attack_dir square                       --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
-  ########- [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method tta         --attack_dir boundary_targeted            --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method tta         --attack_dir square                       --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth        --method tta         --attack_dir boundary_targeted            --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
 
 
 
@@ -130,8 +130,8 @@ commands:
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00               --checkpoint_file ckpt.pth        --method simple       --attack_dir deepfool                     --batch_size 100 --num_workers 0 --dump_dir simple, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00               --checkpoint_file ckpt.pth        --method simple       --attack_dir cw_targeted                  --batch_size 100 --num_workers 0 --dump_dir simple, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00               --checkpoint_file ckpt.pth        --method simple       --attack_dir cw_targeted_Linf_eps_0.031   --batch_size 100 --num_workers 0 --dump_dir simple, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00               --checkpoint_file ckpt.pth        --method simple       --attack_dir square                       --batch_size 100 --num_workers 0 --dump_dir simple, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00               --checkpoint_file ckpt.pth        --method simple       --attack_dir boundary_targeted            --batch_size 100 --num_workers 0 --dump_dir simple, 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00               --checkpoint_file ckpt.pth        --method simple       --attack_dir square                       --batch_size 100 --num_workers 0 --dump_dir simple, 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00               --checkpoint_file ckpt.pth        --method simple       --attack_dir boundary_targeted            --batch_size 100 --num_workers 0 --dump_dir simple, 11000]
 
 
 
@@ -145,8 +145,8 @@ commands:
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00               --checkpoint_file ckpt.pth        --method ensemble     --attack_dir deepfool                     --batch_size 100 --num_workers 20 --dump_dir ensemble, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00               --checkpoint_file ckpt.pth        --method ensemble     --attack_dir cw_targeted                  --batch_size 100 --num_workers 20 --dump_dir ensemble, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00               --checkpoint_file ckpt.pth        --method ensemble     --attack_dir cw_targeted_Linf_eps_0.031   --batch_size 100 --num_workers 20 --dump_dir ensemble, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00               --checkpoint_file ckpt.pth        --method ensemble     --attack_dir square                       --batch_size 100 --num_workers 20 --dump_dir ensemble, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00               --checkpoint_file ckpt.pth        --method ensemble     --attack_dir boundary_targeted            --batch_size 100 --num_workers 20 --dump_dir ensemble, 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00               --checkpoint_file ckpt.pth        --method ensemble     --attack_dir square                       --batch_size 100 --num_workers 20 --dump_dir ensemble, 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00               --checkpoint_file ckpt.pth        --method ensemble     --attack_dir boundary_targeted            --batch_size 100 --num_workers 20 --dump_dir ensemble, 11000]
 
 
 
@@ -160,8 +160,8 @@ commands:
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00               --checkpoint_file ckpt.pth        --method tta          --attack_dir deepfool                     --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00               --checkpoint_file ckpt.pth        --method tta          --attack_dir cw_targeted                  --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00               --checkpoint_file ckpt.pth        --method tta          --attack_dir cw_targeted_Linf_eps_0.031   --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
-  ########- [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00               --checkpoint_file ckpt.pth        --method tta          --attack_dir square                       --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
-  ########- [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00               --checkpoint_file ckpt.pth        --method tta          --attack_dir boundary_targeted            --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00               --checkpoint_file ckpt.pth        --method tta          --attack_dir square                       --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00               --checkpoint_file ckpt.pth        --method tta          --attack_dir boundary_targeted            --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
 
 
 
@@ -191,8 +191,8 @@ commands:
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00      --checkpoint_file ckpt.pth        --method simple       --attack_dir deepfool                     --batch_size 100 --num_workers 20 --dump_dir simple, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00      --checkpoint_file ckpt.pth        --method simple       --attack_dir cw_targeted                  --batch_size 100 --num_workers 20 --dump_dir simple, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00      --checkpoint_file ckpt.pth        --method simple       --attack_dir cw_targeted_Linf_eps_0.031   --batch_size 100 --num_workers 20 --dump_dir simple, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00      --checkpoint_file ckpt.pth        --method simple       --attack_dir square                       --batch_size 100 --num_workers 0 --dump_dir simple, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00      --checkpoint_file ckpt.pth        --method simple       --attack_dir boundary_targeted            --batch_size 100 --num_workers 0 --dump_dir simple, 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00      --checkpoint_file ckpt.pth        --method simple       --attack_dir square                       --batch_size 100 --num_workers 0 --dump_dir simple, 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00      --checkpoint_file ckpt.pth        --method simple       --attack_dir boundary_targeted            --batch_size 100 --num_workers 0 --dump_dir simple, 11000]
 
 
 #  # Tiny Imagenet, resnet34, ensemble
@@ -205,8 +205,8 @@ commands:
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00      --checkpoint_file ckpt.pth        --method ensemble     --attack_dir deepfool                     --batch_size 100 --num_workers 20 --dump_dir ensemble, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00      --checkpoint_file ckpt.pth        --method ensemble     --attack_dir cw_targeted                  --batch_size 100 --num_workers 20 --dump_dir ensemble, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00      --checkpoint_file ckpt.pth        --method ensemble     --attack_dir cw_targeted_Linf_eps_0.031   --batch_size 100 --num_workers 20 --dump_dir ensemble, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00      --checkpoint_file ckpt.pth        --method ensemble     --attack_dir square                       --batch_size 100 --num_workers 0 --dump_dir ensemble, 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00      --checkpoint_file ckpt.pth        --method ensemble     --attack_dir boundary_targeted            --batch_size 100 --num_workers 0 --dump_dir ensemble, 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00      --checkpoint_file ckpt.pth        --method ensemble     --attack_dir square                       --batch_size 100 --num_workers 0 --dump_dir ensemble, 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00      --checkpoint_file ckpt.pth        --method ensemble     --attack_dir boundary_targeted            --batch_size 100 --num_workers 0 --dump_dir ensemble, 11000]
 
 
 
@@ -220,8 +220,8 @@ commands:
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00      --checkpoint_file ckpt.pth        --method tta          --attack_dir deepfool                     --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00      --checkpoint_file ckpt.pth        --method tta          --attack_dir cw_targeted                  --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00      --checkpoint_file ckpt.pth        --method tta          --attack_dir cw_targeted_Linf_eps_0.031   --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
-  ########- [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00      --checkpoint_file ckpt.pth        --method tta          --attack_dir square                       --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
-  ########- [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00      --checkpoint_file ckpt.pth        --method tta          --attack_dir boundary_targeted            --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00      --checkpoint_file ckpt.pth        --method tta          --attack_dir square                       --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00      --checkpoint_file ckpt.pth        --method tta          --attack_dir boundary_targeted            --batch_size 100 --num_workers 20 --dump_dir tta, 11000]
 
 
 
