@@ -1,6 +1,6 @@
 commands:
- - [python active_learning_project/scripts/train_random_forest_sub.py --sub_dir mlp6_aug_alpha_0.2_lr_0.01_wd_0.0001    --alpha 0.2  --num_workers 8, 11000]
- - [python active_learning_project/scripts/train_random_forest_sub.py --sub_dir mlp6_aug_alpha_0.4_lr_0.01_wd_0.0001    --alpha 0.4  --num_workers 8, 11000]
- - [python active_learning_project/scripts/train_random_forest_sub.py --sub_dir mlp6_aug_alpha_0.6_lr_0.01_wd_0.0001    --alpha 0.6  --num_workers 8, 11000]
- - [python active_learning_project/scripts/train_random_forest_sub.py --sub_dir mlp6_aug_alpha_0.8_lr_0.01_wd_0.0001    --alpha 0.8  --num_workers 8, 11000]
- - [python active_learning_project/scripts/train_random_forest_sub.py --sub_dir mlp6_aug_alpha_1_lr_0.01_wd_0.0001      --alpha 1    --num_workers 8, 11000]
+ - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00       --checkpoint_file ckpt.pth            --num_workers 40, 11000]
+ - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades          --checkpoint_file ckpt_epoch_100.pth  --num_workers 40, 11000]
+ - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_trades         --checkpoint_file ckpt_epoch_100.pth  --num_workers 40, 11000]
+ - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_vat             --checkpoint_file ckpt_epoch_299.pth  --num_workers 40, 11000]
+ - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_vat            --checkpoint_file ckpt_epoch_299.pth  --num_workers 40, 11000]
