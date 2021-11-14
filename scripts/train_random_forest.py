@@ -127,7 +127,7 @@ def get_val_tta_logits(attack_dir):
         tta_logits = np.load(tta_file_val_test)
         tta_logits = tta_logits[sel_mini_inds]
     else:
-        logger.info('Calculating {} validation tta logits for {} (overwrite). It will take couple of minutes...'
+        logger.info('Calculating {} validation tta logits for {}. It will take couple of minutes...'
                     .format(len(sel_full_inds), attack_dir))
         tta_args = {'tta_size': 256, 'gaussian_std': 0.005, 'soft_transforms': False, 'clip_inputs': False,
                     'num_workers': args.num_workers}

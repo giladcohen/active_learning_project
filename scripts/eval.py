@@ -181,7 +181,7 @@ elif args.method == 'tta':
             logger.info('loading all TTA logits from {}...'.format(tta_file_val_test))
             tta_logits = np.load(tta_file)[test_inds]
         else:
-            logger.info('Did not find tta_logits in:\n{}\n. Exception err: {}'.format(tta_file, tta_file_val_test))
+            logger.info('Did not find tta_logits in:\n{}\n: {}'.format(tta_file, tta_file_val_test))
             logger.info('Calculating test tta logits. It will take couple of minutes...')
             tta_logits = get_tta_logits(dataset, net, X, y_test, len(classes), args.__dict__)
             np.save(os.path.join(tta_dir, 'tta_logits_test.npy'), tta_logits)
