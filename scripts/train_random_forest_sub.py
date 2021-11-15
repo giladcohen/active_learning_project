@@ -74,25 +74,16 @@ rand_gen = np.random.RandomState(seed=12345)
 
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
-batch_size = args.batch_size
-dataset = train_args['dataset']
-image_shape = get_image_shape(dataset)
-
-# load logits of normal images:
-logits = np.load(os.path.join(args.checkpoint_dir, 'normal', 'tta', 'tta_logits.npy'))
 with open(os.path.join(args.checkpoint_dir, 'normal', 'tta', 'eval_args.txt'), 'r') as f:
     tta_args = json.load(f)
 tta_args.update({'num_workers': args.num_workers})
 
-# get RF predictions (probs):
-rf_model_path = os.path.join(RF_DIR, 'random_forest_classifier.pkl')
-with open(rf_model_path, "rb") as f:
-    rf_model = pickle.load(f)
-rf_model.n_jobs = None
-rf_model.verbose = 0
-rf_probs = rf_model.predict_proba(logits.reshape(logits.shape[0], -1))
+batch_size = args.batch_size
+dataset = train_args['dataset']
+image_shape = get_image_shape(dataset)
+train_val_inds, test_inds = get_dataset_inds(dataset)
 
-# separating to train and val
+# Get normal images and GT labels
 def get_gt(dataset):
     tmp_loader = get_test_loader(
         dataset=dataset,
@@ -104,31 +95,10 @@ def get_gt(dataset):
     classes = tmp_loader.dataset.classes
     return X, y_gt, classes
 
+
 X, y_gt, classes = get_gt(dataset)
-train_val_inds, test_inds = get_dataset_inds(dataset)
-val_size = int(np.floor(args.val_size * len(train_val_inds)))
-input_shape = (logits.shape[1], len(classes))
 
-train_inds, val_inds = train_test_split(train_val_inds, test_size=val_size, random_state=rand_gen, shuffle=True,
-                                        stratify=y_gt[train_val_inds])
-train_inds.sort()
-val_inds.sort()
-np.save(os.path.join(SUB_DIR, 'sub_train_inds.npy'), train_inds)
-np.save(os.path.join(SUB_DIR, 'sub_val_inds.npy'), val_inds)
-
-# Set up train/val/test sets and loaders
-logger.info('==> Preparing data..')
-train_set = TTALogitsDataset(torch.from_numpy(logits[train_inds]), torch.from_numpy(rf_probs[train_inds]), torch.from_numpy(y_gt[train_inds]))
-val_set   = TTALogitsDataset(torch.from_numpy(logits[val_inds]), torch.from_numpy(rf_probs[val_inds]), torch.from_numpy(y_gt[val_inds]))
-test_set  = TTALogitsDataset(torch.from_numpy(logits[test_inds]), torch.from_numpy(rf_probs[test_inds]), torch.from_numpy(y_gt[test_inds]))
-train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True,
-                          num_workers=args.num_workers, pin_memory=device=='cuda')
-val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=False,
-                        num_workers=args.num_workers, pin_memory=device=='cuda')
-test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False,
-                         num_workers=args.num_workers, pin_memory=device=='cuda')
-
-# set up network for data augmentation
+# set up network for logits collection
 logger.info('==> Building teacher model..')
 conv1 = get_conv1_params(dataset)
 strides = get_strides(dataset)
@@ -139,6 +109,82 @@ dnn = get_model(train_args['net'])(num_classes=len(classes), activation=train_ar
 dnn = dnn.to(device)
 dnn.load_state_dict(global_state)
 dnn.eval()  # frozen
+
+# load train_val logits of normal images.
+# we cannot generate new logits, we must use the same logits that were used to train the random forest classifier
+TTA_DIR = os.path.join(args.checkpoint_dir, 'normal', 'tta')
+train_val_tta_file = os.path.join(TTA_DIR, 'tta_logits_val.npy')
+all_tta_file = os.path.join(TTA_DIR, 'tta_logits.npy')
+if os.path.exists(train_val_tta_file):
+    logger.info('loading train TTA logits from {}...'.format(train_val_tta_file))
+    train_val_tta_logits = np.load(train_val_tta_file)
+elif os.path.exists(all_tta_file):
+    logger.info('loading all TTA logits from {}...'.format(all_tta_file))
+    train_val_tta_logits = np.load(all_tta_file)[train_val_inds]
+else:
+    logger.error('The logits that were used to train the random forest are missing from:\n{}\n'
+                 .format(train_val_tta_file, all_tta_file))
+    exit(1)
+
+# load test logits
+test_tta_file = os.path.join(TTA_DIR, 'tta_logits_test.npy')
+if os.path.exists(test_tta_file):
+    logger.info('loading test TTA logits from {}...'.format(test_tta_file))
+    test_tta_logits = np.load(test_tta_file)
+elif os.path.exists(all_tta_file):
+    logger.info('loading all TTA logits from {}...'.format(all_tta_file))
+    test_tta_logits = np.load(all_tta_file)[test_inds]
+else:
+    logger.info('Calculating {} normal test tta logits. It will take couple of minutes...'.format(len(test_inds)))
+    test_tta_logits = get_tta_logits(dataset, dnn, X[test_inds], y_gt[test_inds], len(classes), tta_args)
+    np.save(test_tta_file, test_tta_logits)
+
+assert train_val_tta_logits.shape[1] == test_tta_logits.shape[1]
+# split train_val to train and val:
+val_size = int(np.floor(args.val_size * len(train_val_tta_logits)))
+train_inds, val_inds = train_test_split(np.arange(len(train_val_tta_logits)), test_size=val_size, random_state=rand_gen,
+                                        shuffle=True, stratify=y_gt[train_val_inds])
+train_inds.sort()
+val_inds.sort()
+np.save(os.path.join(SUB_DIR, 'sub_train_inds.npy'), train_inds)
+np.save(os.path.join(SUB_DIR, 'sub_val_inds.npy'), val_inds)
+train_tta_logits = train_val_tta_logits[train_inds]
+val_tta_logits = train_val_tta_logits[val_inds]
+
+# split GT
+train_y_gt = y_gt[train_val_inds][train_inds]
+val_y_gt = y_gt[train_val_inds][val_inds]
+test_y_gt = y_gt[test_inds]
+
+# get RF predictions (probs):
+if not os.path.exists(os.path.join(RF_DIR, 'train_rf_probs.npy')):
+    rf_model_path = os.path.join(RF_DIR, 'random_forest_classifier.pkl')
+    with open(rf_model_path, "rb") as f:
+        rf_model = pickle.load(f)
+    rf_model.n_jobs = None
+    rf_model.verbose = 0
+    train_rf_probs = rf_model.predict_proba(train_tta_logits.reshape(train_tta_logits.shape[0], -1))
+    val_rf_probs = rf_model.predict_proba(val_tta_logits.reshape(val_tta_logits.shape[0], -1))
+    test_rf_probs = rf_model.predict_proba(test_tta_logits.reshape(test_tta_logits.shape[0], -1))
+    np.save(os.path.join(RF_DIR, 'train_rf_probs.npy'), train_rf_probs)
+    np.save(os.path.join(RF_DIR, 'val_rf_probs.npy'), val_rf_probs)
+    np.save(os.path.join(RF_DIR, 'test_rf_probs.npy'), test_rf_probs)
+else:
+    train_rf_probs = np.load(os.path.join(RF_DIR, 'train_rf_probs.npy'))
+    val_rf_probs = np.load(os.path.join(RF_DIR, 'val_rf_probs.npy'))
+    test_rf_probs = np.load(os.path.join(RF_DIR, 'test_rf_probs.npy'))
+
+# Set up train/val/test sets and loaders
+logger.info('==> Preparing data..')
+train_set = TTALogitsDataset(torch.from_numpy(train_tta_logits), torch.from_numpy(train_rf_probs), torch.from_numpy(train_y_gt))
+val_set   = TTALogitsDataset(torch.from_numpy(val_tta_logits), torch.from_numpy(val_rf_probs), torch.from_numpy(val_y_gt))
+test_set  = TTALogitsDataset(torch.from_numpy(test_tta_logits), torch.from_numpy(test_rf_probs), torch.from_numpy(test_y_gt))
+train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True,
+                          num_workers=args.num_workers, pin_memory=device=='cuda')
+val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=False,
+                        num_workers=args.num_workers, pin_memory=device=='cuda')
+test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False,
+                         num_workers=args.num_workers, pin_memory=device=='cuda')
 
 def generate_new_train_logits():
     global train_set, train_loader
@@ -157,6 +203,7 @@ test_writer  = SummaryWriter(os.path.join(SUB_DIR, 'test'))
 logger.info('==> Building model..')
 net = MLP(len(classes))
 net = net.to(device)
+input_shape = (train_val_tta_logits.shape[1], len(classes))
 summary(net, input_shape)
 if device == 'cuda':
     cudnn.benchmark = True
