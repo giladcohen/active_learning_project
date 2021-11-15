@@ -242,7 +242,7 @@ def save_global_state():
     global_state['best_metric'] = best_metric
     global_state['epoch'] = epoch
     global_state['global_step'] = global_step
-    torch.save(global_state, SUB_PATH)
+    # torch.save(global_state, SUB_PATH)
 
 def save_current_state():
     torch.save(net.state_dict(), os.path.join(SUB_DIR, 'ckpt_epoch_{}.pth'.format(epoch)))
@@ -384,6 +384,7 @@ for epoch in tqdm(range(epoch, epoch + args.epochs)):
     test()
     flush()
 
+torch.save(global_state, SUB_PATH)
 # getting best metric, loading best net
 load_best_net()
 test()
