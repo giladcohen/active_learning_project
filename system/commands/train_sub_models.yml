@@ -1,0 +1,18 @@
+commands:
+  # regular
+#  - [python active_learning_project/scripts/train_random_forest_sub.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00                --checkpoint_file ckpt.pth, 11000]
+  - [python active_learning_project/scripts/train_random_forest_sub.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00               --checkpoint_file ckpt.pth, 11000]
+  - [python active_learning_project/scripts/train_random_forest_sub.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00                   --checkpoint_file ckpt.pth, 11000]
+  - [python active_learning_project/scripts/train_random_forest_sub.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00          --checkpoint_file ckpt.pth, 11000]
+
+  # TRADES
+  - [python active_learning_project/scripts/train_random_forest_sub.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades                  --checkpoint_file ckpt_epoch_100.pth, 11000]
+  - [python active_learning_project/scripts/train_random_forest_sub.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_trades                 --checkpoint_file ckpt_epoch_100.pth, 11000]
+  - [python active_learning_project/scripts/train_random_forest_sub.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust_trades                     --checkpoint_file ckpt_epoch_100.pth, 11000]
+  - [python active_learning_project/scripts/train_random_forest_sub.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_trades            --checkpoint_file ckpt.pth, 11000]
+
+  # VAT
+  - [python active_learning_project/scripts/train_random_forest_sub.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_vat                     --checkpoint_file ckpt_epoch_299.pth, 11000]
+  - [python active_learning_project/scripts/train_random_forest_sub.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_vat                    --checkpoint_file ckpt_epoch_299.pth, 11000]
+  - [python active_learning_project/scripts/train_random_forest_sub.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust_vat                        --checkpoint_file ckpt_epoch_199.pth, 11000]
+  - [python active_learning_project/scripts/train_random_forest_sub.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_vat               --checkpoint_file ckpt_epoch_299.pth, 11000]
