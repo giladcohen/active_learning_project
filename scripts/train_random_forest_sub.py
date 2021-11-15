@@ -158,6 +158,7 @@ test_y_gt = y_gt[test_inds]
 
 # get RF predictions (probs):
 if not os.path.exists(os.path.join(RF_DIR, 'train_rf_probs.npy')):
+    logger.info('Calculating {} normal test RF probs...'.format(len(test_inds)))
     rf_model_path = os.path.join(RF_DIR, 'random_forest_classifier.pkl')
     with open(rf_model_path, "rb") as f:
         rf_model = pickle.load(f)
