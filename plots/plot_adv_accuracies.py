@@ -17,9 +17,9 @@ sns.set_style("whitegrid")
 np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
 CHECKPOINT_ROOT = '/data/gilad/logs/adv_robustness'
 datasets = ['CIFAR-10', 'CIFAR-100', 'SVHN', 'Tiny-Imagenet']
-archs = ['Resnet34', 'Resnet50', 'Resnet101']
-attacks = ['', 'FGSM1', 'FGSM2', 'JSMA', 'PGD1', 'PGD2', 'Deepfool', 'CW_L2', 'CW_Linf', 'FGSM_WB', 'PGD_WB']
-methods = ['simple', 'ensemble', 'TRADES', 'TTA', 'KATANA', 'TRADES+TTA', 'TRADES+KATANA']
+archs = ['Resnet34']  #, 'Resnet50', 'Resnet101']
+attacks = ['', 'FGSM1', 'FGSM2', 'JSMA', 'PGD1', 'PGD2', 'Deepfool', 'CW_L2', 'CW_Linf', 'Square', 'Boundary']  #, 'FGSM_WB', 'PGD_WB']
+methods = ['simple', 'ensemble', 'TRADES', 'VAT', 'TTA', 'RF', 'TRADES+RF', 'VAT+RF']
 data = {}
 
 def dataset_to_dir(dataset: str):
@@ -54,32 +54,32 @@ def attack_to_dir(attack: str):
         return 'cw_targeted'
     elif attack == 'CW_Linf':
         return 'cw_targeted_Linf_eps_0.031'
+    elif attack == 'Square':
+        return 'square'
+    elif attack == 'Boundary':
+        return 'boundary_targeted'
     elif attack == 'FGSM_WB':
         return 'whitebox_pgd_targeted_iters_1_ttas_256'
     elif attack == 'PGD_WB':
         return 'whitebox_pgd_targeted_iters_10_ttas_25'
 
 def method_to_dir(method:str):
-    if method == 'simple':
+    if method in ['simple', 'TRADES', 'VAT']:
         return 'simple'
     elif method == 'ensemble':
         return 'ensemble'
-    elif method == 'TRADES':
-        return 'simple'
     elif method == 'TTA':
         return 'tta'
-    elif method == 'KATANA':
-        return 'random_forest'
-    elif method == 'TRADES+TTA':
-        return 'tta'
-    elif method == 'TRADES+KATANA':
-        return 'random_forest'
+    elif method in ['RF', 'TRADES+RF', 'VAT+RF']:
+        return 'random_forest_global'
 
 def get_log(dataset: str, arch: str, attack: str, method: str):
     path = os.path.join(CHECKPOINT_ROOT, dataset_to_dir(dataset))
     path = os.path.join(path, arch_to_dir(arch))
     if 'TRADES' in method:
         path = os.path.join(path, 'adv_robust_trades')
+    elif 'VAT' in method:
+        path = os.path.join(path, 'adv_robust_vat')
     else:
         path = os.path.join(path, 'regular', arch_to_dir(arch) + '_00')
     path = os.path.join(path, attack_to_dir(attack))
@@ -93,17 +93,6 @@ def get_simple_acc_from_log(log: str):
         for line in f:
             if 'INFO Normal test accuracy:' in line:
                 ret = float(line.split('accuracy: ')[1].split('%')[0])
-    assert ret is not None
-    ret = np.round(ret, 2)
-    return ret
-
-def get_normal_katana_acc_from_log(log: str):
-    ret = None
-    with open(log, 'r') as f:
-        for line in f:
-            if ('INFO New normal test accuracy of random_forest:' in line) or \
-               ('INFO New normal test accuracy of random forest:' in line):
-                ret = float(line.split('forest: ')[1].split('%')[0])
     assert ret is not None
     ret = np.round(ret, 2)
     return ret
@@ -138,37 +127,32 @@ def get_avg_attack_norm_from_log(log: str):
     ret = np.round(ret, 4)
     return ret
 
-def calculate_normal_katana_stats(x: Dict):
-    vals = []
-    for attack in attacks:
-        if attack != '':
-            vals.append(x[attack]['normal_acc'])
-    return np.mean(vals), np.std(vals)
-
 def print_accs(x: Dict):
     vals = []
-    vals.append(x['']['normal_acc'])
-    vals.append(x['FGSM1']['adv_acc'])
-    vals.append(x['FGSM2']['adv_acc'])
-    vals.append(x['JSMA']['adv_acc'])
-    vals.append(x['PGD1']['adv_acc'])
-    vals.append(x['PGD2']['adv_acc'])
-    vals.append(x['Deepfool']['adv_acc'])
-    vals.append(x['CW_L2']['adv_acc'])
-    vals.append(x['CW_Linf']['adv_acc'])
-    if 'FGSM_WB' in x:
-        vals.append(x['FGSM_WB']['adv_acc'])
-    if 'PGD_WB' in x:
-        vals.append(x['PGD_WB']['adv_acc'])
+    vals.append(x['']['acc'])
+    vals.append(x['FGSM1']['acc'])
+    vals.append(x['FGSM2']['acc'])
+    vals.append(x['JSMA']['acc'])
+    vals.append(x['PGD1']['acc'])
+    vals.append(x['PGD2']['acc'])
+    vals.append(x['Deepfool']['acc'])
+    vals.append(x['CW_L2']['acc'])
+    vals.append(x['CW_Linf']['acc'])
+    vals.append(x['Square']['acc'])
+    vals.append(x['Boundary']['acc'])
+    # if 'FGSM_WB' in x:
+    #     vals.append(x['FGSM_WB']['acc'])
+    # if 'PGD_WB' in x:
+    #     vals.append(x['PGD_WB']['acc'])
     vals = np.asarray(vals)
     print(vals)
 
 def print_white(x: Dict):
     vals = []
-    vals.append(x['FGSM2']['adv_acc'])
-    vals.append(x['FGSM_WB']['adv_acc'])
-    vals.append(x['PGD2']['adv_acc'])
-    vals.append(x['PGD_WB']['adv_acc'])
+    vals.append(x['FGSM2']['acc'])
+    vals.append(x['FGSM_WB']['acc'])
+    vals.append(x['PGD2']['acc'])
+    vals.append(x['PGD_WB']['acc'])
     vals = np.asarray(vals)
     print(vals)
 
@@ -180,31 +164,22 @@ for dataset in datasets:
         for method in methods:
             data[dataset][arch][method] = {}
             for attack in attacks:
-                if attack in ['FGSM_WB', 'PGD_WB'] and arch != 'Resnet34':
-                    continue
+                # if attack in ['FGSM_WB', 'PGD_WB'] and arch != 'Resnet34':
+                #     continue
                 data[dataset][arch][method][attack] = {}
-                # if dataset == 'CIFAR-100' and arch == 'Resnet50' and 'TRADES+' in method and attack == 'CW_L2':
-                #     continue  # attack is fucked. Now attacking again
-
-                data[dataset][arch][method][attack] = \
-                    {'normal_acc': np.nan, 'adv_acc': np.nan, 'attack_rate': np.nan, 'avg_attack_norm': np.nan}
+                data[dataset][arch][method][attack] = {'acc': np.nan, 'attack_rate': np.nan, 'avg_attack_norm': np.nan}
                 is_attacked = attack != ''
-                is_katana = 'KATANA' in method
-                if not is_attacked and is_katana:  # KATANA works only for attacked
-                    continue
 
                 log = get_log(dataset, arch, attack, method)
                 # print('for {}/{}/{}/{} , log: {}, we got:'.format(dataset, arch, attack, method, log))
 
-                if not is_attacked and method in ['simple', 'TRADES']:
-                    data[dataset][arch][method][attack]['normal_acc'] = get_simple_acc_from_log(log)
+                if not is_attacked and method in ['simple', 'TRADES', 'VAT']:
+                    data[dataset][arch][method][attack]['acc'] = get_simple_acc_from_log(log)
                 elif not is_attacked:
-                    data[dataset][arch][method][attack]['normal_acc'] = get_acc_from_log(log)
+                    data[dataset][arch][method][attack]['acc'] = get_acc_from_log(log)
                 else:
-                    data[dataset][arch][method][attack]['adv_acc'] = get_acc_from_log(log)
+                    data[dataset][arch][method][attack]['acc'] = get_acc_from_log(log)
                     data[dataset][arch][method][attack]['attack_rate'] = get_attack_success_from_log(log)
                     data[dataset][arch][method][attack]['avg_attack_norm'] = get_avg_attack_norm_from_log(log)
-                if is_katana:
-                    data[dataset][arch][method][attack]['normal_acc'] = get_normal_katana_acc_from_log(log)
 
                 # print(data[dataset][arch][attack][method])
