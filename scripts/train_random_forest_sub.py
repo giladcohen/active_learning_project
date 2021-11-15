@@ -53,7 +53,7 @@ parser.add_argument('--factor', default=0.75, type=float, help='LR schedule fact
 parser.add_argument('--patience', default=2, type=int, help='LR schedule patience')
 parser.add_argument('--cooldown', default=0, type=int, help='LR cooldown')
 parser.add_argument('--val_size', default=0.04, type=float, help='Fraction of validation size')
-parser.add_argument('--num_workers', default=4, type=int, help='Data loading threads for tta loader or random forest')
+parser.add_argument('--num_workers', default=5, type=int, help='Data loading threads for tta loader or random forest')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
