@@ -194,6 +194,7 @@ elif args.method == 'tta':
 
 elif args.method == 'random_forest':
     rf_model_path = os.path.join(args.checkpoint_dir, 'random_forest', 'random_forest_classifier.pkl')
+    tta_dir = get_dump_dir(args.checkpoint_dir, args.tta_output_dir, args.attack_dir)
     with open(rf_model_path, "rb") as f:
         rf_model = pickle.load(f)
     rf_model.n_jobs = args.num_workers  # overwrite
@@ -205,7 +206,8 @@ elif args.method == 'random_forest':
         input_shape=(img_shape[2], img_shape[0], img_shape[1]),
         nb_classes=len(classes),
         clip_values=(0, 1),
-        fields=['logits']
+        fields=['logits'],
+        tta_dir=tta_dir
     )
     hybrid_probs = hybrid_classifier.predict(X, batch_size)
     y_preds = hybrid_probs.argmax(axis=1)
