@@ -171,7 +171,7 @@ for dataset in datasets:
                 is_attacked = attack != ''
 
                 log = get_log(dataset, arch, attack, method)
-                # print('for {}/{}/{}/{} , log: {}, we got:'.format(dataset, arch, attack, method, log))
+                print('for {}/{}/{}/{} , log: {}, we got:'.format(dataset, arch, attack, method, log))
 
                 if not is_attacked and method in ['simple', 'TRADES', 'VAT']:
                     data[dataset][arch][method][attack]['acc'] = get_simple_acc_from_log(log)
