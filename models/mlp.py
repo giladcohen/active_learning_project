@@ -9,8 +9,11 @@ class MLP(nn.Module):
         super().__init__()
         self.num_classes = num_classes
         self.e = e  # expansion
-        # net_dims = num_classes * np.array([e, e / 2, e / 4, e / 8, e / 16, 1], dtype=int)
-        net_dims = num_classes * np.array([e, e, e / 2, e / 4, e / 8, e / 16, 1], dtype=int)
+
+        if self.num_classes == 10:
+            net_dims = num_classes * np.array([e, e,    e/2,  e/4,  e/8,  e/16, 1], dtype=int)
+        else:
+            net_dims = num_classes * np.array([e, e/10, e/20, e/40, e/80, e/160, 1], dtype=int)
 
         self.linear1 = nn.Linear(net_dims[0], net_dims[1], bias=False)
         self.bn1 = nn.BatchNorm1d(net_dims[1])
