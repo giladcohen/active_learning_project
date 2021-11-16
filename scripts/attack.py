@@ -158,6 +158,7 @@ def get_hybrid_classifier():
     with open(rf_model_path, "rb") as f:
         rf_model = pickle.load(f)
     rf_model.n_jobs = 1  # overwrite
+    rf_model.verbose = 0
     tta_args = {'gaussian_std': 0.005, 'soft_transforms': False, 'clip_inputs': False, 'tta_size': 256, 'num_workers': args.num_workers}
     hybrid_classifier = HybridClassifier(
         dnn_model=net,
@@ -280,14 +281,16 @@ elif args.attack == 'adaptive_square':
         estimator=hybrid_classifier,
         norm=np.inf,
         eps=args.eps,
-        batch_size=batch_size
+        batch_size=batch_size,
+        max_iter=args.max_iter
     )
 elif args.attack == 'adaptive_boundary':
     hybrid_classifier = get_hybrid_classifier()
     attack = BoundaryAttack(
         estimator=hybrid_classifier,
         batch_size=batch_size,
-        targeted=args.targeted
+        targeted=args.targeted,
+        max_iter=args.max_iter
     )
 elif args.attack == 'ead':
     attack = ElasticNet(
