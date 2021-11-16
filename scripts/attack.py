@@ -245,10 +245,12 @@ elif args.attack == 'bpda':
         norm=np.inf,
         eps=args.eps,
         eps_step=args.eps_step,
+        max_iter=args.max_iter,
         targeted=args.targeted,
         batch_size=batch_size,
         tta_transforms=get_tta_transforms(dataset)
     )
+
 elif args.attack == 'ead':
     attack = ElasticNet(
         classifier=classifier,
