@@ -30,6 +30,7 @@ from active_learning_project.models import MLP, ResnetMlpStudent
 from active_learning_project.attacks.tta_whitebox_pgd import TTAWhiteboxPGD
 from active_learning_project.attacks.bpda import BPDA
 from active_learning_project.classifiers.pytorch_tta_classifier import PyTorchTTAClassifier
+from active_learning_project.classifiers.substitute_classifier import SubstituteClassifier
 
 from art.attacks.evasion import FastGradientMethod, ProjectedGradientDescent, DeepFool, SaliencyMapMethod, \
     CarliniL2Method, CarliniLInfMethod, ElasticNet, SquareAttack, BoundaryAttack
@@ -144,9 +145,10 @@ def get_sub_model_classifier():
     sub_net.to(device)
     sub_net.eval()
 
-    sub_classifier = PyTorchTTAClassifier(model=sub_net, clip_values=(0, 1), loss=criterion,
+    sub_classifier = SubstituteClassifier(model=sub_net, clip_values=(0, 1), loss=criterion,
                                           optimizer=optimizer, input_shape=(img_shape[2], img_shape[0], img_shape[1]),
-                                          nb_classes=len(classes), fields=['logits'])
+                                          nb_classes=len(classes), fields=['logits'], tta_size=args.tta_size,
+                                          tta_transforms=get_tta_transforms(dataset))
     return sub_classifier
 
 # attack
@@ -313,11 +315,11 @@ else:
 if args.attack == 'bpda':
     # for BPDA adaptive attack (expensive) we cannot defend against, so it is sufficient to calculate just the test
     _, mini_test_inds = get_mini_dataset_inds(dataset)
-    X_test            = X_test[mini_test_inds][0:2]
-    y_test            = y_test[mini_test_inds][0:2]
-    y_test_preds      = y_test_preds[mini_test_inds][0:2]
-    y_test_adv        = y_test_adv[mini_test_inds][0:2]
-    y_test_targets    = y_test_targets[mini_test_inds][0:2]
+    X_test            = X_test[mini_test_inds]
+    y_test            = y_test[mini_test_inds]
+    y_test_preds      = y_test_preds[mini_test_inds]
+    y_test_adv        = y_test_adv[mini_test_inds]
+    y_test_targets    = y_test_targets[mini_test_inds]
 elif args.attack == 'whitebox_pgd':
     X_test            = X_test[test_inds]
     y_test            = y_test[test_inds]
