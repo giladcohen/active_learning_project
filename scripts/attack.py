@@ -41,7 +41,7 @@ parser.add_argument('--attack', default='bpda', type=str, help='attack: fgsm, js
 parser.add_argument('--targeted', default=False, type=boolean_string, help='use trageted attack')
 parser.add_argument('--attack_dir', default='debug', type=str, help='attack directory')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--num_workers', default=4, type=int, help='Data loading threads')
+parser.add_argument('--num_workers', default=0, type=int, help='Data loading threads')
 
 # for FGSM/PGD/CW_Linf/whitebox_pgd/square/bpda:
 parser.add_argument('--eps'     , default=0.031, type=float, help='maximum Linf deviation from original image')
