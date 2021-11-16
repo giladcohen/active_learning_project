@@ -77,6 +77,48 @@ class PyTorchTTAClassifier(PyTorchClassifierSpecific):  # lgtm [py/missing-call-
 
         return grads  # type: ignore
 
+    def bpda_loss_gradient_framework(self, x: "torch.Tensor", y: "torch.Tensor", tta_transforms, tta_size) -> "torch.Tensor":
+        """
+        Compute the gradient of the loss function w.r.t. `x`.
+
+        :param x: Input with shape as expected by the model.
+        :param y: Target values (class labels) one-hot-encoded of shape (nb_classes).
+        :return: Gradients of the same shape as `x`.
+        """
+        import torch  # lgtm [py/repeated-import]
+        from torch.autograd import Variable
+        torch.autograd.set_detect_anomaly(True)
+
+        # Check label shape
+        if self._reduce_labels:
+            y = torch.argmax(y)
+
+        x.requires_grad = True
+        # create ttas variable:
+        x_rep = x.repeat((tta_size, 1, 1, 1))
+        # x_rep = Variable(x_rep, requires_grad=True)
+
+        x_ttas = np.nan * torch.ones(x_rep.size(), device=x.device)
+        for i in range(tta_size):
+            x_ttas[i] = tta_transforms(x_rep[i])
+        assert not torch.isnan(x_ttas).any(), 'x_ttas must not have NaN values'
+
+        # Compute the gradient and return
+        model_outputs = self._model(x_ttas)
+        loss = self._loss(model_outputs[-1], y.unsqueeze(0))
+
+        # Clean gradients
+        self._model.zero_grad()
+
+        # Compute gradients
+        loss.backward()
+        grads = x.grad
+        assert grads.shape == x.shape  # type: ignore
+        assert not torch.isnan(grads).any(), 'Found Nan values in the TTAs grads'
+
+        return grads  # type: ignore
+
+
 # # debug
 # import matplotlib.pyplot as plt
 # from active_learning_project.utils import convert_tensor_to_image

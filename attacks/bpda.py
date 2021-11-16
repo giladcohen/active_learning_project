@@ -3,7 +3,7 @@ import torch
 import torchvision.transforms as transforms
 from art.attacks.evasion.projected_gradient_descent.projected_gradient_descent_pytorch import ProjectedGradientDescentPyTorch
 
-class TTAWhiteboxProjectedGradientDescent(ProjectedGradientDescentPyTorch):
+class BPDA(ProjectedGradientDescentPyTorch):
     attack_params = ProjectedGradientDescentPyTorch.attack_params + ["tta_size"]
 
     def __init__(
@@ -58,10 +58,9 @@ class TTAWhiteboxProjectedGradientDescent(ProjectedGradientDescentPyTorch):
         # Pick a small scalar to avoid division by 0
         tol = 10e-8
 
-        # Get gradient wrt loss; invert it if attack is targeted
         grad = np.nan * torch.ones(x.size(), device=x.device)
         for i in range(len(x)):
-            grad[i] = self.estimator.tta_loss_gradient_framework(x[i], y[i], self.tta_transforms, self.tta_size) * (1 - 2 * int(self.targeted))
+            grad[i] = self.estimator.bpda_loss_gradient_framework(x[i], y[i], self.tta_transforms, self.tta_size) * (1 - 2 * int(self.targeted))
 
         # Apply norm bound
         if self.norm == np.inf:

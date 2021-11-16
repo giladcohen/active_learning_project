@@ -14,6 +14,6 @@ class ResnetMlpStudent(nn.Module):
         self.mlp = mlp
 
     def forward(self, x):
-        out_resnet = self.resnet(x)['logits']
+        out_resnet = self.resnet(x)['logits'].unsqueeze(0)
         out_mlp = self.mlp(out_resnet)
         return out_mlp

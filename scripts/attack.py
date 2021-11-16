@@ -26,7 +26,9 @@ from active_learning_project.datasets.tta_utils import get_tta_transforms
 from active_learning_project.utils import boolean_string, pytorch_evaluate, set_logger, get_image_shape, \
     convert_tensor_to_image
 from active_learning_project.models.utils import get_strides, get_conv1_params, get_model
-from active_learning_project.attacks.tta_whitebox_projected_gradient_descent import TTAWhiteboxProjectedGradientDescent
+from active_learning_project.models import MLP, ResnetMlpStudent
+from active_learning_project.attacks.tta_whitebox_pgd import TTAWhiteboxPGD
+from active_learning_project.attacks.bpda import BPDA
 from active_learning_project.classifiers.pytorch_tta_classifier import PyTorchTTAClassifier
 
 from art.attacks.evasion import FastGradientMethod, ProjectedGradientDescent, DeepFool, SaliencyMapMethod, \
@@ -35,17 +37,17 @@ from art.attacks.evasion import FastGradientMethod, ProjectedGradientDescent, De
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='checkpoint path file name')
-parser.add_argument('--attack', default='deepfool', type=str, help='attack: fgsm, jsma, cw, deepfool, ead, pgd, square, boundary')
+parser.add_argument('--attack', default='bpda', type=str, help='attack: fgsm, jsma, cw, deepfool, ead, pgd, square, boundary, bpda')
 parser.add_argument('--targeted', default=False, type=boolean_string, help='use trageted attack')
 parser.add_argument('--attack_dir', default='debug', type=str, help='attack directory')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-parser.add_argument('--num_workers', default=0, type=int, help='Data loading threads')
+parser.add_argument('--num_workers', default=4, type=int, help='Data loading threads')
 
-# for FGSM/PGD/CW_Linf/whitebox_pgd/square:
+# for FGSM/PGD/CW_Linf/whitebox_pgd/square/bpda:
 parser.add_argument('--eps'     , default=0.031, type=float, help='maximum Linf deviation from original image')
 parser.add_argument('--eps_step', default=0.003, type=float, help='step size of each adv iteration')
 
-# for whitebox_pgd:
+# for whitebox_pgd, bpda:
 parser.add_argument('--max_iter', default=100, type=int, help='Number of TTAs to use in the PGD whitebox attack')
 parser.add_argument('--tta_size', default=256, type=int, help='Number of TTAs to use in the PGD whitebox attack')
 
@@ -130,6 +132,23 @@ y_test_preds = y_test_logits.argmax(axis=1)
 test_acc = np.sum(y_test_preds == y_test) / all_test_size
 logger.info('Accuracy on benign test examples: {}%'.format(test_acc * 100))
 
+def get_sub_model_classifier():
+    # load new classifier with the two Resnet + mlp
+    SUB_MODEL_PATH = os.path.join(args.checkpoint_dir, 'random_forest', 'sub_model', 'ckpt.pth')
+    mlp_state = torch.load(SUB_MODEL_PATH, map_location=torch.device(device))
+    mlp_state = mlp_state['best_net']
+
+    mlp = MLP(len(classes))
+    mlp.load_state_dict(mlp_state)
+    sub_net = ResnetMlpStudent(net, mlp)
+    sub_net.to(device)
+    sub_net.eval()
+
+    sub_classifier = PyTorchTTAClassifier(model=sub_net, clip_values=(0, 1), loss=criterion,
+                                          optimizer=optimizer, input_shape=(img_shape[2], img_shape[0], img_shape[1]),
+                                          nb_classes=len(classes), fields=['logits'])
+    return sub_classifier
+
 # attack
 # creating targeted labels
 if args.targeted:
@@ -165,7 +184,7 @@ elif args.attack == 'pgd':
         batch_size=batch_size
     )
 elif args.attack == 'whitebox_pgd':
-    attack = TTAWhiteboxProjectedGradientDescent(
+    attack = TTAWhiteboxPGD(
         estimator=classifier,
         norm=np.inf,
         eps=args.eps,
@@ -218,6 +237,17 @@ elif args.attack == 'boundary':
         estimator=classifier,
         batch_size=batch_size,
         targeted=args.targeted
+    )
+elif args.attack == 'bpda':
+    sub_classifier = get_sub_model_classifier()
+    attack = BPDA(
+        estimator=sub_classifier,
+        norm=np.inf,
+        eps=args.eps,
+        eps_step=args.eps_step,
+        targeted=args.targeted,
+        batch_size=batch_size,
+        tta_transforms=get_tta_transforms(dataset)
     )
 elif args.attack == 'ead':
     attack = ElasticNet(
