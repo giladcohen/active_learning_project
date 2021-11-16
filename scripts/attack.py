@@ -63,7 +63,6 @@ args = parser.parse_args()
 if args.attack in ['deepfool', 'square']:
     assert not args.targeted
 
-is_adaptive = args.attack in ['bpda', 'whitebox_pgd']
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
@@ -311,14 +310,20 @@ else:
     X_adv_init = None
     _, test_inds = get_dataset_inds(dataset)
 
-if is_adaptive:
-    # for apadtive attack (expensive) we cannot defend against, so it is sufficient to calculate just the test
+if args.attack == 'bpda':
+    # for BPDA adaptive attack (expensive) we cannot defend against, so it is sufficient to calculate just the test
     _, mini_test_inds = get_mini_dataset_inds(dataset)
     X_test            = X_test[mini_test_inds]
     y_test            = y_test[mini_test_inds]
     y_test_preds      = y_test_preds[mini_test_inds]
     y_test_adv        = y_test_adv[mini_test_inds]
     y_test_targets    = y_test_targets[mini_test_inds]
+elif args.attack == 'whitebox_pgd':
+    X_test            = X_test[test_inds]
+    y_test            = y_test[test_inds]
+    y_test_preds      = y_test_preds[test_inds]
+    y_test_adv        = y_test_adv[test_inds]
+    y_test_targets    = y_test_targets[test_inds]
 
 if not os.path.exists(os.path.join(ATTACK_DIR, 'X_test_adv.npy')):
     X_test_adv = attack.generate(x=X_test, y=y_test_targets, x_adv_init=X_adv_init)
@@ -336,7 +341,7 @@ logger.info('Accuracy on adversarial test examples: {}%'.format(test_adv_accurac
 
 logger.handlers[0].flush()
 
-if not is_adaptive:
+if args.attack not in ['bpda', 'whitebox_pgd']:
     # checking on the mini test set
     f0_inds = []  # net_fail
     f1_inds = []  # net_succ
