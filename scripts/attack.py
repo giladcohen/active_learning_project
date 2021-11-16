@@ -63,7 +63,7 @@ args = parser.parse_args()
 if args.attack in ['deepfool', 'square']:
     assert not args.targeted
 
-is_adaptive = args.attack in ['bpda']
+is_adaptive = args.attack in ['bpda', 'whitebox_pgd']
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
