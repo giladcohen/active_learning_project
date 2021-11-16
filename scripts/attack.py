@@ -313,11 +313,11 @@ else:
 if args.attack == 'bpda':
     # for BPDA adaptive attack (expensive) we cannot defend against, so it is sufficient to calculate just the test
     _, mini_test_inds = get_mini_dataset_inds(dataset)
-    X_test            = X_test[mini_test_inds]
-    y_test            = y_test[mini_test_inds]
-    y_test_preds      = y_test_preds[mini_test_inds]
-    y_test_adv        = y_test_adv[mini_test_inds]
-    y_test_targets    = y_test_targets[mini_test_inds]
+    X_test            = X_test[mini_test_inds][0:2]
+    y_test            = y_test[mini_test_inds][0:2]
+    y_test_preds      = y_test_preds[mini_test_inds][0:2]
+    y_test_adv        = y_test_adv[mini_test_inds][0:2]
+    y_test_targets    = y_test_targets[mini_test_inds][0:2]
 elif args.attack == 'whitebox_pgd':
     X_test            = X_test[test_inds]
     y_test            = y_test[test_inds]
