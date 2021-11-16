@@ -349,14 +349,15 @@ if args.attack == 'boundary':
 
     # test_inds = np.asarray([i for i in range(len(mini_inds)) if mini_inds[i] in mini_test_inds])
 elif args.attack in ['bpda', 'adaptive_square', 'adaptive_boundary']:
-    # for BPDA adaptive attack (expensive) we cannot defend against, so it is sufficient to calculate just the test
-    _, mini_test_inds = get_mini_dataset_inds(dataset)
+    # for adaptive attack (expensive) we cannot defend against, so it is sufficient to calculate just the test
     X_test            = X_test[mini_test_inds]
     y_test            = y_test[mini_test_inds]
     y_test_preds      = y_test_preds[mini_test_inds]
-    y_test_adv        = y_test_adv[mini_test_inds]
-    y_test_targets    = y_test_targets[mini_test_inds]
+    if args.targeted:
+        y_test_adv        = y_test_adv[mini_test_inds]
+        y_test_targets    = y_test_targets[mini_test_inds]
 elif args.attack in ['whitebox_pgd']:
+    assert args.targeted, 'This code supports only targeted whitebox_pgd attack'
     X_test            = X_test[test_inds]
     y_test            = y_test[test_inds]
     y_test_preds      = y_test_preds[test_inds]
