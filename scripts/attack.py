@@ -31,6 +31,8 @@ from active_learning_project.attacks.tta_whitebox_pgd import TTAWhiteboxPGD
 from active_learning_project.attacks.bpda import BPDA
 from active_learning_project.classifiers.pytorch_tta_classifier import PyTorchTTAClassifier
 from active_learning_project.classifiers.substitute_classifier import SubstituteClassifier
+from active_learning_project.classifiers.hybrid_classifier import HybridClassifier
+
 
 from art.attacks.evasion import FastGradientMethod, ProjectedGradientDescent, DeepFool, SaliencyMapMethod, \
     CarliniL2Method, CarliniLInfMethod, ElasticNet, SquareAttack, BoundaryAttack
@@ -151,6 +153,25 @@ def get_sub_model_classifier():
                                           tta_transforms=get_tta_transforms(dataset))
     return sub_classifier
 
+def get_hybrid_classifier():
+    rf_model_path = os.path.join(args.checkpoint_dir, 'random_forest', 'random_forest_classifier.pkl')
+    with open(rf_model_path, "rb") as f:
+        rf_model = pickle.load(f)
+    rf_model.n_jobs = 0  # overwrite
+    tta_args = {'gaussian_std': 0.005, 'soft_transforms': False, 'clip_inputs': False, 'tta_size': 256, 'num_workers': args.num_workers}
+    hybrid_classifier = HybridClassifier(
+        dnn_model=net,
+        rf_model=rf_model,
+        dataset=dataset,
+        tta_args=tta_args,
+        input_shape=(img_shape[2], img_shape[0], img_shape[1]),
+        nb_classes=len(classes),
+        clip_values=(0, 1),
+        fields=['logits'],
+        tta_dir=None
+    )
+    return hybrid_classifier
+
 # attack
 # creating targeted labels
 if args.targeted:
@@ -253,7 +274,21 @@ elif args.attack == 'bpda':
         batch_size=batch_size,
         tta_transforms=get_tta_transforms(dataset)
     )
-
+elif args.attack == 'adaptive_square':
+    hybrid_classifier = get_hybrid_classifier()
+    attack = SquareAttack(
+        estimator=hybrid_classifier,
+        norm=np.inf,
+        eps=args.eps,
+        batch_size=batch_size
+    )
+elif args.attack == 'adaptive_boundary':
+    hybrid_classifier = get_hybrid_classifier()
+    attack = BoundaryAttack(
+        estimator=hybrid_classifier,
+        batch_size=batch_size,
+        targeted=args.targeted
+    )
 elif args.attack == 'ead':
     attack = ElasticNet(
         classifier=classifier,
@@ -277,6 +312,12 @@ for param in attack.attack_params:
 with open(os.path.join(ATTACK_DIR, 'attack_args.txt'), 'w') as f:
     json.dump(dump_args, f, indent=2)
 
+
+# amending inds for some attacks:
+val_inds, test_inds = get_dataset_inds(dataset)
+mini_val_inds, mini_test_inds = get_mini_dataset_inds(dataset)
+X_adv_init = None
+
 if args.attack == 'boundary':
     assert args.targeted, 'This code supports only targeted boundary attack'
 
@@ -296,7 +337,6 @@ if args.attack == 'boundary':
     X_adv_init = X_test[init_inds]
 
     # Boundary attack is expensive. Using only mini val/test samples
-    mini_val_inds, mini_test_inds = get_mini_dataset_inds(dataset)
     mini_inds = np.concatenate((mini_val_inds, mini_test_inds))
     mini_inds.sort()
 
@@ -307,12 +347,8 @@ if args.attack == 'boundary':
     y_test_targets    = y_test_targets[mini_inds]
     X_adv_init        = X_adv_init[mini_inds]
 
-    test_inds = np.asarray([i for i in range(len(mini_inds)) if mini_inds[i] in mini_test_inds])
-else:
-    X_adv_init = None
-    _, test_inds = get_dataset_inds(dataset)
-
-if args.attack == 'bpda':
+    # test_inds = np.asarray([i for i in range(len(mini_inds)) if mini_inds[i] in mini_test_inds])
+elif args.attack in ['bpda', 'adaptive_square', 'adaptive_boundary']:
     # for BPDA adaptive attack (expensive) we cannot defend against, so it is sufficient to calculate just the test
     _, mini_test_inds = get_mini_dataset_inds(dataset)
     X_test            = X_test[mini_test_inds]
@@ -320,7 +356,7 @@ if args.attack == 'bpda':
     y_test_preds      = y_test_preds[mini_test_inds]
     y_test_adv        = y_test_adv[mini_test_inds]
     y_test_targets    = y_test_targets[mini_test_inds]
-elif args.attack == 'whitebox_pgd':
+elif args.attack in ['whitebox_pgd']:
     X_test            = X_test[test_inds]
     y_test            = y_test[test_inds]
     y_test_preds      = y_test_preds[test_inds]
@@ -343,36 +379,36 @@ logger.info('Accuracy on adversarial test examples: {}%'.format(test_adv_accurac
 
 logger.handlers[0].flush()
 
-if args.attack not in ['bpda', 'whitebox_pgd']:
-    # checking on the mini test set
-    f0_inds = []  # net_fail
-    f1_inds = []  # net_succ
-    f2_inds = []  # net_succ AND attack_flip
-    f3_inds = []  # net_succ AND attack_flip AND attack_succ
-
-    for i in test_inds:
-        f1 = y_test_preds[i] == y_test[i]
-        f2 = f1 and y_test_preds[i] != y_test_adv_preds[i]
-        if args.targeted:
-            f3 = f2 and y_test_adv_preds[i] == y_test_adv[i]
-        else:
-            f3 = f2
-        if f1:
-            f1_inds.append(i)
-        else:
-            f0_inds.append(i)
-        if f2:
-            f2_inds.append(i)
-        if f3:
-            f3_inds.append(i)
-
-    f0_inds = np.asarray(f0_inds)
-    f1_inds = np.asarray(f1_inds)
-    f2_inds = np.asarray(f2_inds)
-    f3_inds = np.asarray(f3_inds)
-
-    logger.info("Number of test samples: {}. #net_succ: {}. #net_succ_attack_flip: {}. #net_succ_attack_succ: {}"
-          .format(len(test_inds), len(f1_inds), len(f2_inds), len(f3_inds)))
+# if args.attack not in ['bpda', 'whitebox_pgd']:
+#     # checking on the mini test set
+#     f0_inds = []  # net_fail
+#     f1_inds = []  # net_succ
+#     f2_inds = []  # net_succ AND attack_flip
+#     f3_inds = []  # net_succ AND attack_flip AND attack_succ
+#
+#     for i in test_inds:
+#         f1 = y_test_preds[i] == y_test[i]
+#         f2 = f1 and y_test_preds[i] != y_test_adv_preds[i]
+#         if args.targeted:
+#             f3 = f2 and y_test_adv_preds[i] == y_test_adv[i]
+#         else:
+#             f3 = f2
+#         if f1:
+#             f1_inds.append(i)
+#         else:
+#             f0_inds.append(i)
+#         if f2:
+#             f2_inds.append(i)
+#         if f3:
+#             f3_inds.append(i)
+#
+#     f0_inds = np.asarray(f0_inds)
+#     f1_inds = np.asarray(f1_inds)
+#     f2_inds = np.asarray(f2_inds)
+#     f3_inds = np.asarray(f3_inds)
+#
+#     logger.info("Number of test samples: {}. #net_succ: {}. #net_succ_attack_flip: {}. #net_succ_attack_succ: {}"
+#           .format(len(test_inds), len(f1_inds), len(f2_inds), len(f3_inds)))
 
 # f0_inds_test = np.asarray([ind for ind in f0_inds if ind in test_inds])
 # f1_inds_test = np.asarray([ind for ind in f1_inds if ind in test_inds])
