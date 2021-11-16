@@ -37,7 +37,7 @@ from art.attacks.evasion import FastGradientMethod, ProjectedGradientDescent, De
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 adversarial robustness testing')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='checkpoint path file name')
-parser.add_argument('--attack', default='bpda', type=str, help='attack: fgsm, jsma, cw, deepfool, ead, pgd, square, boundary, bpda')
+parser.add_argument('--attack', default='deepfool', type=str, help='attack: fgsm, jsma, cw, deepfool, ead, pgd, square, boundary, bpda, whitebox_pgd')
 parser.add_argument('--targeted', default=False, type=boolean_string, help='use trageted attack')
 parser.add_argument('--attack_dir', default='debug', type=str, help='attack directory')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
@@ -193,7 +193,8 @@ elif args.attack == 'whitebox_pgd':
         max_iter=args.max_iter,
         targeted=args.targeted,
         batch_size=batch_size,
-        tta_transforms=get_tta_transforms(dataset)
+        tta_transforms=get_tta_transforms(dataset),
+        tta_size=args.tta_size
     )
 elif args.attack == 'deepfool':
     attack = DeepFool(
