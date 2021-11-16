@@ -63,6 +63,7 @@ args = parser.parse_args()
 if args.attack in ['deepfool', 'square']:
     assert not args.targeted
 
+is_adaptive = args.attack in ['bpda']
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
@@ -309,11 +310,21 @@ else:
     X_adv_init = None
     _, test_inds = get_dataset_inds(dataset)
 
+if is_adaptive:
+    # for apadtive attack (expensive) we cannot defend against, so it is sufficient to calculate just the test
+    _, mini_test_inds = get_mini_dataset_inds(dataset)
+    X_test            = X_test[mini_test_inds]
+    y_test            = y_test[mini_test_inds]
+    y_test_preds      = y_test_preds[mini_test_inds]
+    y_test_adv        = y_test_adv[mini_test_inds]
+    y_test_targets    = y_test_targets[mini_test_inds]
+
 if not os.path.exists(os.path.join(ATTACK_DIR, 'X_test_adv.npy')):
     X_test_adv = attack.generate(x=X_test, y=y_test_targets, x_adv_init=X_adv_init)
+    np.save(os.path.join(ATTACK_DIR, 'X_test_adv.npy'), X_test_adv)
+
     test_adv_logits = classifier.predict(X_test_adv, batch_size=batch_size)
     y_test_adv_preds = np.argmax(test_adv_logits, axis=1)
-    np.save(os.path.join(ATTACK_DIR, 'X_test_adv.npy'), X_test_adv)
     np.save(os.path.join(ATTACK_DIR, 'y_test_adv_preds.npy'), y_test_adv_preds)
 else:
     X_test_adv       = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
@@ -322,35 +333,38 @@ else:
 test_adv_accuracy = np.mean(y_test_adv_preds == y_test)
 logger.info('Accuracy on adversarial test examples: {}%'.format(test_adv_accuracy * 100))
 
-# checking on the mini test set
-f0_inds = []  # net_fail
-f1_inds = []  # net_succ
-f2_inds = []  # net_succ AND attack_flip
-f3_inds = []  # net_succ AND attack_flip AND attack_succ
+logger.handlers[0].flush()
 
-for i in test_inds:
-    f1 = y_test_preds[i] == y_test[i]
-    f2 = f1 and y_test_preds[i] != y_test_adv_preds[i]
-    if args.targeted:
-        f3 = f2 and y_test_adv_preds[i] == y_test_adv[i]
-    else:
-        f3 = f2
-    if f1:
-        f1_inds.append(i)
-    else:
-        f0_inds.append(i)
-    if f2:
-        f2_inds.append(i)
-    if f3:
-        f3_inds.append(i)
+if not is_adaptive:
+    # checking on the mini test set
+    f0_inds = []  # net_fail
+    f1_inds = []  # net_succ
+    f2_inds = []  # net_succ AND attack_flip
+    f3_inds = []  # net_succ AND attack_flip AND attack_succ
 
-f0_inds = np.asarray(f0_inds)
-f1_inds = np.asarray(f1_inds)
-f2_inds = np.asarray(f2_inds)
-f3_inds = np.asarray(f3_inds)
+    for i in test_inds:
+        f1 = y_test_preds[i] == y_test[i]
+        f2 = f1 and y_test_preds[i] != y_test_adv_preds[i]
+        if args.targeted:
+            f3 = f2 and y_test_adv_preds[i] == y_test_adv[i]
+        else:
+            f3 = f2
+        if f1:
+            f1_inds.append(i)
+        else:
+            f0_inds.append(i)
+        if f2:
+            f2_inds.append(i)
+        if f3:
+            f3_inds.append(i)
 
-logger.info("Number of test samples: {}. #net_succ: {}. #net_succ_attack_flip: {}. #net_succ_attack_succ: {}"
-      .format(len(test_inds), len(f1_inds), len(f2_inds), len(f3_inds)))
+    f0_inds = np.asarray(f0_inds)
+    f1_inds = np.asarray(f1_inds)
+    f2_inds = np.asarray(f2_inds)
+    f3_inds = np.asarray(f3_inds)
+
+    logger.info("Number of test samples: {}. #net_succ: {}. #net_succ_attack_flip: {}. #net_succ_attack_succ: {}"
+          .format(len(test_inds), len(f1_inds), len(f2_inds), len(f3_inds)))
 
 # f0_inds_test = np.asarray([ind for ind in f0_inds if ind in test_inds])
 # f1_inds_test = np.asarray([ind for ind in f1_inds if ind in test_inds])
