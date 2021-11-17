@@ -43,8 +43,8 @@ parser.add_argument('--attack_dir', default='', type=str, help='attack directory
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
 # indices to take from GT and loaded X:
-parser.add_argument('--gt_inds', default='all', type=str, help='batch size')
-parser.add_argument('--x_inds', default='all', type=str, help='batch size')
+parser.add_argument('--gt_inds', type=str, help='batch size')
+parser.add_argument('--x_inds',  type=str, help='batch size')
 
 # tta method params:
 parser.add_argument('--tta_size', default=256, type=int, help='number of test-time augmentations')
@@ -227,6 +227,7 @@ elif args.method == 'random_forest':
     with open(rf_model_path, "rb") as f:
         rf_model = pickle.load(f)
     rf_model.n_jobs = args.num_workers  # overwrite
+    rf_model.verbose = 0
     hybrid_classifier = HybridClassifier(
         dnn_model=net,
         rf_model=rf_model,
