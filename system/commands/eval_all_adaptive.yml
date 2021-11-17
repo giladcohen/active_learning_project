@@ -5,34 +5,34 @@ commands:
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth            --method ensemble        --attack_dir bpda_targeted         --dump_dir ensemble                  --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth            --method tta             --attack_dir bpda_targeted         --dump_dir tta                       --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
 #  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth            --method random_forest   --attack_dir bpda_targeted         --dump_dir random_forest             --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
-
-  # CIFAR10, TRADES
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades              --checkpoint_file ckpt_epoch_100.pth   --method simple          --attack_dir bpda_targeted         --dump_dir simple                    --gt_inds mini     --x_inds none --num_workers 40   , 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades              --checkpoint_file ckpt_epoch_100.pth   --method tta             --attack_dir bpda_targeted         --dump_dir tta                       --gt_inds mini     --x_inds none --num_workers 40   , 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades              --checkpoint_file ckpt_epoch_100.pth   --method random_forest   --attack_dir bpda_targeted         --dump_dir random_forest             --gt_inds mini     --x_inds none --num_workers 40   , 11000]
-
-  # CIFAR10, VAT
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_vat                 --checkpoint_file ckpt_epoch_299.pth   --method simple          --attack_dir bpda_targeted         --dump_dir simple                    --gt_inds mini     --x_inds none --num_workers 40   , 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_vat                 --checkpoint_file ckpt_epoch_299.pth   --method tta             --attack_dir bpda_targeted         --dump_dir tta                       --gt_inds mini     --x_inds none --num_workers 40   , 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_vat                 --checkpoint_file ckpt_epoch_299.pth   --method random_forest   --attack_dir bpda_targeted         --dump_dir random_forest             --gt_inds mini     --x_inds none --num_workers 40   , 11000]
-
-
-
-
-  # CIFAR100, regular
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth            --method simple          --attack_dir bpda_targeted         --dump_dir simple                    --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth            --method ensemble        --attack_dir bpda_targeted         --dump_dir ensemble                  --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth            --method tta             --attack_dir bpda_targeted         --dump_dir tta                       --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth            --method random_forest   --attack_dir bpda_targeted         --dump_dir random_forest             --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
-
-  # CIFAR100, TRADES
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_trades             --checkpoint_file ckpt_epoch_100.pth  --method simple          --attack_dir bpda_targeted         --dump_dir simple                    --gt_inds mini     --x_inds none --num_workers 40   , 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_trades             --checkpoint_file ckpt_epoch_100.pth  --method tta             --attack_dir bpda_targeted         --dump_dir tta                       --gt_inds mini     --x_inds none --num_workers 40   , 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_trades             --checkpoint_file ckpt_epoch_100.pth  --method random_forest   --attack_dir bpda_targeted         --dump_dir random_forest             --gt_inds mini     --x_inds none --num_workers 40   , 11000]
-
-  # CIFAR100, VAT
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_vat                 --checkpoint_file ckpt_epoch_299.pth --method simple          --attack_dir bpda_targeted         --dump_dir simple                    --gt_inds mini     --x_inds none --num_workers 40   , 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_vat                 --checkpoint_file ckpt_epoch_299.pth --method tta             --attack_dir bpda_targeted         --dump_dir tta                       --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+#
+#  # CIFAR10, TRADES
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades              --checkpoint_file ckpt_epoch_100.pth   --method simple          --attack_dir bpda_targeted         --dump_dir simple                    --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades              --checkpoint_file ckpt_epoch_100.pth   --method tta             --attack_dir bpda_targeted         --dump_dir tta                       --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades              --checkpoint_file ckpt_epoch_100.pth   --method random_forest   --attack_dir bpda_targeted         --dump_dir random_forest             --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+#
+#  # CIFAR10, VAT
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_vat                 --checkpoint_file ckpt_epoch_299.pth   --method simple          --attack_dir bpda_targeted         --dump_dir simple                    --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_vat                 --checkpoint_file ckpt_epoch_299.pth   --method tta             --attack_dir bpda_targeted         --dump_dir tta                       --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_vat                 --checkpoint_file ckpt_epoch_299.pth   --method random_forest   --attack_dir bpda_targeted         --dump_dir random_forest             --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+#
+#
+#
+#
+#  # CIFAR100, regular
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth            --method simple          --attack_dir bpda_targeted         --dump_dir simple                    --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth            --method ensemble        --attack_dir bpda_targeted         --dump_dir ensemble                  --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth            --method tta             --attack_dir bpda_targeted         --dump_dir tta                       --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth            --method random_forest   --attack_dir bpda_targeted         --dump_dir random_forest             --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
+#
+#  # CIFAR100, TRADES
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_trades             --checkpoint_file ckpt_epoch_100.pth  --method simple          --attack_dir bpda_targeted         --dump_dir simple                    --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_trades             --checkpoint_file ckpt_epoch_100.pth  --method tta             --attack_dir bpda_targeted         --dump_dir tta                       --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_trades             --checkpoint_file ckpt_epoch_100.pth  --method random_forest   --attack_dir bpda_targeted         --dump_dir random_forest             --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+#
+#  # CIFAR100, VAT
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_vat                 --checkpoint_file ckpt_epoch_299.pth --method simple          --attack_dir bpda_targeted         --dump_dir simple                    --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_vat                 --checkpoint_file ckpt_epoch_299.pth --method tta             --attack_dir bpda_targeted         --dump_dir tta                       --gt_inds mini     --x_inds none --num_workers 40   , 11000]
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_vat                 --checkpoint_file ckpt_epoch_299.pth --method random_forest   --attack_dir bpda_targeted         --dump_dir random_forest             --gt_inds mini     --x_inds none --num_workers 40   , 11000]
 
 
@@ -72,3 +72,150 @@ commands:
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_vat          --checkpoint_file ckpt_epoch_299.pth --method simple          --attack_dir bpda_targeted         --dump_dir simple                    --gt_inds mini     --x_inds none --num_workers 40   , 11000]
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_vat          --checkpoint_file ckpt_epoch_299.pth --method tta             --attack_dir bpda_targeted         --dump_dir tta                       --gt_inds mini     --x_inds none --num_workers 40   , 11000]
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_vat          --checkpoint_file ckpt_epoch_299.pth --method random_forest   --attack_dir bpda_targeted         --dump_dir random_forest             --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+
+
+
+
+
+
+
+
+
+
+  # whitebox_pgd (fast)
+  # CIFAR10 VAT
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_vat              --checkpoint_file ckpt_epoch_299.pth        --method simple         --attack_dir whitebox_pgd_targeted_iters_1_ttas_256    --batch_size 100 --num_workers 40 --dump_dir simple             --gt_inds test    --x_inds none, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_vat              --checkpoint_file ckpt_epoch_299.pth        --method tta            --attack_dir whitebox_pgd_targeted_iters_1_ttas_256    --batch_size 100 --num_workers 40 --dump_dir tta                --gt_inds test    --x_inds none, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_vat              --checkpoint_file ckpt_epoch_299.pth        --method random_forest  --attack_dir whitebox_pgd_targeted_iters_1_ttas_256    --batch_size 100 --num_workers 40 --dump_dir random_forest      --gt_inds test    --x_inds none, 11000]
+
+  # CIFAR100 VAT
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_vat              --checkpoint_file ckpt_epoch_299.pth       --method simple         --attack_dir whitebox_pgd_targeted_iters_1_ttas_256    --batch_size 100 --num_workers 40 --dump_dir simple             --gt_inds test    --x_inds none, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_vat              --checkpoint_file ckpt_epoch_299.pth       --method tta            --attack_dir whitebox_pgd_targeted_iters_1_ttas_256    --batch_size 100 --num_workers 40 --dump_dir tta                --gt_inds test    --x_inds none, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_vat              --checkpoint_file ckpt_epoch_299.pth       --method random_forest  --attack_dir whitebox_pgd_targeted_iters_1_ttas_256    --batch_size 100 --num_workers 40 --dump_dir random_forest      --gt_inds test    --x_inds none, 11000]
+
+  # SVHN VAT
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust_vat                  --checkpoint_file ckpt_epoch_199.pth       --method simple         --attack_dir whitebox_pgd_targeted_iters_1_ttas_256    --batch_size 100 --num_workers 40 --dump_dir simple             --gt_inds test    --x_inds none, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust_vat                  --checkpoint_file ckpt_epoch_199.pth       --method tta            --attack_dir whitebox_pgd_targeted_iters_1_ttas_256    --batch_size 100 --num_workers 40 --dump_dir tta                --gt_inds test    --x_inds none, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust_vat                  --checkpoint_file ckpt_epoch_199.pth       --method random_forest  --attack_dir whitebox_pgd_targeted_iters_1_ttas_256    --batch_size 100 --num_workers 40 --dump_dir random_forest      --gt_inds test    --x_inds none, 11000]
+
+  # tiny_imagenet, VAT
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_vat        --checkpoint_file ckpt_epoch_299.pth        --method simple         --attack_dir whitebox_pgd_targeted_iters_1_ttas_256    --batch_size 100 --num_workers 40 --dump_dir simple             --gt_inds test    --x_inds none, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_vat        --checkpoint_file ckpt_epoch_299.pth        --method tta            --attack_dir whitebox_pgd_targeted_iters_1_ttas_256    --batch_size 100 --num_workers 40 --dump_dir tta                --gt_inds test    --x_inds none, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_vat        --checkpoint_file ckpt_epoch_299.pth        --method random_forest  --attack_dir whitebox_pgd_targeted_iters_1_ttas_256    --batch_size 100 --num_workers 40 --dump_dir random_forest      --gt_inds test    --x_inds none, 11000]
+
+
+
+
+
+
+
+
+
+
+  # whitebox_pgd (slow)
+  # CIFAR10 VAT
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_vat              --checkpoint_file ckpt_epoch_299.pth        --method simple         --attack_dir whitebox_pgd_targeted_iters_10_ttas_25    --batch_size 100 --num_workers 40 --dump_dir simple             --gt_inds test    --x_inds none, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_vat              --checkpoint_file ckpt_epoch_299.pth        --method tta            --attack_dir whitebox_pgd_targeted_iters_10_ttas_25    --batch_size 100 --num_workers 40 --dump_dir tta                --gt_inds test    --x_inds none, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_vat              --checkpoint_file ckpt_epoch_299.pth        --method random_forest  --attack_dir whitebox_pgd_targeted_iters_10_ttas_25    --batch_size 100 --num_workers 40 --dump_dir random_forest      --gt_inds test    --x_inds none, 11000]
+
+  # CIFAR100 VAT
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_vat              --checkpoint_file ckpt_epoch_299.pth       --method simple         --attack_dir whitebox_pgd_targeted_iters_10_ttas_25    --batch_size 100 --num_workers 40 --dump_dir simple             --gt_inds test    --x_inds none, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_vat              --checkpoint_file ckpt_epoch_299.pth       --method tta            --attack_dir whitebox_pgd_targeted_iters_10_ttas_25    --batch_size 100 --num_workers 40 --dump_dir tta                --gt_inds test    --x_inds none, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_vat              --checkpoint_file ckpt_epoch_299.pth       --method random_forest  --attack_dir whitebox_pgd_targeted_iters_10_ttas_25    --batch_size 100 --num_workers 40 --dump_dir random_forest      --gt_inds test    --x_inds none, 11000]
+
+  # SVHN VAT
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust_vat                  --checkpoint_file ckpt_epoch_199.pth       --method simple         --attack_dir whitebox_pgd_targeted_iters_10_ttas_25    --batch_size 100 --num_workers 40 --dump_dir simple             --gt_inds test    --x_inds none, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust_vat                  --checkpoint_file ckpt_epoch_199.pth       --method tta            --attack_dir whitebox_pgd_targeted_iters_10_ttas_25    --batch_size 100 --num_workers 40 --dump_dir tta                --gt_inds test    --x_inds none, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust_vat                  --checkpoint_file ckpt_epoch_199.pth       --method random_forest  --attack_dir whitebox_pgd_targeted_iters_10_ttas_25    --batch_size 100 --num_workers 40 --dump_dir random_forest      --gt_inds test    --x_inds none, 11000]
+
+  # tiny_imagenet, VAT
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_vat        --checkpoint_file ckpt_epoch_299.pth        --method simple         --attack_dir whitebox_pgd_targeted_iters_10_ttas_25    --batch_size 100 --num_workers 40 --dump_dir simple             --gt_inds test    --x_inds none, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_vat        --checkpoint_file ckpt_epoch_299.pth        --method tta            --attack_dir whitebox_pgd_targeted_iters_10_ttas_25    --batch_size 100 --num_workers 40 --dump_dir tta                --gt_inds test    --x_inds none, 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_vat        --checkpoint_file ckpt_epoch_299.pth        --method random_forest  --attack_dir whitebox_pgd_targeted_iters_10_ttas_25    --batch_size 100 --num_workers 40 --dump_dir random_forest      --gt_inds test    --x_inds none, 11000]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  # adaptive_square
+  # CIFAR10, regular
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth            --method simple          --attack_dir adaptive_square         --dump_dir simple                    --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth            --method ensemble        --attack_dir adaptive_square         --dump_dir ensemble                  --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth            --method tta             --attack_dir adaptive_square         --dump_dir tta                       --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00            --checkpoint_file ckpt.pth            --method random_forest   --attack_dir adaptive_square         --dump_dir random_forest             --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
+
+  # CIFAR10, TRADES
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades              --checkpoint_file ckpt_epoch_100.pth   --method simple          --attack_dir adaptive_square         --dump_dir simple                    --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades              --checkpoint_file ckpt_epoch_100.pth   --method tta             --attack_dir adaptive_square         --dump_dir tta                       --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_trades              --checkpoint_file ckpt_epoch_100.pth   --method random_forest   --attack_dir adaptive_square         --dump_dir random_forest             --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+
+  # CIFAR10, VAT
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_vat                 --checkpoint_file ckpt_epoch_299.pth   --method simple          --attack_dir adaptive_square         --dump_dir simple                    --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_vat                 --checkpoint_file ckpt_epoch_299.pth   --method tta             --attack_dir adaptive_square         --dump_dir tta                       --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet34/adv_robust_vat                 --checkpoint_file ckpt_epoch_299.pth   --method random_forest   --attack_dir adaptive_square         --dump_dir random_forest             --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+
+
+
+
+  # CIFAR100, regular
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth            --method simple          --attack_dir adaptive_square         --dump_dir simple                    --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth            --method ensemble        --attack_dir adaptive_square         --dump_dir ensemble                  --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth            --method tta             --attack_dir adaptive_square         --dump_dir tta                       --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/regular/resnet34_00           --checkpoint_file ckpt.pth            --method random_forest   --attack_dir adaptive_square         --dump_dir random_forest             --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
+
+  # CIFAR100, TRADES
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_trades             --checkpoint_file ckpt_epoch_100.pth  --method simple          --attack_dir adaptive_square         --dump_dir simple                    --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_trades             --checkpoint_file ckpt_epoch_100.pth  --method tta             --attack_dir adaptive_square         --dump_dir tta                       --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_trades             --checkpoint_file ckpt_epoch_100.pth  --method random_forest   --attack_dir adaptive_square         --dump_dir random_forest             --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+
+  # CIFAR100, VAT
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_vat                 --checkpoint_file ckpt_epoch_299.pth --method simple          --attack_dir adaptive_square         --dump_dir simple                    --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_vat                 --checkpoint_file ckpt_epoch_299.pth --method tta             --attack_dir adaptive_square         --dump_dir tta                       --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet34/adv_robust_vat                 --checkpoint_file ckpt_epoch_299.pth --method random_forest   --attack_dir adaptive_square         --dump_dir random_forest             --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+
+
+
+
+  # SVHN, regular
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00              --checkpoint_file ckpt.pth            --method simple          --attack_dir adaptive_square         --dump_dir simple                    --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00              --checkpoint_file ckpt.pth            --method ensemble        --attack_dir adaptive_square         --dump_dir ensemble                  --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00              --checkpoint_file ckpt.pth            --method tta             --attack_dir adaptive_square         --dump_dir tta                       --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/regular/resnet34_00              --checkpoint_file ckpt.pth            --method random_forest   --attack_dir adaptive_square         --dump_dir random_forest             --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
+
+  # SVHN, TRADES
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust_trades                --checkpoint_file ckpt_epoch_100.pth  --method simple          --attack_dir adaptive_square         --dump_dir simple                    --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust_trades                --checkpoint_file ckpt_epoch_100.pth  --method tta             --attack_dir adaptive_square         --dump_dir tta                       --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust_trades                --checkpoint_file ckpt_epoch_100.pth  --method random_forest   --attack_dir adaptive_square         --dump_dir random_forest             --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+
+  # SVHN, VAT
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust_vat                   --checkpoint_file ckpt_epoch_199.pth --method simple          --attack_dir adaptive_square         --dump_dir simple                    --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust_vat                   --checkpoint_file ckpt_epoch_199.pth --method tta             --attack_dir adaptive_square         --dump_dir tta                       --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet34/adv_robust_vat                   --checkpoint_file ckpt_epoch_199.pth --method random_forest   --attack_dir adaptive_square         --dump_dir random_forest             --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+
+
+
+
+  # Tiny Imagenet, regular
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00     --checkpoint_file ckpt.pth            --method simple          --attack_dir adaptive_square         --dump_dir simple                    --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00     --checkpoint_file ckpt.pth            --method ensemble        --attack_dir adaptive_square         --dump_dir ensemble                  --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00     --checkpoint_file ckpt.pth            --method tta             --attack_dir adaptive_square         --dump_dir tta                       --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00     --checkpoint_file ckpt.pth            --method random_forest   --attack_dir adaptive_square         --dump_dir random_forest             --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
+
+  # SVHN, TRADES
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_trades       --checkpoint_file ckpt.pth            --method simple          --attack_dir adaptive_square         --dump_dir simple                    --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_trades       --checkpoint_file ckpt.pth            --method tta             --attack_dir adaptive_square         --dump_dir tta                       --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_trades       --checkpoint_file ckpt.pth            --method random_forest   --attack_dir adaptive_square         --dump_dir random_forest             --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+
+  # SVHN, VAT
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_vat          --checkpoint_file ckpt_epoch_299.pth --method simple          --attack_dir adaptive_square         --dump_dir simple                    --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_vat          --checkpoint_file ckpt_epoch_299.pth --method tta             --attack_dir adaptive_square         --dump_dir tta                       --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_vat          --checkpoint_file ckpt_epoch_299.pth --method random_forest   --attack_dir adaptive_square         --dump_dir random_forest             --gt_inds mini     --x_inds none --num_workers 40   , 11000]
