@@ -42,6 +42,10 @@ parser.add_argument('--method', default='simple', type=str, help='simple, ensemb
 parser.add_argument('--attack_dir', default='', type=str, help='attack directory, or None for normal images')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
+# indices to take from GT and loaded X:
+parser.add_argument('--gt_inds', default='all', type=str, help='batch size')
+parser.add_argument('--x_inds', default='all', type=str, help='batch size')
+
 # tta method params:
 parser.add_argument('--tta_size', default=256, type=int, help='number of test-time augmentations')
 parser.add_argument('--gaussian_std', default=0.005, type=float, help='Standard deviation of Gaussian noise')
@@ -85,12 +89,10 @@ logger = logging.getLogger()
 rand_gen = np.random.RandomState(seed=12345)
 
 dataset = train_args['dataset']
-if not is_boundary:
-    _, test_inds = get_dataset_inds(dataset)
-else:
-    _, test_inds = get_mini_dataset_inds(dataset)
-
-test_size = len(test_inds)
+# fetch all indices
+val_inds, test_inds = get_dataset_inds(dataset)
+mini_val_inds, mini_test_inds = get_mini_dataset_inds(dataset)
+boundary_val_inds, boundary_test_inds = get_boundary_val_test_inds(dataset)
 
 # get data:
 test_loader = get_test_loader(
@@ -99,8 +101,8 @@ test_loader = get_test_loader(
     num_workers=0,
     pin_memory=device=='cuda')
 img_shape = get_image_shape(dataset)
-X_test = get_normalized_tensor(test_loader, img_shape, batch_size)[test_inds]
-y_test = np.asarray(test_loader.dataset.targets)[test_inds]
+X_test = get_normalized_tensor(test_loader, img_shape, batch_size)
+y_test = np.asarray(test_loader.dataset.targets)
 classes = test_loader.dataset.classes
 
 # Model
@@ -126,6 +128,28 @@ classifier = PyTorchClassifierSpecific(
     nb_classes=len(classes), fields=['logits'])
 
 # y_orig_norm_preds = pytorch_evaluate(net, test_loader, ['probs'])[0].argmax(axis=1)[test_inds]
+# y_orig_norm_preds = classifier.predict(X_test, batch_size).argmax(axis=1)
+# orig_norm_acc = np.mean(y_orig_norm_preds == y_test)
+# logger.info('Normal test accuracy: {}%'.format(100 * orig_norm_acc))
+
+# Selecting inds (only for attack):
+if args.gt_inds == 'test':
+    gt_inds = test_inds  # for almost all attacks
+elif args.gt_inds == 'mini':
+    gt_inds = mini_test_inds  # for quick attacks: Boundary, BPDA, adaptive_square, adaptive_boundary and some thitebox_pgd
+else:
+    logger.error('args.gt_inds cannot be {}'.format(args.gt_inds))
+    raise AssertionError
+
+if args.x_inds == 'test':
+    x_inds = test_inds  # for almost all attacks
+elif args.x_inds == 'mini_for_boundary':
+    x_inds = boundary_test_inds  # for the boundary
+else:
+    x_inds = None  # for the BPDA, adaptive_square, adaptive_boundary, and some whitebox_pgd
+
+X_test = X_test[gt_inds]
+y_test = y_test[gt_inds]
 y_orig_norm_preds = classifier.predict(X_test, batch_size).argmax(axis=1)
 orig_norm_acc = np.mean(y_orig_norm_preds == y_test)
 logger.info('Normal test accuracy: {}%'.format(100 * orig_norm_acc))
@@ -138,15 +162,20 @@ if not is_attacked:
         logger.info('considering original images only...')
         X = X_test
 else:
-    logger.info('considering adv images of attack {}. targeted={}'.format(attack_args['attack'], attack_args['targeted']))
+    logger.info('considering adv images of attack {}. targeted={}'
+                .format(attack_args['attack'], attack_args['targeted']))
     X = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
-    if not is_boundary:
-        X = X[test_inds]
+
+    if x_inds is None:
+        logger.info('selecting all indices from X')
     else:
-        _, boundary_test_inds = get_boundary_val_test_inds(dataset)
-        X = X[boundary_test_inds]
-    y_adv = np.load(os.path.join(ATTACK_DIR, 'y_test_adv.npy'))[test_inds] if attack_args['targeted'] else None
+        logger.info('selecing {} indices from X'.format(len(x_inds)))
+        X = X[x_inds]
+
     print_Linf_dists(X, X_test)
+
+assert X.shape == X_test.shape, 'shape of X and X_test must be the same'
+assert X.shape[0] == y_test.shape[0]
 
 if args.method == 'simple':
     y_preds = classifier.predict(X, batch_size).argmax(axis=1)
@@ -155,7 +184,7 @@ elif args.method == 'ensemble':
     networks_list = get_ensemble_paths(ensemble_dir)
     networks_list.remove(CHECKPOINT_PATH)
     num_networks = len(networks_list)
-    y_preds_nets = np.nan * np.ones((test_size, num_networks), dtype=np.int32)
+    y_preds_nets = np.nan * np.ones((X.shape[0], num_networks), dtype=np.int32)
     for j, ckpt_file in tqdm(enumerate(networks_list)):  # for network j
         logger.info('Evaluating network {}'.format(ckpt_file))
         global_state = torch.load(ckpt_file, map_location=torch.device(device))
