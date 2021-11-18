@@ -18,8 +18,9 @@ np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
 CHECKPOINT_ROOT = '/data/gilad/logs/adv_robustness'
 datasets = ['CIFAR-10', 'CIFAR-100', 'SVHN', 'Tiny-Imagenet']
 archs = ['Resnet34']  #, 'Resnet50', 'Resnet101']
-attacks = ['', 'FGSM1', 'FGSM2', 'JSMA', 'PGD1', 'PGD2', 'Deepfool', 'CW_L2', 'CW_Linf', 'Square', 'Boundary']  #, 'FGSM_WB', 'PGD_WB']
-methods = ['simple', 'ensemble', 'TRADES', 'VAT', 'TTA', 'RF', 'TRADES+RF', 'VAT+RF']
+attacks = ['', 'FGSM1', 'FGSM2', 'JSMA', 'PGD1', 'PGD2', 'Deepfool', 'CW_L2', 'CW_Linf', 'Square', 'Boundary'
+           ,'FGSM_WB', 'PGD_WB', 'A-Square', 'BPDA']
+methods = ['simple', 'ensemble', 'TRADES', 'VAT', 'TTA', 'RF', 'TRADES+TTA', 'VAT+TTA', 'TRADES+RF', 'VAT+RF']
 data = {}
 
 def dataset_to_dir(dataset: str):
@@ -62,13 +63,17 @@ def attack_to_dir(attack: str):
         return 'whitebox_pgd_targeted_iters_1_ttas_256'
     elif attack == 'PGD_WB':
         return 'whitebox_pgd_targeted_iters_10_ttas_25'
+    elif attack == 'A-Square':
+        return 'adaptive_square'
+    elif attack == 'BPDA':
+        return 'bpda_targeted'
 
 def method_to_dir(method:str):
     if method in ['simple', 'TRADES', 'VAT']:
         return 'simple'
     elif method == 'ensemble':
         return 'ensemble'
-    elif method == 'TTA':
+    elif 'TTA' in method:
         return 'tta'
     elif method in ['RF', 'TRADES+RF', 'VAT+RF']:
         return 'random_forest_global'
@@ -82,8 +87,17 @@ def get_log(dataset: str, arch: str, attack: str, method: str):
         path = os.path.join(path, 'adv_robust_vat')
     else:
         path = os.path.join(path, 'regular', arch_to_dir(arch) + '_00')
-    path = os.path.join(path, attack_to_dir(attack))
-    path = os.path.join(path, method_to_dir(method))
+    attack_path = os.path.join(path, attack_to_dir(attack))
+
+    path = os.path.join(attack_path, method_to_dir(method))
+    if method in ['RF', 'TRADES+RF', 'VAT+RF']:
+        path_bu = os.path.join(attack_path, 'random_forest')
+    else:
+        path_bu = os.path.join(attack_path, 'STAM')
+
+    if not os.path.exists(path) and os.path.exists(path_bu):
+        path = path_bu
+
     path = os.path.join(path, 'log.log')
     return path
 
@@ -140,10 +154,12 @@ def print_accs(x: Dict):
     vals.append(x['CW_Linf']['acc'])
     vals.append(x['Square']['acc'])
     vals.append(x['Boundary']['acc'])
+    vals.append(x['A-Square']['acc'])
     # if 'FGSM_WB' in x:
-    #     vals.append(x['FGSM_WB']['acc'])
+    vals.append(x['FGSM_WB']['acc'])
     # if 'PGD_WB' in x:
-    #     vals.append(x['PGD_WB']['acc'])
+    vals.append(x['PGD_WB']['acc'])
+    vals.append(x['BPDA']['acc'])
     vals = np.asarray(vals)
     print(vals)
 
@@ -156,6 +172,17 @@ def print_white(x: Dict):
     vals = np.asarray(vals)
     print(vals)
 
+def print_fast(x: Dict):
+    vals = []
+    vals.append(x['FGSM2']['acc'])
+    vals.append(x['FGSM_WB']['acc'])
+    vals.append(x['PGD2']['acc'])
+    vals.append(x['PGD_WB']['acc'])
+    vals.append(x['Square']['acc'])
+    vals.append(x['A-Square']['acc'])
+    vals.append(x['BPDA']['acc'])
+    vals = np.asarray(vals)
+    print(vals)
 
 for dataset in datasets:
     data[dataset] = {}
@@ -171,7 +198,7 @@ for dataset in datasets:
                 is_attacked = attack != ''
 
                 log = get_log(dataset, arch, attack, method)
-                # print('for {}/{}/{}/{} , log: {}, we got:'.format(dataset, arch, attack, method, log))
+                print('for {}/{}/{}/{} , log: {}, we got:'.format(dataset, arch, attack, method, log))
 
                 if not is_attacked and method in ['simple', 'TRADES', 'VAT']:
                     data[dataset][arch][method][attack]['acc'] = get_simple_acc_from_log(log)

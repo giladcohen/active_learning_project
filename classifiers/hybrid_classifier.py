@@ -52,6 +52,7 @@ class HybridClassifier(PyTorchClassifierSpecific):  # lgtm [py/missing-call-to-i
         self._model.train(mode=training_mode)
 
         if self.tta_dir is not None:
+            os.makedirs(self.tta_dir, exist_ok=True)
             test_tta_file = os.path.join(self.tta_dir, 'tta_logits_test.npy')
             if os.path.exists(test_tta_file):
                 logger.info('Loading test tta logits from {}'.format(test_tta_file))

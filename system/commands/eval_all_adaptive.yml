@@ -210,12 +210,14 @@ commands:
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00     --checkpoint_file ckpt.pth            --method tta             --attack_dir adaptive_square         --dump_dir tta                       --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/regular/resnet34_00     --checkpoint_file ckpt.pth            --method random_forest   --attack_dir adaptive_square         --dump_dir random_forest             --gt_inds mini     --x_inds none  --num_workers 40  , 11000]
 
-  # SVHN, TRADES
+  # Tiny Imagenet, TRADES
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_trades       --checkpoint_file ckpt.pth            --method simple          --attack_dir adaptive_square         --dump_dir simple                    --gt_inds mini     --x_inds none --num_workers 40   , 11000]
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_trades       --checkpoint_file ckpt.pth            --method tta             --attack_dir adaptive_square         --dump_dir tta                       --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+  # Done in Geoffrey
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_trades       --checkpoint_file ckpt.pth            --method random_forest   --attack_dir adaptive_square         --dump_dir random_forest             --gt_inds mini     --x_inds none --num_workers 40   , 11000]
 
-  # SVHN, VAT
+  # Tiny Imagenet, VAT
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_vat          --checkpoint_file ckpt_epoch_299.pth --method simple          --attack_dir adaptive_square         --dump_dir simple                    --gt_inds mini     --x_inds none --num_workers 40   , 11000]
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_vat          --checkpoint_file ckpt_epoch_299.pth --method tta             --attack_dir adaptive_square         --dump_dir tta                       --gt_inds mini     --x_inds none --num_workers 40   , 11000]
-  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_vat          --checkpoint_file ckpt_epoch_299.pth --method random_forest   --attack_dir adaptive_square         --dump_dir random_forest             --gt_inds mini     --x_inds none --num_workers 40   , 11000]
+  # Done in deep3d
+#  - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_vat          --checkpoint_file ckpt_epoch_299.pth --method random_forest   --attack_dir adaptive_square         --dump_dir random_forest             --gt_inds mini     --x_inds none --num_workers 40   , 11000]
