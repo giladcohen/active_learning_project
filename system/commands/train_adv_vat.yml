@@ -14,3 +14,19 @@ commands:
   - [python active_learning_project/scripts/train.py  --dataset tiny_imagenet   --net resnet34    --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_vat_acc_eps_8   --num_workers 5   --metric accuracy       --adv_vat True   --epochs 300 --epsilon 8.0,  11000]
   - [python active_learning_project/scripts/train.py  --dataset tiny_imagenet   --net resnet34    --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_vat_acc_eps_0.5 --num_workers 5   --metric accuracy       --adv_vat True   --epochs 300 --epsilon 0.5,  11000]
   - [python active_learning_project/scripts/train.py  --dataset tiny_imagenet   --net resnet34    --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet34/adv_robust_vat_acc_eps_2   --num_workers 5   --metric accuracy       --adv_vat True   --epochs 300 --epsilon 2.0,  11000]
+
+
+
+  # resnet50
+  - [python active_learning_project/scripts/train.py  --dataset cifar10         --net resnet50     --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet50/adv_robust_vat                 --num_workers 5   --metric accuracy       --adv_vat True   --epochs 300 --epsilon 1.0,  46000]
+  - [python active_learning_project/scripts/train.py  --dataset cifar100        --net resnet50     --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet50/adv_robust_vat                --num_workers 5   --metric accuracy       --adv_vat True   --epochs 300 --epsilon 1.0,  46000]
+  - [python active_learning_project/scripts/train.py  --dataset svhn            --net resnet50     --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet50/adv_robust_vat                    --num_workers 5   --metric accuracy       --adv_vat True   --epochs 200 --epsilon 3.0 --patience 2 --cooldown 1, 46000]
+  - [python active_learning_project/scripts/train.py  --dataset tiny_imagenet   --net resnet50     --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/adv_robust_vat_acc       --num_workers 5   --metric accuracy       --adv_vat True   --epochs 300 --epsilon 1.0,  46000]
+
+
+
+  # resnet101
+  - [python active_learning_project/scripts/train.py  --dataset cifar10         --net resnet101    --checkpoint_dir /data/gilad/logs/adv_robustness/cifar10/resnet101/adv_robust_vat                 --num_workers 5   --metric accuracy       --adv_vat True   --epochs 300 --epsilon 1.0,  46000]
+  - [python active_learning_project/scripts/train.py  --dataset cifar100        --net resnet101    --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_vat                --num_workers 5   --metric accuracy       --adv_vat True   --epochs 300 --epsilon 1.0,  46000]
+  - [python active_learning_project/scripts/train.py  --dataset svhn            --net resnet101    --checkpoint_dir /data/gilad/logs/adv_robustness/svhn/resnet101/adv_robust_vat                    --num_workers 5   --metric accuracy       --adv_vat True   --epochs 200 --epsilon 3.0 --patience 2 --cooldown 1, 46000]
+  - [python active_learning_project/scripts/train.py  --dataset tiny_imagenet   --net resnet101    --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet101/adv_robust_vat_acc       --num_workers 5   --metric accuracy       --adv_vat True   --epochs 300 --epsilon 1.0,  46000]
