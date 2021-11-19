@@ -5,6 +5,7 @@ for: resnet34/resnet50/resnet101
 for methods: simple/ensemble/TRADES/TTA+RF
 database is defined as: data[dataset][arch][attack]. attack='' means normal (unattacked) test samples.
 """
+import subprocess
 
 import os
 import matplotlib.pyplot as plt
@@ -96,7 +97,9 @@ def get_log(dataset: str, arch: str, attack: str, method: str):
         path_bu = os.path.join(attack_path, 'STAM')
 
     if not os.path.exists(path) and os.path.exists(path_bu):
-        path = path_bu
+        print('moving\n{}\nto\n{}'.format(path_bu, path))
+        subprocess.call(["mv", path_bu, path])
+        # path = path_bu
 
     path = os.path.join(path, 'log.log')
     return path
@@ -198,7 +201,7 @@ for dataset in datasets:
                 is_attacked = attack != ''
 
                 log = get_log(dataset, arch, attack, method)
-                print('for {}/{}/{}/{} , log: {}, we got:'.format(dataset, arch, attack, method, log))
+                # print('for {}/{}/{}/{} , log: {}, we got:'.format(dataset, arch, attack, method, log))
 
                 if not is_attacked and method in ['simple', 'TRADES', 'VAT']:
                     data[dataset][arch][method][attack]['acc'] = get_simple_acc_from_log(log)
