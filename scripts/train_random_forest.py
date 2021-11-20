@@ -40,11 +40,14 @@ parser = argparse.ArgumentParser(description='Evaluating robustness score')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='checkpoint path file name')
 parser.add_argument('--tta_input_dir', default='tta', type=str, help='The dir which holds the tta results')
+parser.add_argument('--train_exc', default='none', type=str,
+                    help='attacks to exclude from RF training: none (to keep all), fgsm, jsma, pgd, deepfool, '
+                         'cw, square, boundary, or all (to include only normal)')
 
 parser.add_argument('--num_workers', default=20, type=int, help='Data loading threads for tta loader or random forest')
 
 # dump
-parser.add_argument('--dump_dir', default='random_forest', type=str, help='dump dir for logs and data')
+parser.add_argument('--dump_dir', default='debug', type=str, help='dump dir for logs and data')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
@@ -86,6 +89,34 @@ classes = test_loader.dataset.classes
 ATTACK_DIRS = ['fgsm_targeted', 'fgsm_targeted_eps_0.031', 'jsma_targeted', 'pgd_targeted', 'pgd_targeted_eps_0.031',
                'deepfool', 'cw_targeted', 'cw_targeted_Linf_eps_0.031', 'square', 'boundary_targeted']
 
+if args.train_exc == 'none':
+    pass
+elif args.train_exc == 'fgsm':
+    ATTACK_DIRS.remove('fgsm_targeted')
+    ATTACK_DIRS.remove('fgsm_targeted_eps_0.031')
+elif args.train_exc == 'jsma':
+    ATTACK_DIRS.remove('jsma_targeted')
+elif args.train_exc == 'pgd':
+    ATTACK_DIRS.remove('pgd_targeted')
+    ATTACK_DIRS.remove('pgd_targeted_eps_0.031')
+elif args.train_exc == 'deepfool':
+    ATTACK_DIRS.remove('deepfool')
+elif args.train_exc == 'cw':
+    ATTACK_DIRS.remove('cw_targeted')
+    ATTACK_DIRS.remove('cw_targeted_Linf_eps_0.031')
+elif args.train_exc == 'square':
+    ATTACK_DIRS.remove('square')
+elif args.train_exc == 'boundary':
+    ATTACK_DIRS.remove('boundary_targeted')
+elif args.train_exc == 'all':
+    ATTACK_DIRS = []
+else:
+    err = 'args.train_acc = {} is illegal'
+    logger.error(err)
+    raise AssertionError(err)
+
+logger.info('After filtering we have: ATTACK_DIRS = {}'.format(ATTACK_DIRS))
+
 # Model
 logger.info('==> Building model..')
 conv1 = get_conv1_params(dataset)
@@ -101,7 +132,6 @@ net.eval()  # frozen
 if device == 'cuda':
     # net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
-
 
 def get_val_tta_logits(attack_dir):
     is_attacked = attack_dir != ''
@@ -144,24 +174,22 @@ def get_val_tta_logits(attack_dir):
     return tta_logits
 
 
-tta_logits_train_norm = get_val_tta_logits('')
+train_tta_logits = []
+for attack_dir in [''] + ATTACK_DIRS:
+    train_tta_logits.append(get_val_tta_logits(attack_dir))
+train_tta_logits = np.vstack(train_tta_logits)
+features_train = train_tta_logits.reshape((train_tta_logits.shape[0], -1))
+assert features_train.shape[1] == len(classes) * 256
 
-tta_logits_train_adv = []
-for attack_dir in ATTACK_DIRS:
-    tta_logits_adv = get_val_tta_logits(attack_dir)
-    tta_logits_train_adv.append(tta_logits_adv)
-tta_logits_train_adv = np.vstack(tta_logits_train_adv)
+# get labels:
+if 'boundary_targeted' in ATTACK_DIRS:
+    labels_train_wo_boundary = np.tile(y_gt[val_inds], len(ATTACK_DIRS))
+    labels_train_boundary = y_gt[mini_val_inds]
+    labels_train = np.hstack((labels_train_wo_boundary, labels_train_boundary))
+else:
+    labels_train = np.tile(y_gt[val_inds], len(ATTACK_DIRS) + 1)
 
-# reshape to features:
-features_train_norm = tta_logits_train_norm.reshape((tta_logits_train_norm.shape[0], -1))
-features_train_adv = tta_logits_train_adv.reshape((tta_logits_train_adv.shape[0], -1))
-assert features_train_norm.shape[1] == features_train_adv.shape[1] == len(classes) * 256
-
-# concatenate features:
-features_train = np.concatenate((features_train_norm, features_train_adv), axis=0)
-labels_train_wo_boundary = np.tile(y_gt[val_inds], len(ATTACK_DIRS))
-labels_train_boundary = y_gt[mini_val_inds]
-labels_train = np.hstack((labels_train_wo_boundary, labels_train_boundary))
+assert features_train.shape[0] == labels_train.shape[0]
 
 logger.info('Initializing random forest classifier for all attacks...')
 clf = RandomForestClassifier(
