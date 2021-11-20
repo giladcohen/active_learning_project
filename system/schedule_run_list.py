@@ -37,7 +37,7 @@ os.chdir(WORKING_DIR)
 # Whenever a GPU is used, we documented the timestamp here and compare it later with SAFE_TIME
 last_time_used = {}
 
-assert torch.cuda.is_available(), 'The file ' +  __file__ + ' is designed to run only with cuda. exiting.'
+assert torch.cuda.is_available(), 'The file ' + __file__ + ' is designed to run only with cuda. exiting.'
 
 def get_gpu_memory():
     _output_to_list = lambda x: x.decode('ascii').split('\n')[:-1]
