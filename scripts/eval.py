@@ -201,7 +201,7 @@ elif args.method == 'random_forest':
     tta_dir = get_dump_dir(args.checkpoint_dir, args.tta_output_dir, args.attack_dir)
     with open(rf_model_path, "rb") as f:
         rf_model = pickle.load(f)
-    rf_model.n_jobs = args.num_workers  # overwrite
+    rf_model.n_jobs = max(1, args.num_workers)  # overwrite
     rf_model.verbose = 0
     hybrid_classifier = HybridClassifier(
         dnn_model=net,
