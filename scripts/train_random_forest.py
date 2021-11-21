@@ -32,7 +32,7 @@ from active_learning_project.datasets.tta_utils import get_tta_transforms, get_t
 from active_learning_project.datasets.utils import get_dataset_inds, get_mini_dataset_inds, \
     get_ensemble_dir, get_dump_dir, get_boundary_val_test_inds
 from active_learning_project.utils import boolean_string, pytorch_evaluate, set_logger, get_ensemble_paths, \
-    majority_vote, convert_tensor_to_image, print_Linf_dists, calc_attack_rate, get_image_shape
+    majority_vote, convert_tensor_to_image, calc_attack_rate, get_image_shape
 from active_learning_project.models.utils import get_strides, get_conv1_params, get_model
 from active_learning_project.classifiers.pytorch_classifier_specific import PyTorchClassifierSpecific
 

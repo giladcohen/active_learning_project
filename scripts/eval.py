@@ -15,10 +15,6 @@ import pickle
 import logging
 import sys
 from tqdm import tqdm
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import LinearSVC
-from sklearn.svm import SVC
 
 sys.path.insert(0, ".")
 sys.path.insert(0, "./adversarial_robustness_toolbox")
@@ -27,9 +23,9 @@ from active_learning_project.datasets.train_val_test_data_loaders import get_tes
     get_loader_with_specific_inds, get_normalized_tensor
 from active_learning_project.datasets.tta_utils import get_tta_transforms, get_tta_logits
 from active_learning_project.datasets.utils import get_dataset_inds, get_mini_dataset_inds, get_ensemble_dir, \
-    get_dump_dir, get_boundary_val_test_inds
+    get_dump_dir, get_boundary_val_test_inds, get_attack_inds
 from active_learning_project.utils import boolean_string, pytorch_evaluate, set_logger, get_ensemble_paths, \
-    majority_vote, convert_tensor_to_image, print_Linf_dists, calc_attack_rate, get_image_shape
+    majority_vote, convert_tensor_to_image, calc_attack_rate, get_image_shape, print_norm_dists, dump_imgs_to_dir
 from active_learning_project.models.utils import get_strides, get_conv1_params, get_model
 from active_learning_project.classifiers.pytorch_classifier_specific import PyTorchClassifierSpecific
 from active_learning_project.classifiers.hybrid_classifier import HybridClassifier
@@ -41,10 +37,6 @@ parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='che
 parser.add_argument('--method', default='simple', type=str, help='simple, ensemble, tta, random_forest, logistic_regression, svm_linear, svm_rbf')
 parser.add_argument('--attack_dir', default='', type=str, help='attack directory, or None for normal images')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
-
-# indices to take from GT and loaded X:
-parser.add_argument('--gt_inds', type=str, help='batch size')
-parser.add_argument('--x_inds',  type=str, help='batch size')
 
 # tta method params:
 parser.add_argument('--tta_size', default=256, type=int, help='number of test-time augmentations')
@@ -127,26 +119,8 @@ classifier = PyTorchClassifierSpecific(
     optimizer=None, input_shape=(img_shape[2], img_shape[0], img_shape[1]),
     nb_classes=len(classes), fields=['logits'])
 
-# y_orig_norm_preds = pytorch_evaluate(net, test_loader, ['probs'])[0].argmax(axis=1)[test_inds]
-# y_orig_norm_preds = classifier.predict(X_test, batch_size).argmax(axis=1)
-# orig_norm_acc = np.mean(y_orig_norm_preds == y_test)
-# logger.info('Normal test accuracy: {}%'.format(100 * orig_norm_acc))
-
-# Selecting inds (only for attack):
-if args.gt_inds == 'test':
-    gt_inds = test_inds  # for almost all attacks
-elif args.gt_inds == 'mini':
-    gt_inds = mini_test_inds  # for quick attacks: Boundary, BPDA, adaptive_square, adaptive_boundary and some thitebox_pgd
-else:
-    logger.error('args.gt_inds cannot be {}'.format(args.gt_inds))
-    raise AssertionError
-
-if args.x_inds == 'test':
-    x_inds = test_inds  # for almost all attacks
-elif args.x_inds == 'mini_for_boundary':
-    x_inds = boundary_test_inds  # for the boundary
-else:
-    x_inds = None  # for the BPDA, adaptive_square, adaptive_boundary, and some whitebox_pgd
+# selecting inds automatically for an attack:
+x_inds, gt_inds = get_attack_inds(dataset, attack_args['attack'], 'adv_robust_vat' in args.attack_dir)
 
 X_test = X_test[gt_inds]
 y_test = y_test[gt_inds]
@@ -167,12 +141,13 @@ else:
     X = np.load(os.path.join(ATTACK_DIR, 'X_test_adv.npy'))
 
     if x_inds is None:
-        logger.info('selecting all indices from X')
+        logger.info('selecting all indices ({}) from X'.format(X.shape[0]))
     else:
         logger.info('selecing {} indices from X'.format(len(x_inds)))
         X = X[x_inds]
 
-    print_Linf_dists(X, X_test)
+    print_norm_dists(X, X_test, np.inf)
+    print_norm_dists(X, X_test, 2)
 
 assert X.shape == X_test.shape, 'shape of X and X_test must be the same'
 assert X.shape[0] == y_test.shape[0]
@@ -241,7 +216,6 @@ elif args.method == 'random_forest':
     )
     hybrid_probs = hybrid_classifier.predict(X, batch_size)
     y_preds = hybrid_probs.argmax(axis=1)
-
 else:
     raise AssertionError('unknown method {}'.format(args.method))
 
@@ -249,9 +223,21 @@ else:
 acc = np.mean(y_preds == y_test)
 logger.info('Test accuracy: {}%'.format(100.0 * acc))
 
-if is_attacked:
-    attack_rate = calc_attack_rate(y_preds, y_orig_norm_preds, y_test)
-    logger.info('attack success rate: {}%'.format(100.0 * attack_rate))
+logger.handlers[0].flush()
+if not is_attacked:
+    logger.info('Done')
+    exit(0)
+
+attack_rate, f2_inds = calc_attack_rate(y_preds, y_orig_norm_preds, y_test)
+np.save(os.path.join(DUMP_DIR, 'f2_inds.npy'), f2_inds)
+logger.info('attack success rate: {}%'.format(100.0 * attack_rate))
+logger.info('After considering only successful attacks on correct DNN predictions, we have these distances:')
+print_norm_dists(X[f2_inds], X_test[f2_inds], np.inf)
+print_norm_dists(X[f2_inds], X_test[f2_inds], 2)
+
+plot_dir = os.path.join(ATTACK_DIR, 'images')
+if not os.path.exists(plot_dir):
+    dump_imgs_to_dir(X, plot_dir)
 
 logger.handlers[0].flush()
 

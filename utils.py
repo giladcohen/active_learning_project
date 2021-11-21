@@ -21,7 +21,7 @@ import torch.nn as nn
 import torch.nn.init as init
 import torch.utils.data as data
 import logging
-
+from PIL import Image
 import scipy
 from scipy.spatial.distance import pdist, cdist, squareform
 from sklearn.metrics import roc_curve, auc, roc_auc_score
@@ -435,13 +435,12 @@ def reset_net(net):
         if hasattr(layer, 'reset_parameters'):
             layer.reset_parameters()
 
-def print_Linf_dists(X, X_test):
+def print_norm_dists(x1, x2, ord=np.inf):
     logger = logging.getLogger()
-    X_diff = (X - X_test).reshape(X.shape[0], -1)
-    X_diff_abs = np.abs(X_diff)
-    Linf_dist = X_diff_abs.max(axis=1)
-    Linf_dist = Linf_dist[np.where(Linf_dist > 0.0)[0]]
-    logger.info('The adversarial attacks distance: Max[L_inf]={}, E[L_inf]={}'.format(np.max(Linf_dist), np.mean(Linf_dist)))
+    x_diff = (x1 - x2).reshape(x1.shape[0], -1)
+    norm = np.linalg.norm(x_diff, ord, axis=1)
+    logger.info('The adversarial attacks distance: Max[L_{}]={}, E[L_{}]={}'.
+                format(ord, np.max(norm), ord, np.mean(norm)))
 
 def calc_attack_rate(y_preds: np.ndarray, y_orig_norm_preds: np.ndarray, y_gt: np.ndarray) -> float:
     """
@@ -468,7 +467,7 @@ def calc_attack_rate(y_preds: np.ndarray, y_orig_norm_preds: np.ndarray, y_gt: n
             f2_inds.append(i)
 
     attack_rate = len(f2_inds) / len(f1_inds)
-    return attack_rate
+    return attack_rate, f2_inds
 
 def get_all_files_recursive(path, suffix=None):
     files = []
@@ -507,3 +506,14 @@ def get_image_shape(dataset: str) -> Tuple[int, int, int]:
         return 64, 64, 3
     else:
         raise AssertionError('Unsupported dataset {}'.format(dataset))
+
+def dump_imgs_to_dir(x: np.ndarray, dir: str):
+    if os.path.exists(dir):
+        print('Dir {} already exists! Not saving anything'.format(dir))
+        return
+    os.makedirs(dir, exist_ok=False)
+    x = np.clip(x, 0.0, 1.0)
+    x = convert_tensor_to_image(x)
+    for i in range(x.shape[0]):
+        im = Image.fromarray(x[i])
+        im.save(os.path.join(dir, 'img_{}.png'.format(i)))

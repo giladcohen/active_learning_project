@@ -31,3 +31,40 @@ def get_boundary_val_test_inds(dataset):
     boundary_val_inds = np.asarray([i for i, ind in enumerate(mini_inds) if ind in mini_val_inds])
     boundary_test_inds = np.asarray([i for i, ind in enumerate(mini_inds) if ind in mini_test_inds])
     return boundary_val_inds, boundary_test_inds
+
+def get_attack_inds(dataset, attack, is_vat):
+    if attack in ['fgsm', 'jsma', 'pgd', 'deepfool', 'cw', 'cw_Linf', 'square']:
+        x_inds, gt_inds = 'test', 'test'
+    elif attack == 'boundary':
+        x_inds, gt_inds = 'mini_for_boundary', 'mini'
+    elif attack == 'whitebox_pgd':
+        if is_vat:
+            x_inds, gt_inds = 'none', 'test'
+        else:
+            x_inds, gt_inds = 'test', 'test'
+    elif attack in ['bpda', 'adaptive_square', 'adaptive_boundary']:
+        x_inds, gt_inds = 'none', 'mini'
+    else:
+        raise AssertionError('cannot find attack inds for attack: {}, is_vat: {}'.format(attack, is_vat))
+
+    val_inds, test_inds = get_dataset_inds(dataset)
+    mini_val_inds, mini_test_inds = get_mini_dataset_inds(dataset)
+    boundary_val_inds, boundary_test_inds = get_boundary_val_test_inds(dataset)
+
+    if x_inds == 'test':
+        x_inds = test_inds  # for almost all attacks
+    elif x_inds == 'mini_for_boundary':
+        x_inds = boundary_test_inds  # for the boundary
+    elif x_inds == 'none':
+        x_inds = None
+    else:
+        raise AssertionError('How did we get here?')
+
+    if gt_inds == 'test':
+        gt_inds = test_inds  # for almost all attacks
+    elif gt_inds == 'mini':
+        gt_inds = mini_test_inds  # for quick attacks: Boundary, BPDA, adaptive_square, adaptive_boundary and some thitebox_pgd
+    else:
+        raise AssertionError('How did we get here?')
+
+    return x_inds, gt_inds
