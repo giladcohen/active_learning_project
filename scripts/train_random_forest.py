@@ -190,7 +190,7 @@ if args.train_incl != '':
 else:
     for attack_dir in [''] + ATTACK_DIRS:
         tmp_logits = get_val_tta_logits(attack_dir)
-        logger('getting {} items from attack_dir: {}'.format(len(tmp_logits), attack_dir))
+        logger.info('getting {} items from attack_dir: {}'.format(len(tmp_logits), attack_dir))
         train_tta_logits.append(tmp_logits)
 train_tta_logits = np.vstack(train_tta_logits)
 features_train = train_tta_logits.reshape((train_tta_logits.shape[0], -1))
