@@ -44,6 +44,8 @@ parser.add_argument('--model', default='random_forest', type=str,
 parser.add_argument('--train_exc', default='none', type=str,
                     help='attacks to exclude from RF training: none (to keep all), fgsm, jsma, pgd, deepfool, '
                          'cw, square, boundary, or all (to include only normal)')
+parser.add_argument('--train_incl', default='', type=str,
+                    help='attack dir to include for RF training.')
 
 parser.add_argument('--num_workers', default=20, type=int, help='Data loading threads for tta loader or random forest')
 
@@ -90,34 +92,37 @@ X_norm = get_normalized_tensor(test_loader, img_shape, batch_size)
 y_gt = np.asarray(test_loader.dataset.targets)
 classes = test_loader.dataset.classes
 
-ATTACK_DIRS = ['fgsm_targeted', 'fgsm_targeted_eps_0.031', 'jsma_targeted', 'pgd_targeted', 'pgd_targeted_eps_0.031',
-               'deepfool', 'cw_targeted', 'cw_targeted_Linf_eps_0.031', 'square', 'boundary_targeted']
-
-if args.train_exc == 'none':
-    pass
-elif args.train_exc == 'fgsm':
-    ATTACK_DIRS.remove('fgsm_targeted')
-    ATTACK_DIRS.remove('fgsm_targeted_eps_0.031')
-elif args.train_exc == 'jsma':
-    ATTACK_DIRS.remove('jsma_targeted')
-elif args.train_exc == 'pgd':
-    ATTACK_DIRS.remove('pgd_targeted')
-    ATTACK_DIRS.remove('pgd_targeted_eps_0.031')
-elif args.train_exc == 'deepfool':
-    ATTACK_DIRS.remove('deepfool')
-elif args.train_exc == 'cw':
-    ATTACK_DIRS.remove('cw_targeted')
-    ATTACK_DIRS.remove('cw_targeted_Linf_eps_0.031')
-elif args.train_exc == 'square':
-    ATTACK_DIRS.remove('square')
-elif args.train_exc == 'boundary':
-    ATTACK_DIRS.remove('boundary_targeted')
-elif args.train_exc == 'all':
-    ATTACK_DIRS = []
+if args.train_incl != '':
+    ATTACK_DIRS = [args.train_incl]
 else:
-    err = 'args.train_acc = {} is illegal'
-    logger.error(err)
-    raise AssertionError(err)
+    ATTACK_DIRS = ['fgsm_targeted', 'fgsm_targeted_eps_0.031', 'jsma_targeted', 'pgd_targeted', 'pgd_targeted_eps_0.031',
+                   'deepfool', 'cw_targeted', 'cw_targeted_Linf_eps_0.031', 'square', 'boundary_targeted']
+
+    if args.train_exc == 'none':
+        pass
+    elif args.train_exc == 'fgsm':
+        ATTACK_DIRS.remove('fgsm_targeted')
+        ATTACK_DIRS.remove('fgsm_targeted_eps_0.031')
+    elif args.train_exc == 'jsma':
+        ATTACK_DIRS.remove('jsma_targeted')
+    elif args.train_exc == 'pgd':
+        ATTACK_DIRS.remove('pgd_targeted')
+        ATTACK_DIRS.remove('pgd_targeted_eps_0.031')
+    elif args.train_exc == 'deepfool':
+        ATTACK_DIRS.remove('deepfool')
+    elif args.train_exc == 'cw':
+        ATTACK_DIRS.remove('cw_targeted')
+        ATTACK_DIRS.remove('cw_targeted_Linf_eps_0.031')
+    elif args.train_exc == 'square':
+        ATTACK_DIRS.remove('square')
+    elif args.train_exc == 'boundary':
+        ATTACK_DIRS.remove('boundary_targeted')
+    elif args.train_exc == 'all':
+        ATTACK_DIRS = []
+    else:
+        err = 'args.train_acc = {} is illegal'
+        logger.error(err)
+        raise AssertionError(err)
 
 logger.info('After filtering we have: ATTACK_DIRS = {}'.format(ATTACK_DIRS))
 
@@ -180,8 +185,11 @@ def get_val_tta_logits(attack_dir):
 
 
 train_tta_logits = []
-for attack_dir in [''] + ATTACK_DIRS:
-    train_tta_logits.append(get_val_tta_logits(attack_dir))
+if args.train_incl != '':
+    train_tta_logits.append(get_val_tta_logits(ATTACK_DIRS[0]))
+else:
+    for attack_dir in [''] + ATTACK_DIRS:
+        train_tta_logits.append(get_val_tta_logits(attack_dir))
 train_tta_logits = np.vstack(train_tta_logits)
 features_train = train_tta_logits.reshape((train_tta_logits.shape[0], -1))
 assert features_train.shape[1] == len(classes) * 256
