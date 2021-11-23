@@ -121,7 +121,10 @@ classifier = PyTorchClassifierSpecific(
 
 # selecting inds automatically for an attack:
 if is_attacked:
-    x_inds, gt_inds = get_attack_inds(dataset, attack_args['attack'], 'adv_robust_vat' in args.checkpoint_dir)
+    x_inds, gt_inds = get_attack_inds(dataset,
+                                      attack_args['attack'],
+                                      'adv_robust_vat' in args.checkpoint_dir,
+                                      'resnet101' in args.checkpoint_dir)
 else:
     x_inds = None
     gt_inds = test_inds
