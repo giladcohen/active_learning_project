@@ -34,7 +34,7 @@ def get_boundary_val_test_inds(dataset):
 
 def get_attack_inds(dataset, attack, is_vat, is_resnet101):
     # ugly hack:
-    if attack == 'cw_targeted' and is_vat and is_resnet101 and dataset == 'tiny_imagenet':
+    if attack == 'cw' and is_vat and is_resnet101 and dataset == 'tiny_imagenet':
         x_inds, gt_inds = 'mini_for_boundary', 'mini'
     elif attack in ['fgsm', 'jsma', 'pgd', 'deepfool', 'cw', 'cw_Linf', 'square']:
         x_inds, gt_inds = 'test', 'test'
