@@ -39,7 +39,8 @@ from active_learning_project.classifiers.pytorch_classifier_specific import PyTo
 parser = argparse.ArgumentParser(description='Evaluating robustness score')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='checkpoint path file name')
-parser.add_argument('--model', default='random_forest', type=str, help='checkpoint path file name')
+parser.add_argument('--model', default='random_forest', type=str,
+                    help='model: random_forest / logistic_regression / svm_linear / svm_rbf')
 parser.add_argument('--train_exc', default='none', type=str,
                     help='attacks to exclude from RF training: none (to keep all), fgsm, jsma, pgd, deepfool, '
                          'cw, square, boundary, or all (to include only normal)')
@@ -47,12 +48,15 @@ parser.add_argument('--train_exc', default='none', type=str,
 parser.add_argument('--num_workers', default=20, type=int, help='Data loading threads for tta loader or random forest')
 
 # dump
-parser.add_argument('--dump_dir', default='debug', type=str, help='dump dir for logs and data')
+parser.add_argument('--dump_dir', default='', type=str, help='dump dir for logs and data')
 
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 
 args = parser.parse_args()
+
+if args.dump_dir == '':
+    args.dump_dir = args.model
 
 batch_size = 100
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
