@@ -202,10 +202,12 @@ if args.train_incl != 'none':
 
 labels = []
 for attack_dir in [''] + ATTACK_DIRS:
-    if attack_dir not in ['cw_targeted', 'boundary_targeted']:
-        labels.append(y_gt[val_inds])
+    if attack_dir not in ['boundary_targeted']:
+        tmp_labels = y_gt[val_inds]
     else:
-        labels.append(y_gt[mini_val_inds])
+        tmp_labels = y_gt[mini_val_inds]
+    logger.info('setting {} labels for attack_dir: {}'.format(len(tmp_labels), attack_dir))
+    labels.append(tmp_labels)
 labels_train = np.hstack(labels)
 
 assert features_train.shape[0] == labels_train.shape[0]
