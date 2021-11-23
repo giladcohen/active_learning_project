@@ -195,12 +195,14 @@ else:
 
 assert features_train.shape[0] == labels_train.shape[0]
 
-# hack for speed
-exit(0)
 logger.info('Initializing {} classifier for the selected attacks...'.format(args.model))
 if args.model == 'random_forest':
+    if dataset == 'tiny_imagenet':
+        n_estimators = 100
+    else:
+        n_estimators = 1000
     clf = RandomForestClassifier(
-        n_estimators=1000,
+        n_estimators=n_estimators,
         criterion="gini",  # gini or entropy
         max_depth=None, # The maximum depth of the tree. If None, then nodes are expanded until all leaves are pure or
         # until all leaves contain less than min_samples_split samples.
