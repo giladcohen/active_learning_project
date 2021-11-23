@@ -322,6 +322,7 @@ mini_val_inds, mini_test_inds = get_mini_dataset_inds(dataset)
 X_adv_init = None
 
 if args.attack == 'boundary':
+    # we use few test inds because this attack is very time consuming
     assert args.targeted, 'This code supports only targeted boundary attack'
 
     init_inds_file = os.path.join(ATTACK_DIR, 'init_inds.npy')
@@ -351,16 +352,6 @@ if args.attack == 'boundary':
     X_adv_init        = X_adv_init[mini_inds]
 
     # test_inds = np.asarray([i for i in range(len(mini_inds)) if mini_inds[i] in mini_test_inds])
-# ugly hack:
-elif args.attack == 'cw':
-    mini_inds = np.concatenate((mini_val_inds, mini_test_inds))
-    mini_inds.sort()
-
-    X_test            = X_test[mini_inds]
-    y_test            = y_test[mini_inds]
-    y_test_preds      = y_test_preds[mini_inds]
-    y_test_adv        = y_test_adv[mini_inds]
-    y_test_targets    = y_test_targets[mini_inds]
 elif args.attack in ['bpda', 'adaptive_square', 'adaptive_boundary']:
     # for adaptive attack (expensive) we cannot defend against, so it is sufficient to calculate just the test
     X_test            = X_test[mini_test_inds]
