@@ -145,7 +145,7 @@ if device == 'cuda':
 def get_val_tta_logits(attack_dir):
     is_attacked = attack_dir != ''
     is_boundary = is_attacked and 'boundary' in attack_dir
-    is_cw_hacked = is_attacked and 'cw_targeted' in attack_dir and dataset == 'tiny_imagenet' and 'resnet101' in args.checkpoint_dir and 'adv_robust_vat' in args.checkpoint_dir
+    is_cw_hacked = is_attacked and attack_dir == 'cw_targeted' and dataset == 'tiny_imagenet' and 'resnet101' in args.checkpoint_dir and 'adv_robust_vat' in args.checkpoint_dir
 
     tta_dir = get_dump_dir(args.checkpoint_dir, 'tta', attack_dir)
     os.makedirs(tta_dir, exist_ok=True)
@@ -189,7 +189,9 @@ if args.train_incl != '':
     train_tta_logits.append(get_val_tta_logits(ATTACK_DIRS[0]))
 else:
     for attack_dir in [''] + ATTACK_DIRS:
-        train_tta_logits.append(get_val_tta_logits(attack_dir))
+        tmp_logits = get_val_tta_logits(attack_dir)
+        logger('getting {} items from attack_dir: {}'.format(len(tmp_logits), attack_dir))
+        train_tta_logits.append(tmp_logits)
 train_tta_logits = np.vstack(train_tta_logits)
 features_train = train_tta_logits.reshape((train_tta_logits.shape[0], -1))
 assert features_train.shape[1] == len(classes) * 256
