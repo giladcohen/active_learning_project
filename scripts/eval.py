@@ -203,16 +203,17 @@ elif args.method == 'tta':
     # y_preds = np.apply_along_axis(majority_vote, axis=1, arr=tta_preds)
     y_preds = tta_logits.sum(axis=1).argmax(axis=1)
 
-elif args.method == 'random_forest':
-    rf_model_path = os.path.join(args.checkpoint_dir, 'random_forest', 'random_forest_classifier.pkl')
+elif args.method in ['random_forest', 'logistic_regression', 'svm_linear', 'svm_rbf']:
+    model_path = os.path.join(args.checkpoint_dir, args.method, args.method + '_classifier.pkl')
     tta_dir = get_dump_dir(args.checkpoint_dir, args.tta_output_dir, args.attack_dir)
-    with open(rf_model_path, "rb") as f:
-        rf_model = pickle.load(f)
-    rf_model.n_jobs = max(1, args.num_workers)  # overwrite
-    rf_model.verbose = 0
+    with open(model_path, "rb") as f:
+        model = pickle.load(f)
+    if args.method in ['random_forest', 'logistic_regression']:
+        model.n_jobs = max(1, args.num_workers)  # overwrite
+    model.verbose = 0
     hybrid_classifier = HybridClassifier(
         dnn_model=net,
-        rf_model=rf_model,
+        rf_model=model,
         dataset=dataset,
         tta_args=args.__dict__,
         input_shape=(img_shape[2], img_shape[0], img_shape[1]),

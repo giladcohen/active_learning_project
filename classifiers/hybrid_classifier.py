@@ -21,7 +21,8 @@ class HybridClassifier(PyTorchClassifierSpecific):  # lgtm [py/missing-call-to-i
 
     def __init__(self,
                  dnn_model: torch.nn.Module,
-                 rf_model: sklearn.ensemble.RandomForestClassifier,
+                 rf_model: Union[sklearn.ensemble.RandomForestClassifier,
+                                 sklearn.linear_model.LogisticRegression, sklearn.svm.LinearSVC, sklearn.svm.SVC],
                  dataset: str,
                  tta_args: Dict,
                  input_shape: Tuple[int, ...],
