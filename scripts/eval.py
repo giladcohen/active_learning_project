@@ -210,6 +210,9 @@ elif args.method in ['random_forest', 'logistic_regression', 'svm_linear', 'svm_
         model = pickle.load(f)
     if args.method in ['random_forest', 'logistic_regression']:
         model.n_jobs = max(1, args.num_workers)  # overwrite
+        probability = True
+    else:
+        probability = False
     model.verbose = 0
     hybrid_classifier = HybridClassifier(
         dnn_model=net,
@@ -220,10 +223,12 @@ elif args.method in ['random_forest', 'logistic_regression', 'svm_linear', 'svm_
         nb_classes=len(classes),
         clip_values=(0, 1),
         fields=['logits'],
-        tta_dir=tta_dir
+        tta_dir=tta_dir,
+        probability=probability
     )
-    hybrid_probs = hybrid_classifier.predict(X, batch_size)
-    y_preds = hybrid_probs.argmax(axis=1)
+    y_preds = hybrid_classifier.predict(X, batch_size)
+    if probability:
+        y_preds = y_preds.argmax(axis=1)
 else:
     raise AssertionError('unknown method {}'.format(args.method))
 

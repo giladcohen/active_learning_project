@@ -1,3 +1,41 @@
 commands:
-# eval logistic regression and SVM:
-  - [python ]
+  # Resnet 101
+  # Regular
+ - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00       --checkpoint_file ckpt.pth            --num_workers 20     --train_exc boundary, 12000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00       --checkpoint_file ckpt.pth           --num_workers 5    --train_incl ""  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00       --checkpoint_file ckpt.pth           --num_workers 5    --train_incl fgsm_targeted  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00       --checkpoint_file ckpt.pth           --num_workers 5    --train_incl fgsm_targeted_eps_0.031  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00       --checkpoint_file ckpt.pth           --num_workers 5    --train_incl jsma_targeted  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00       --checkpoint_file ckpt.pth           --num_workers 5    --train_incl pgd_targeted  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00       --checkpoint_file ckpt.pth           --num_workers 5    --train_incl pgd_targeted_eps_0.031  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00       --checkpoint_file ckpt.pth           --num_workers 5    --train_incl deepfool  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00       --checkpoint_file ckpt.pth           --num_workers 5    --train_incl cw_targeted  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00       --checkpoint_file ckpt.pth           --num_workers 5    --train_incl cw_targeted_Linf_eps_0.031  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/regular/resnet101_00       --checkpoint_file ckpt.pth           --num_workers 5    --train_incl square  , 11000]
+
+  # TRADES
+ - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_trades         --checkpoint_file ckpt_epoch_100.pth  --num_workers 20     --train_exc boundary, 12000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_trades       --checkpoint_file ckpt_epoch_100.pth           --num_workers 5    --train_incl ""  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_trades       --checkpoint_file ckpt_epoch_100.pth           --num_workers 5    --train_incl fgsm_targeted  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_trades       --checkpoint_file ckpt_epoch_100.pth           --num_workers 5    --train_incl fgsm_targeted_eps_0.031  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_trades       --checkpoint_file ckpt_epoch_100.pth           --num_workers 5    --train_incl jsma_targeted  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_trades       --checkpoint_file ckpt_epoch_100.pth           --num_workers 5    --train_incl pgd_targeted  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_trades       --checkpoint_file ckpt_epoch_100.pth           --num_workers 5    --train_incl pgd_targeted_eps_0.031  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_trades       --checkpoint_file ckpt_epoch_100.pth           --num_workers 5    --train_incl deepfool  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_trades       --checkpoint_file ckpt_epoch_100.pth           --num_workers 5    --train_incl cw_targeted  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_trades       --checkpoint_file ckpt_epoch_100.pth           --num_workers 5    --train_incl cw_targeted_Linf_eps_0.031  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_trades       --checkpoint_file ckpt_epoch_100.pth           --num_workers 5    --train_incl square  , 11000]
+
+
+  # VAT
+ - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_vat           --checkpoint_file ckpt_epoch_299.pth   --num_workers 20      --train_exc boundary, 12000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_vat       --checkpoint_file ckpt_epoch_299.pth           --num_workers 5    --train_incl ""  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_vat       --checkpoint_file ckpt_epoch_299.pth           --num_workers 5    --train_incl fgsm_targeted  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_vat       --checkpoint_file ckpt_epoch_299.pth           --num_workers 5    --train_incl fgsm_targeted_eps_0.031  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_vat       --checkpoint_file ckpt_epoch_299.pth           --num_workers 5    --train_incl jsma_targeted  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_vat       --checkpoint_file ckpt_epoch_299.pth           --num_workers 5    --train_incl pgd_targeted  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_vat       --checkpoint_file ckpt_epoch_299.pth           --num_workers 5    --train_incl pgd_targeted_eps_0.031  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_vat       --checkpoint_file ckpt_epoch_299.pth           --num_workers 5    --train_incl deepfool  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_vat       --checkpoint_file ckpt_epoch_299.pth           --num_workers 5    --train_incl cw_targeted  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_vat       --checkpoint_file ckpt_epoch_299.pth           --num_workers 5    --train_incl cw_targeted_Linf_eps_0.031  , 11000]
+#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/cifar100/resnet101/adv_robust_vat       --checkpoint_file ckpt_epoch_299.pth           --num_workers 5    --train_incl square  , 11000]

@@ -29,7 +29,8 @@ class HybridClassifier(PyTorchClassifierSpecific):  # lgtm [py/missing-call-to-i
                  nb_classes: int,
                  clip_values: Optional[CLIP_VALUES_TYPE] = None,
                  fields=None,
-                 tta_dir=None
+                 tta_dir=None,
+                 probability: bool = True
                  ) -> None:
         super().__init__(
             model=dnn_model,
@@ -44,6 +45,7 @@ class HybridClassifier(PyTorchClassifierSpecific):  # lgtm [py/missing-call-to-i
         self.tta_args = tta_args
         self.dataset = dataset
         self.tta_dir = tta_dir
+        self.probability = probability
 
     def predict(  # pylint: disable=W0221
             self, x: np.ndarray, batch_size: int = 128, training_mode: bool = False, **kwargs
@@ -70,6 +72,9 @@ class HybridClassifier(PyTorchClassifierSpecific):  # lgtm [py/missing-call-to-i
             tta_logits = get_tta_logits(self.dataset, self._model._model, x, y, self.nb_classes, self.tta_args)
 
         rf_features = tta_logits.reshape(x.shape[0], -1)  # (N, 2560)
-        output_probs = self.rf_model.predict_proba(rf_features)
+        if self.probability:
+            output_probs = self.rf_model.predict_proba(rf_features)
+        else:
+            output_probs = self.rf_model.predict(rf_features)
         return output_probs
 
