@@ -196,6 +196,10 @@ train_tta_logits = np.vstack(train_tta_logits)
 features_train = train_tta_logits.reshape((train_tta_logits.shape[0], -1))
 assert features_train.shape[1] == len(classes) * 256
 
+if args.train_incl != '':
+    logger.info('Done collecting val tta logits. Exiting...')
+    exit(0)
+
 labels = []
 for attack_dir in [''] + ATTACK_DIRS:
     if attack_dir not in ['cw_targeted', 'boundary_targeted']:
