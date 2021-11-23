@@ -140,13 +140,14 @@ if device == 'cuda':
 def get_val_tta_logits(attack_dir):
     is_attacked = attack_dir != ''
     is_boundary = is_attacked and 'boundary' in attack_dir
+    is_cw_hacked = is_attacked and 'cw_targeted' in attack_dir and dataset == 'tiny_imagenet' and 'resnet101' in args.checkpoint_dir and 'adv_robust_vat' in args.checkpoint_dir
 
     tta_dir = get_dump_dir(args.checkpoint_dir, 'tta', attack_dir)
     os.makedirs(tta_dir, exist_ok=True)
     tta_file = os.path.join(tta_dir, 'tta_logits_val.npy')
     tta_file_val_test = os.path.join(tta_dir, 'tta_logits.npy')
 
-    if not is_boundary:
+    if not (is_boundary or is_cw_hacked):
         sel_full_inds = val_inds
         sel_mini_inds = val_inds
     else:
@@ -185,13 +186,13 @@ train_tta_logits = np.vstack(train_tta_logits)
 features_train = train_tta_logits.reshape((train_tta_logits.shape[0], -1))
 assert features_train.shape[1] == len(classes) * 256
 
-# get labels:
-if 'boundary_targeted' in ATTACK_DIRS:
-    labels_train_wo_boundary = np.tile(y_gt[val_inds], len(ATTACK_DIRS))
-    labels_train_boundary = y_gt[mini_val_inds]
-    labels_train = np.hstack((labels_train_wo_boundary, labels_train_boundary))
-else:
-    labels_train = np.tile(y_gt[val_inds], len(ATTACK_DIRS) + 1)
+labels = []
+for attack_dir in [''] + ATTACK_DIRS:
+    if attack_dir not in ['cw_targeted', 'boundary_targeted']:
+        labels.append(y_gt[val_inds])
+    else:
+        labels.append(y_gt[mini_val_inds])
+labels_train = np.hstack(labels)
 
 assert features_train.shape[0] == labels_train.shape[0]
 
