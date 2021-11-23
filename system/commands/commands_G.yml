@@ -2,5 +2,5 @@ commands:
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet101/adv_robust_vat            --checkpoint_file ckpt_epoch_299.pth        --method simple       --attack_dir cw_targeted                  --batch_size 100 --num_workers 0 --dump_dir simple, 11000]
   - [python active_learning_project/scripts/eval.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet101/adv_robust_vat            --checkpoint_file ckpt_epoch_299.pth        --method tta          --attack_dir cw_targeted                  --batch_size 100 --num_workers 40 --dump_dir tta, 11000]
 
-  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet101/adv_robust_vat      --checkpoint_file ckpt_epoch_299.pth   --num_workers 34, 11000]
+  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet101/adv_robust_vat      --checkpoint_file ckpt_epoch_299.pth   --num_workers 34  --train_exc boundary, 11000]
 

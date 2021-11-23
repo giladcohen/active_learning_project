@@ -44,7 +44,7 @@ parser.add_argument('--model', default='random_forest', type=str,
 parser.add_argument('--train_exc', default='none', type=str,
                     help='attacks to exclude from RF training: none (to keep all), fgsm, jsma, pgd, deepfool, '
                          'cw, square, boundary, or all (to include only normal)')
-parser.add_argument('--train_incl', default='', type=str,
+parser.add_argument('--train_incl', default='none', type=str,
                     help='attack dir to include for RF training.')
 
 parser.add_argument('--num_workers', default=20, type=int, help='Data loading threads for tta loader or random forest')
@@ -92,7 +92,7 @@ X_norm = get_normalized_tensor(test_loader, img_shape, batch_size)
 y_gt = np.asarray(test_loader.dataset.targets)
 classes = test_loader.dataset.classes
 
-if args.train_incl != '':
+if args.train_incl != 'none':
     ATTACK_DIRS = [args.train_incl]
 else:
     ATTACK_DIRS = ['fgsm_targeted', 'fgsm_targeted_eps_0.031', 'jsma_targeted', 'pgd_targeted', 'pgd_targeted_eps_0.031',
@@ -185,7 +185,7 @@ def get_val_tta_logits(attack_dir):
 
 
 train_tta_logits = []
-if args.train_incl != '':
+if args.train_incl != 'none':
     train_tta_logits.append(get_val_tta_logits(ATTACK_DIRS[0]))
 else:
     for attack_dir in [''] + ATTACK_DIRS:
@@ -196,7 +196,7 @@ train_tta_logits = np.vstack(train_tta_logits)
 features_train = train_tta_logits.reshape((train_tta_logits.shape[0], -1))
 assert features_train.shape[1] == len(classes) * 256
 
-if args.train_incl != '':
+if args.train_incl != 'none':
     logger.info('Done collecting val tta logits. Exiting...')
     exit(0)
 
