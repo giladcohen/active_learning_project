@@ -195,6 +195,8 @@ else:
 
 assert features_train.shape[0] == labels_train.shape[0]
 
+# hack for speed
+exit(0)
 logger.info('Initializing {} classifier for the selected attacks...'.format(args.model))
 if args.model == 'random_forest':
     clf = RandomForestClassifier(

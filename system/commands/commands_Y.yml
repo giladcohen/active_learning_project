@@ -1,13 +1,13 @@
 commands:
   # Resnet 50
   # Regular
-  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/regular/resnet50_00  --checkpoint_file ckpt.pth           --train_exc boundary --num_workers 40, 11000]
+  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/regular/resnet50_00  --checkpoint_file ckpt.pth           --train_exc boundary --num_workers 5, 11000]
 
   # TRADES
-  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/adv_robust_trades    --checkpoint_file ckpt.pth           --train_exc boundary --num_workers 40, 11000]
+  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/adv_robust_trades    --checkpoint_file ckpt.pth           --train_exc boundary --num_workers 5, 11000]
 
   # VAT
-  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/adv_robust_vat      --checkpoint_file ckpt_epoch_299.pth  --train_exc boundary --num_workers 40, 11000]
+  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet50/adv_robust_vat      --checkpoint_file ckpt_epoch_299.pth  --train_exc boundary --num_workers 5, 11000]
 
 
 
@@ -20,4 +20,4 @@ commands:
 
   # VAT
   # NOT READY YET
-#  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet101/adv_robust_vat      --checkpoint_file ckpt_epoch_299.pth  --train_exc boundary  --num_workers 40, 11000]
+  - [python active_learning_project/scripts/train_random_forest.py --checkpoint_dir /data/gilad/logs/adv_robustness/tiny_imagenet/resnet101/adv_robust_vat      --checkpoint_file ckpt_epoch_299.pth  --train_exc boundary  --num_workers 40, 11000]
