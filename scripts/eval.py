@@ -120,7 +120,11 @@ classifier = PyTorchClassifierSpecific(
     nb_classes=len(classes), fields=['logits'])
 
 # selecting inds automatically for an attack:
-x_inds, gt_inds = get_attack_inds(dataset, attack_args['attack'], 'adv_robust_vat' in args.checkpoint_dir)
+if is_attacked:
+    x_inds, gt_inds = get_attack_inds(dataset, attack_args['attack'], 'adv_robust_vat' in args.checkpoint_dir)
+else:
+    x_inds = None
+    gt_inds = test_inds
 
 X_test = X_test[gt_inds]
 y_test = y_test[gt_inds]
