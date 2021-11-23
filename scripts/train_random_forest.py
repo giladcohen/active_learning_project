@@ -39,7 +39,7 @@ from active_learning_project.classifiers.pytorch_classifier_specific import PyTo
 parser = argparse.ArgumentParser(description='Evaluating robustness score')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='checkpoint path file name')
-parser.add_argument('--tta_input_dir', default='tta', type=str, help='The dir which holds the tta results')
+parser.add_argument('--model', default='random_forest', type=str, help='checkpoint path file name')
 parser.add_argument('--train_exc', default='none', type=str,
                     help='attacks to exclude from RF training: none (to keep all), fgsm, jsma, pgd, deepfool, '
                          'cw, square, boundary, or all (to include only normal)')
@@ -60,11 +60,11 @@ with open(os.path.join(args.checkpoint_dir, 'commandline_args.txt'), 'r') as f:
     train_args = json.load(f)
 CHECKPOINT_PATH = os.path.join(args.checkpoint_dir, args.checkpoint_file)
 DUMP_DIR = os.path.join(args.checkpoint_dir, args.dump_dir)
-random_forest_classifier_path = os.path.join(DUMP_DIR, 'random_forest_classifier.pkl')
+classifier_path = os.path.join(DUMP_DIR, args.model + '_classifier.pkl')
 os.makedirs(DUMP_DIR, exist_ok=True)
 log_file = os.path.join(DUMP_DIR, 'log.log')
 # dumping args to txt file
-with open(os.path.join(DUMP_DIR, 'train_random_forest_args.txt'), 'w') as f:
+with open(os.path.join(DUMP_DIR, 'train_' + args.model + '_args.txt'), 'w') as f:
     json.dump(args.__dict__, f, indent=2)
 set_logger(log_file)
 logger = logging.getLogger()
@@ -137,7 +137,7 @@ def get_val_tta_logits(attack_dir):
     is_attacked = attack_dir != ''
     is_boundary = is_attacked and 'boundary' in attack_dir
 
-    tta_dir = get_dump_dir(args.checkpoint_dir, args.tta_input_dir, attack_dir)
+    tta_dir = get_dump_dir(args.checkpoint_dir, 'tta', attack_dir)
     os.makedirs(tta_dir, exist_ok=True)
     tta_file = os.path.join(tta_dir, 'tta_logits_val.npy')
     tta_file_val_test = os.path.join(tta_dir, 'tta_logits.npy')
@@ -191,22 +191,34 @@ else:
 
 assert features_train.shape[0] == labels_train.shape[0]
 
-logger.info('Initializing random forest classifier for all attacks...')
-clf = RandomForestClassifier(
-    n_estimators=1000,
-    criterion="gini",  # gini or entropy
-    max_depth=None, # The maximum depth of the tree. If None, then nodes are expanded until all leaves are pure or
-    # until all leaves contain less than min_samples_split samples.
-    bootstrap=True, # Whether bootstrap samples are used when building trees.
-    # If False, the whole dataset is used to build each tree.
-    random_state=rand_gen,
-    verbose=1000,
-    n_jobs=args.num_workers
-)
+logger.info('Initializing {} classifier for the selected attacks...'.format(args.model))
+if args.model == 'random_forest':
+    clf = RandomForestClassifier(
+        n_estimators=1000,
+        criterion="gini",  # gini or entropy
+        max_depth=None, # The maximum depth of the tree. If None, then nodes are expanded until all leaves are pure or
+        # until all leaves contain less than min_samples_split samples.
+        bootstrap=True, # Whether bootstrap samples are used when building trees.
+        # If False, the whole dataset is used to build each tree.
+        random_state=rand_gen,
+        verbose=1000,
+        n_jobs=args.num_workers
+    )
+elif args.model == 'logistic_regression':
+    clf = LogisticRegression(multi_class='ovr', random_state=rand_gen, n_jobs=args.num_workers, verbose=1)
+elif args.model == 'svm_linear':
+    clf = LinearSVC(penalty='l2', loss='hinge', multi_class='ovr', random_state=rand_gen, verbose=1)
+elif args.model == 'svm_rbf':
+    clf = SVC(kernel='rbf', decision_function_shape='ovr', break_ties=True, random_state=rand_gen, verbose=1)
+else:
+    err = 'model {} is not supported'.format(args.model)
+    logger.error(err)
+    raise AssertionError(err)
+
 logger.info('Start training the classifier...')
 clf.fit(features_train, labels_train)
 
-with open(random_forest_classifier_path, "wb") as f:
+with open(classifier_path, "wb") as f:
     pickle.dump(clf, f)
 
-logger.info('Successfully saved random forest classifier to {}'.format(random_forest_classifier_path))
+logger.info('Successfully saved {} classifier to {}'.format(args.model, classifier_path))
