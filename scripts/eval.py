@@ -47,6 +47,9 @@ parser.add_argument('--clip_inputs', action='store_true', help='clipping TTA inp
 parser.add_argument('--overwrite', action='store_true', help='force calculating and saving TTA')
 parser.add_argument('--num_workers', default=20, type=int, help='Data loading threads for tta loader or random forest')
 
+# random forest params:
+parser.add_argument('--classifier_dir', default='random_forest', type=str, help='The RF/LR/SVM classifier dir')
+
 # dump
 parser.add_argument('--dump_dir', default='debug', type=str, help='dump dir for logs and data')
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
@@ -204,7 +207,8 @@ elif args.method == 'tta':
     y_preds = tta_logits.sum(axis=1).argmax(axis=1)
 
 elif args.method in ['random_forest', 'logistic_regression', 'svm_linear', 'svm_rbf']:
-    model_path = os.path.join(args.checkpoint_dir, args.method, args.method + '_classifier.pkl')
+    model_dir = os.path.join(args.checkpoint_dir, args.classifier_dir)
+    model_path = os.path.join(model_dir, args.method + '_classifier.pkl')
     tta_dir = get_dump_dir(args.checkpoint_dir, args.tta_output_dir, args.attack_dir)
     with open(model_path, "rb") as f:
         model = pickle.load(f)
