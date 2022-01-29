@@ -34,8 +34,9 @@ from active_learning_project.classifiers.hybrid_classifier import HybridClassifi
 parser = argparse.ArgumentParser(description='Evaluating robustness score')
 parser.add_argument('--checkpoint_dir', default='/data/gilad/logs/adv_robustness/cifar10/resnet34/regular/resnet34_00', type=str, help='checkpoint dir')
 parser.add_argument('--checkpoint_file', default='ckpt.pth', type=str, help='checkpoint path file name')
-parser.add_argument('--method', default='simple', type=str, help='simple, ensemble, tta, random_forest, logistic_regression, svm_linear, svm_rbf')
-parser.add_argument('--attack_dir', default='', type=str, help='attack directory, or None for normal images')
+parser.add_argument('--method', default='tta_counter', type=str,
+                    help='simple, ensemble, tta, tta_counter, random_forest, logistic_regression, svm_linear, svm_rbf')
+parser.add_argument('--attack_dir', default='boundary_targeted', type=str, help='attack directory, or None for normal images')
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 
 # tta method params:
@@ -51,7 +52,7 @@ parser.add_argument('--num_workers', default=20, type=int, help='Data loading th
 parser.add_argument('--classifier_dir', default='random_forest', type=str, help='The RF/LR/SVM classifier dir')
 
 # dump
-parser.add_argument('--dump_dir', default='debug', type=str, help='dump dir for logs and data')
+parser.add_argument('--dump_dir', default='tta_counter', type=str, help='dump dir for logs and data')
 parser.add_argument('--mode', default='null', type=str, help='to bypass pycharm bug')
 parser.add_argument('--port', default='null', type=str, help='to bypass pycharm bug')
 
@@ -178,7 +179,7 @@ elif args.method == 'ensemble':
     assert not np.isnan(y_preds_nets).any()
     y_preds_nets = y_preds_nets.astype(np.int32)
     y_preds = np.apply_along_axis(majority_vote, axis=1, arr=y_preds_nets)
-elif args.method == 'tta':
+elif args.method in ['tta', 'tta_counter']:
     tta_dir = get_dump_dir(args.checkpoint_dir, args.tta_output_dir, args.attack_dir)
     os.makedirs(tta_dir, exist_ok=True)
     tta_file = os.path.join(tta_dir, 'tta_logits_test.npy')
@@ -200,12 +201,14 @@ elif args.method == 'tta':
             tta_logits = get_tta_logits(dataset, net, X, y_test, len(classes), args.__dict__)
             np.save(os.path.join(tta_dir, 'tta_logits_test.npy'), tta_logits)
 
-    # testing only test_inds:
-    # tta_probs = scipy.special.softmax(tta_logits, axis=2)
-    # tta_preds = tta_probs.argmax(axis=2)
-    # y_preds = np.apply_along_axis(majority_vote, axis=1, arr=tta_preds)
-    y_preds = tta_logits.sum(axis=1).argmax(axis=1)
-
+    if args.method == 'tta':
+        y_preds = tta_logits.sum(axis=1).argmax(axis=1)
+    elif args.method == 'tta_counter':
+        tta_probs = scipy.special.softmax(tta_logits, axis=2)
+        tta_preds = tta_probs.argmax(axis=2)
+        y_preds = np.apply_along_axis(majority_vote, axis=1, arr=tta_preds)
+    else:
+        logger.error('How did I get here?')
 elif args.method in ['random_forest', 'logistic_regression', 'svm_linear', 'svm_rbf']:
     model_dir = os.path.join(args.checkpoint_dir, args.classifier_dir)
     model_path = os.path.join(model_dir, args.method + '_classifier.pkl')

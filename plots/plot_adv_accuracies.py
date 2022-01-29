@@ -18,9 +18,9 @@ sns.set_style("whitegrid")
 np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
 CHECKPOINT_ROOT = '/data/gilad/logs/adv_robustness'
 datasets = ['CIFAR-10', 'CIFAR-100', 'SVHN', 'Tiny-Imagenet']
-archs = ['Resnet34']  #, 'Resnet50', 'Resnet101']
-attacks = ['', 'FGSM1', 'FGSM2', 'JSMA', 'PGD1', 'PGD2', 'Deepfool', 'CW_L2', 'CW_Linf', 'Square', 'Boundary'
-           ,'FGSM_WB', 'PGD_WB', 'A-Square', 'BPDA']
+archs = ['Resnet34', 'Resnet50', 'Resnet101']
+attacks = ['', 'FGSM1', 'FGSM2', 'JSMA', 'PGD1', 'PGD2', 'Deepfool', 'CW_L2', 'CW_Linf', 'Square']  # 'Boundary'
+         # ,'FGSM_WB', 'PGD_WB', 'A-Square', 'BPDA']
 methods = ['simple', 'ensemble', 'TRADES', 'VAT', 'TTA', 'RF', 'TRADES+TTA', 'VAT+TTA', 'TRADES+RF', 'VAT+RF']
 data = {}
 
@@ -91,16 +91,6 @@ def get_log(dataset: str, arch: str, attack: str, method: str):
     attack_path = os.path.join(path, attack_to_dir(attack))
 
     path = os.path.join(attack_path, method_to_dir(method))
-    if method in ['RF', 'TRADES+RF', 'VAT+RF']:
-        path_bu = os.path.join(attack_path, 'random_forest')
-    else:
-        path_bu = os.path.join(attack_path, 'STAM')
-
-    if not os.path.exists(path) and os.path.exists(path_bu):
-        print('moving\n{}\nto\n{}'.format(path_bu, path))
-        subprocess.call(["mv", path_bu, path])
-        # path = path_bu
-
     path = os.path.join(path, 'log.log')
     return path
 
@@ -134,15 +124,15 @@ def get_attack_success_from_log(log: str):
     ret = np.round(ret, 3)
     return ret
 
-def get_avg_attack_norm_from_log(log: str):
-    ret = None
-    with open(log, 'r') as f:
-        for line in f:
-            if 'INFO The adversarial attacks distance:' in line:
-                ret = float(line.split('E[L_inf]=')[1].split('%')[0])
-    assert ret is not None
-    ret = np.round(ret, 4)
-    return ret
+# def get_avg_attack_norm_from_log(log: str):
+#     ret = None
+#     with open(log, 'r') as f:
+#         for line in f:
+#             if 'INFO The adversarial attacks distance:' in line:
+#                 ret = float(line.split('E[L_inf]=')[1].split('%')[0])
+#     assert ret is not None
+#     ret = np.round(ret, 4)
+#     return ret
 
 def print_accs(x: Dict):
     vals = []
@@ -156,15 +146,15 @@ def print_accs(x: Dict):
     vals.append(x['CW_L2']['acc'])
     vals.append(x['CW_Linf']['acc'])
     vals.append(x['Square']['acc'])
-    vals.append(x['Boundary']['acc'])
-    vals.append(x['A-Square']['acc'])
-    # if 'FGSM_WB' in x:
-    vals.append(x['FGSM_WB']['acc'])
-    # if 'PGD_WB' in x:
-    vals.append(x['PGD_WB']['acc'])
-    vals.append(x['BPDA']['acc'])
+    # vals.append(x['Boundary']['acc'])
+    # vals.append(x['A-Square']['acc'])
+    # vals.append(x['FGSM_WB']['acc'])
+    # vals.append(x['PGD_WB']['acc'])
+    # vals.append(x['BPDA']['acc'])
     vals = np.asarray(vals)
-    print(vals)
+    # print(vals)
+    print('{:.2f} & {:.2f} & {:.2f} & {:.2f} & {:.2f} & {:.2f} & {:.2f} & {:.2f} & {:.2f} & {:.2f} \\\\'
+          .format(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[6], vals[7], vals[8], vals[9]))
 
 def print_white(x: Dict):
     vals = []
@@ -187,6 +177,20 @@ def print_fast(x: Dict):
     vals = np.asarray(vals)
     print(vals)
 
+def print_accs_2(x: Dict):
+    vals = []
+    vals.append(x['FGSM2']['acc'])
+    vals.append(x['FGSM_WB']['acc'])
+    vals.append(x['PGD2']['acc'])
+    vals.append(x['PGD_WB']['acc'])
+    vals.append(x['Square']['acc'])
+    vals.append(x['A-Square']['acc'])
+    vals.append(x['BPDA']['acc'])
+    vals = np.asarray(vals)
+    # print(vals)
+    print('{:.2f} & {:.2f} & {:.2f} & {:.2f} & {:.2f} & {:.2f} & {:.2f} \\\\'
+          .format(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[6]))
+
 for dataset in datasets:
     data[dataset] = {}
     for arch in archs:
@@ -194,10 +198,8 @@ for dataset in datasets:
         for method in methods:
             data[dataset][arch][method] = {}
             for attack in attacks:
-                # if attack in ['FGSM_WB', 'PGD_WB'] and arch != 'Resnet34':
-                #     continue
                 data[dataset][arch][method][attack] = {}
-                data[dataset][arch][method][attack] = {'acc': np.nan, 'attack_rate': np.nan, 'avg_attack_norm': np.nan}
+                data[dataset][arch][method][attack] = {'acc': np.nan, 'attack_rate': np.nan}  #, 'avg_attack_norm': np.nan}
                 is_attacked = attack != ''
 
                 log = get_log(dataset, arch, attack, method)
@@ -210,6 +212,6 @@ for dataset in datasets:
                 else:
                     data[dataset][arch][method][attack]['acc'] = get_acc_from_log(log)
                     data[dataset][arch][method][attack]['attack_rate'] = get_attack_success_from_log(log)
-                    data[dataset][arch][method][attack]['avg_attack_norm'] = get_avg_attack_norm_from_log(log)
+                    # data[dataset][arch][method][attack]['avg_attack_norm'] = get_avg_attack_norm_from_log(log)
 
                 # print(data[dataset][arch][attack][method])
